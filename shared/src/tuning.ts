@@ -48,4 +48,8 @@ export const TUNING = {
   match: {
     duration: 240,
   },
+  server: {
+    /** Simulation steps per second; state is sent to clients at the same rate. */
+    tickRate: 20,
+  },
 } as const;

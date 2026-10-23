@@ -9,6 +9,8 @@ export const MAX_PLAYERS = 4;
 export const NAME_MAX_LENGTH = 12;
 /** How long a dropped player's seat is held for them. */
 export const RECONNECT_WINDOW_SECONDS = 60;
+/** A client sending more messages than this per second is disconnected (it can reconnect). */
+export const MAX_MESSAGES_PER_SECOND = 60;
 
 export const CREWS = [0, 1] as const;
 export type Crew = (typeof CREWS)[number];
@@ -24,7 +26,19 @@ export interface Seat {
 /** Messages a client may send to the room. */
 export const ClientMessage = {
   TakeSeat: "takeSeat",
+  /** Start the match (temporary until slice 8's match flow). */
+  Start: "start",
+  /** The sender's role input; see input.ts. */
+  Input: "input",
 } as const;
+
+/** Match phase shown to clients. */
+export const Phase = {
+  Waiting: "waiting",
+  Running: "running",
+  Over: "over",
+} as const;
+export type Phase = (typeof Phase)[keyof typeof Phase];
 
 /** Messages the room sends to a single client. */
 export const ServerMessage = {

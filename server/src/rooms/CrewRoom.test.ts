@@ -14,6 +14,7 @@ import {
 } from "@sink-or-sail/shared";
 import { server } from "../app.config.ts";
 import { CODES_KEY, type CrewRoom } from "./CrewRoom.ts";
+import { waitFor } from "./testUtils.ts";
 
 let colyseus: ColyseusTestServer;
 
@@ -26,15 +27,6 @@ afterAll(async () => {
 beforeEach(async () => {
   await colyseus.cleanup();
 });
-
-/** Polls until `check` passes, so tests wait for the server without fixed sleeps. */
-async function waitFor(check: () => boolean, timeoutMs = 2000): Promise<void> {
-  const start = Date.now();
-  while (!check()) {
-    if (Date.now() - start > timeoutMs) throw new Error("waitFor timed out");
-    await new Promise((resolve) => setTimeout(resolve, 10));
-  }
-}
 
 async function createRoom(name = "Host") {
   const client = await colyseus.sdk.create(ROOM_NAME, { name });

@@ -2,6 +2,7 @@ import { Client, type Room } from "@colyseus/sdk";
 import {
   ClientMessage,
   JoinError,
+  Phase,
   CREWS,
   ROLES,
   ROOM_NAME,
@@ -24,6 +25,8 @@ interface PlayerView {
 }
 interface StateView {
   players: { forEach(cb: (player: PlayerView, sessionId: string) => void): void };
+  phase: string;
+  timeLeft: number;
 }
 
 const CONSENTED = 4000; // Colyseus close code for a deliberate leave.
@@ -70,6 +73,8 @@ export function startLobby(): void {
       if (code !== CONSENTED) showError("You were disconnected from the room.");
     });
     byId("leave").onclick = () => { void room.leave(); };
+    // Temporary until slice 8's match flow: any seated player can start when no match is running.
+    byId("start").onclick = () => room.send(ClientMessage.Start);
   }
 
   function renderRoom(room: Room, state: StateView): void {
@@ -97,6 +102,12 @@ export function startLobby(): void {
       }
     }
     byId("unseated").textContent = unseated.join(", ") || "nobody";
+
+    const running = state.phase === Phase.Running;
+    byId<HTMLButtonElement>("start").disabled = running;
+    byId("match").textContent = running
+      ? `Match running: ${Math.ceil(state.timeLeft)} s left`
+      : state.phase === Phase.Over ? "Match over" : "";
   }
 
   function takeSeat(room: Room, crew: Crew, role: Role): void {

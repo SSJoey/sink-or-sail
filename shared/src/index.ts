@@ -2,6 +2,7 @@ export const GAME_NAME = "Sink or Sail";
 
 export * from "./rooms.ts";
 export * from "./tuning.ts";
+export * from "./input.ts";
 export * from "./sim/vec.ts";
 export * from "./sim/geometry.ts";
 export * from "./sim/types.ts";
