@@ -17,5 +17,6 @@ export function rejectedText(message: RejectedMessage): string {
   switch (message.reason) {
     case RejectReason.SeatTaken: return "That seat is taken.";
     case RejectReason.InvalidSeat: return "That seat doesn't exist.";
+    case RejectReason.SeatLocked: return "Seats are locked during a match.";
   }
 }

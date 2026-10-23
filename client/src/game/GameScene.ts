@@ -1,8 +1,10 @@
 import * as Phaser from "phaser";
 import { ISLAND, TUNING, type Role, type Vec } from "@sink-or-sail/shared";
 import { CREW_STYLES } from "./crews.ts";
+import { ShipEffects, type ShipEffect } from "./effects.ts";
 import { aimGuide, dashes, hullPoints, turretEnd } from "./hull.ts";
 import type { Frame, ShipView } from "./interpolation.ts";
+import { blinkVisible } from "./matchText.ts";
 import { gunnerFromMouse, pilotFromKeys } from "./laptopInput.ts";
 import { mergeGunner, mergePilot, type TouchControls } from "./touchControls.ts";
 
@@ -14,8 +16,8 @@ export interface SceneLink {
   touch: TouchControls;
   /** Called every frame with the latest local input (null when the player has no seat). */
   setInput(input: unknown | null): void;
-  /** Called every frame after drawing. */
-  drawn(frame: Frame | null): void;
+  /** Called every frame after drawing, with each ship's effects (index = ship id). */
+  drawn(frame: Frame | null, effects: ShipEffect[]): void;
 }
 
 const ISLAND_SAND = 0xd9c48a;
@@ -27,6 +29,7 @@ export class GameScene extends Phaser.Scene {
   private g!: Phaser.GameObjects.Graphics;
   private keys!: Record<"W" | "A" | "S" | "D" | "SPACE", Phaser.Input.Keyboard.Key>;
   private mouseSeen = false;
+  private readonly effects = new ShipEffects(TUNING.client.hitFlashMs, TUNING.client.sinkFadeMs);
 
   private readonly link: SceneLink;
 
@@ -45,9 +48,11 @@ export class GameScene extends Phaser.Scene {
   update(): void {
     const frame = this.link.frame();
     const seat = this.link.seat();
-    this.draw(frame, seat?.crew ?? null);
+    const now = performance.now();
+    const effects = frame ? frame.ships.map((ship, id) => this.effects.update(id, ship, now)) : [];
+    this.draw(frame, seat?.crew ?? null, effects);
     this.link.setInput(this.readInput(frame, seat));
-    this.link.drawn(frame);
+    this.link.drawn(frame, effects);
   }
 
   private readInput(frame: Frame | null, seat: { crew: number; role: Role } | null): unknown | null {
@@ -65,7 +70,7 @@ export class GameScene extends Phaser.Scene {
     return mergeGunner(fromMouse, touch.gunnerInput());
   }
 
-  private draw(frame: Frame | null, ownCrew: number | null): void {
+  private draw(frame: Frame | null, ownCrew: number | null, effects: ShipEffect[]): void {
     const g = this.g;
     g.clear();
 
@@ -78,7 +83,9 @@ export class GameScene extends Phaser.Scene {
     }
 
     frame.ships.forEach((ship, crew) => {
-      if (!ship.sunk) this.drawShip(ship, crew);
+      const effect = effects[crew];
+      if (!ship.sunk) this.drawShip(ship, crew, effect?.flashing ?? false, 1);
+      else if (effect?.sinkAlpha) this.drawShip(ship, crew, false, effect.sinkAlpha);
     });
 
     g.fillStyle(0xffffff, 1);
@@ -100,10 +107,12 @@ export class GameScene extends Phaser.Scene {
     g.lineBetween(c.x, c.y + 6, c.x, c.y + 16);
   }
 
-  private drawShip(ship: ShipView, crew: number): void {
+  /** `fade` < 1 while a sunk ship fades out; protection makes the ship see-through and blink. */
+  private drawShip(ship: ShipView, crew: number, flashing: boolean, fade: number): void {
     const g = this.g;
     const style = CREW_STYLES[crew] ?? CREW_STYLES[0];
-    const alpha = ship.protection > 0 ? 0.4 : 1;
+    const protectedAlpha = blinkVisible(ship.protection, TUNING.client.protectionBlinkHz) ? 0.6 : 0.2;
+    const alpha = (ship.protection > 0 ? protectedAlpha : 1) * fade;
 
     if (ship.boosting) {
       g.lineStyle(3, 0xffffff, 0.5 * alpha);
@@ -114,7 +123,7 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
-    this.polygon(hullPoints(ship, ship.heading), style.colour, HULL_EDGE, alpha);
+    this.polygon(hullPoints(ship, ship.heading), flashing ? 0xffffff : style.colour, HULL_EDGE, alpha);
 
     // Crew flag near the stern: ● for crew 1, ■ for crew 2.
     const flag = { x: ship.x - Math.cos(ship.heading) * 14, y: ship.y - Math.sin(ship.heading) * 14 };

@@ -85,5 +85,15 @@
 - The touch layer covers the whole game area, so touches never reach the canvas (where Phaser would read them as mouse clicks).
 - **Android fullscreen + landscape lock** are requested on the first tap on the game screen (browsers allow them only after a user gesture). **Portrait** on a touch device shows a "Rotate your phone" screen over the game.
 
+### 2026-10-23 — Slice 8: match flow
+
+- **Only the host starts a match.** The host is the room's creator and doesn't need a seat to start. When the host leaves (not just drops: a dropped host stays host during the 60 s window), hosting passes to the longest-present player. The room screen marks the host with ★; only the host sees Start, others see "Waiting for the host to start".
+- **3-2-1-Go countdown** (3 s, in `tuning.ts`) after Start: ships are visible but frozen and input is ignored.
+- **Seats during a match:** seated players can't switch; a free seat (someone left) can be taken by a seatless player.
+- **Scoreboard** appears over the frozen sea at time-up (winner or draw, each crew's sinkings and player names) with a "Back to room" button; the room screen keeps showing the last result next to Start. A new match resets scores.
+- **Not yet approved:** I added `sinkFadeMs: 1000` (a sunk ship fades out over 1 s) to `tuning.ts`; it wasn't in the approved list. Waiting for confirmation or a different value.
+- The browser smoke tests check the host's Start and the countdown but don't reach the scoreboard (that needs the full 4 minutes); room tests cover the end of the match. A test-only way to shorten the match was not added (would need approval).
+- **On screen:** the sunk ship fades out; both crewmates get a "Sunk by …" banner and a "Back in 3… 2… 1" countdown; a respawned ship blinks while protected; **hit flash** when a ship is hit; **phone vibration** for both crewmates when their ship sinks (Android only).
+
 ## Later
 - Check ship size on phones: with the whole 1600 × 900 sea on screen, a hull is about 45 px long on a 1280 px laptop window and roughly 25–30 px on a landscape phone. If it's too small, consider a larger ship radius or a smaller sea (tuning, ask first).

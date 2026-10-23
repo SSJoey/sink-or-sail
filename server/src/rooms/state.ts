@@ -25,6 +25,10 @@ export const ShipState = schema({
   sunk: t.boolean(),
   respawnIn: t.float32(),
   sinkings: t.uint8(),
+  /** Ship id that sank this ship last; -1 for nobody. */
+  sunkBy: t.int8().default(-1),
+  /** Hits taken this match; clients flash the ship when it goes up. */
+  hits: t.uint16().default(0),
 }, "ShipState");
 export type ShipState = SchemaType<typeof ShipState>;
 
@@ -39,8 +43,14 @@ export type ShotState = SchemaType<typeof ShotState>;
 export const CrewState = schema({
   /** Keyed by session id. */
   players: t.map(Player),
+  /** Session id of the host, who starts matches. */
+  hostId: t.string(),
   phase: t.string().default(Phase.Waiting),
+  /** Seconds of 3-2-1 countdown left. */
+  countdown: t.float32(),
   timeLeft: t.float32().default(TUNING.match.duration),
+  /** Last match's winning ship id; -1 for a draw or no result yet. */
+  winner: t.int8().default(-1),
   ships: t.array(ShipState),
   /** Keyed by shot id. */
   shots: t.map(ShotState),

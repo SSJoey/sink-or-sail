@@ -47,6 +47,8 @@ export const TUNING = {
   },
   match: {
     duration: 240,
+    /** 3-2-1-Go before a match: ships visible but frozen. */
+    countdown: 3,
   },
   server: {
     /** Simulation steps per second; state is sent to clients at the same rate. */
@@ -60,5 +62,13 @@ export const TUNING = {
     /** Phone stick: how far the thumb travels for full push (CSS px), and the dead zone as a fraction of that. */
     stickRadius: 60,
     stickDeadZone: 0.1,
+    /** How long a ship flashes white when hit. */
+    hitFlashMs: 150,
+    /** Phone vibration for both crewmates when their ship sinks (Android only). */
+    sinkVibrateMs: 600,
+    /** A ship with respawn protection blinks this many times per second. */
+    protectionBlinkHz: 4,
+    /** How long a sunk ship takes to fade out. */
+    sinkFadeMs: 1000,
   },
 } as const;

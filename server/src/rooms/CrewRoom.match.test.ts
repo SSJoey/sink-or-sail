@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { boot, type ColyseusTestServer } from "@colyseus/testing";
 import type { Room as ClientRoom } from "@colyseus/sdk";
-import { ClientMessage, MAX_MESSAGES_PER_SECOND, Phase, ROOM_NAME, TUNING, type Crew, type Role } from "@sink-or-sail/shared";
+import { ClientMessage, MAX_MESSAGES_PER_SECOND, Phase, ROOM_NAME, RejectReason, ServerMessage, TUNING, type Crew, type Role } from "@sink-or-sail/shared";
 import { server } from "../app.config.ts";
 import type { CrewRoom } from "./CrewRoom.ts";
 import { sleep, waitFor } from "./testUtils.ts";
@@ -36,8 +36,10 @@ async function crewedRoom() {
   return { room, pilot, gunner, watcher };
 }
 
+/** Starts a match from the host (the pilot, who created the room), with a short countdown so tests stay quick. */
 async function started() {
   const crewed = await crewedRoom();
+  crewed.room.countdownSeconds = 0.1;
   crewed.pilot.send(ClientMessage.Start);
   await waitFor(() => crewed.room.state.phase === Phase.Running);
   return crewed;
@@ -45,31 +47,78 @@ async function started() {
 
 const ship0 = (room: CrewRoom) => room.state.ships[0]!;
 
+/** Moves the match clock to just before time-up, optionally with scores, and waits for the end. */
+async function endMatch(room: CrewRoom, sinkings: [number, number] = [0, 0]) {
+  const world = room.world!;
+  room.world = { ...world, time: TUNING.match.duration - 0.1, ships: world.ships.map((s, i) => ({ ...s, sinkings: sinkings[i]! })) };
+  await waitFor(() => room.state.phase === Phase.Over);
+}
+
+describe("host", () => {
+  it("is the player who created the room", async () => {
+    const { room, pilot } = await crewedRoom();
+    expect(room.state.hostId).toBe(pilot.sessionId);
+  });
+
+  it("passes to the longest-present player when the host leaves", async () => {
+    const { room, pilot, gunner } = await crewedRoom();
+    await pilot.leave();
+    await waitFor(() => room.state.hostId === gunner.sessionId);
+  });
+
+  it("stays with a host who only dropped", async () => {
+    const { room, pilot } = await crewedRoom();
+    pilot.reconnection.enabled = false;
+    pilot.connection.close(4010);
+    await waitFor(() => room.state.players.get(pilot.sessionId)?.connected === false);
+    expect(room.state.hostId).toBe(pilot.sessionId);
+  });
+});
+
 describe("starting the match", () => {
-  it("waits until a seated player starts it", async () => {
+  it("waits until the host starts it, then counts down with ships frozen, then runs", async () => {
     const { room, pilot } = await crewedRoom();
     await sleep(150);
     expect(room.state.phase).toBe(Phase.Waiting);
     expect(room.state.ships.length).toBe(0);
+    expect(room.countdownSeconds).toBe(TUNING.match.countdown);
 
+    room.countdownSeconds = 0.5;
     pilot.send(ClientMessage.Start);
-    await waitFor(() => room.state.phase === Phase.Running);
+    await waitFor(() => room.state.phase === Phase.Countdown);
     expect(room.state.ships.length).toBe(2);
+    expect(room.state.countdown).toBeGreaterThan(0);
+    const x0 = ship0(room).x;
+    pilot.send(ClientMessage.Input, steer(1, 0, true));
+    await sleep(200);
+    expect(room.state.phase).toBe(Phase.Countdown);
+    expect(ship0(room).x).toBe(x0);
+    expect(room.world!.time).toBe(0);
+
+    await waitFor(() => room.state.phase === Phase.Running);
     expect(room.state.timeLeft).toBeLessThanOrEqual(TUNING.match.duration);
   });
 
-  it("ignores a start from a player without a seat", async () => {
-    const { room, watcher } = await crewedRoom();
+  it("ignores a start from anyone but the host", async () => {
+    const { room, gunner, watcher } = await crewedRoom();
+    gunner.send(ClientMessage.Start);
     watcher.send(ClientMessage.Start);
     await sleep(150);
     expect(room.state.phase).toBe(Phase.Waiting);
   });
 
-  it("ignores a start while a match is running", async () => {
-    const { room, gunner } = await started();
+  it("lets the host start without a seat", async () => {
+    const host = await colyseus.sdk.create(ROOM_NAME, { name: "Host" });
+    const room = colyseus.getRoomById<CrewRoom>(host.roomId) as CrewRoom;
+    host.send(ClientMessage.Start);
+    await waitFor(() => room.state.phase === Phase.Countdown);
+  });
+
+  it("ignores a start while a match is on", async () => {
+    const { room, pilot } = await started();
     await sleep(300);
     const before = room.world!.time;
-    gunner.send(ClientMessage.Start);
+    pilot.send(ClientMessage.Start);
     await sleep(150);
     expect(room.world!.time).toBeGreaterThan(before);
   });
@@ -194,12 +243,74 @@ describe("match end", () => {
     expect(room.world).toBe(ended);
   });
 
-  it("can start a new match once the last one is over", async () => {
+  it("records the winner", async () => {
+    const { room } = await started();
+    await endMatch(room, [1, 3]);
+    expect(room.state.winner).toBe(1);
+  });
+
+  it("records a draw as -1", async () => {
+    const { room } = await started();
+    await endMatch(room, [2, 2]);
+    expect(room.state.winner).toBe(-1);
+  });
+
+  it("starts a new match with scores, hits and the result reset", async () => {
     const { room, pilot } = await started();
-    room.world = { ...room.world!, time: TUNING.match.duration - 0.1 };
-    await waitFor(() => room.state.phase === Phase.Over);
+    room.state.ships[0]!.hits = 4;
+    room.state.ships[1]!.sunkBy = 0;
+    await endMatch(room, [3, 1]);
+    expect(room.state.ships[0]!.sinkings).toBe(3);
+
     pilot.send(ClientMessage.Start);
     await waitFor(() => room.state.phase === Phase.Running);
     expect(room.world!.time).toBeLessThan(1);
+    expect(room.state.ships.map((s) => s.sinkings)).toEqual([0, 0]);
+    expect(room.state.ships.map((s) => s.hits)).toEqual([0, 0]);
+    expect(room.state.ships.map((s) => s.sunkBy)).toEqual([-1, -1]);
+    expect(room.state.winner).toBe(-1);
+  });
+});
+
+describe("sinking", () => {
+  it("shows who sank whom, the hits taken and the score", async () => {
+    const { room, gunner } = await started();
+    // Put the ships in open water, Crew 2's ship nearly sunk, right in front of Crew 1's gun.
+    const world = room.world!;
+    room.world = {
+      ...world,
+      ships: [
+        { ...world.ships[0]!, pos: { x: 300, y: 200 } },
+        { ...world.ships[1]!, pos: { x: 450, y: 200 }, health: 20 },
+      ],
+    };
+    gunner.send(ClientMessage.Input, gun(1, 0, true));
+    await waitFor(() => room.state.ships[1]!.sunk);
+    expect(room.state.ships[1]!.sunkBy).toBe(0);
+    expect(room.state.ships[1]!.hits).toBeGreaterThanOrEqual(1);
+    expect(room.state.ships[0]!.sinkings).toBe(1);
+  });
+});
+
+describe("seats during a match", () => {
+  it("stops a seated player switching seats", async () => {
+    const { room, pilot } = await started();
+    const rejected = pilot.waitForMessage(ServerMessage.Rejected);
+    pilot.send(ClientMessage.TakeSeat, { crew: 1, role: "pilot" });
+    expect(await rejected).toEqual({ reason: RejectReason.SeatLocked });
+    expect(room.state.players.get(pilot.sessionId)?.crew).toBe(0);
+  });
+
+  it("lets a seatless player take a free seat", async () => {
+    const { room, watcher } = await started();
+    watcher.send(ClientMessage.TakeSeat, { crew: 1, role: "gunner" });
+    await waitFor(() => room.state.players.get(watcher.sessionId)?.role === "gunner");
+  });
+
+  it("lets players switch again once the match is over", async () => {
+    const { room, pilot } = await started();
+    await endMatch(room);
+    pilot.send(ClientMessage.TakeSeat, { crew: 1, role: "pilot" });
+    await waitFor(() => room.state.players.get(pilot.sessionId)?.crew === 1);
   });
 });

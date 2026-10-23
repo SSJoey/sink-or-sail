@@ -1,23 +1,34 @@
 import * as Phaser from "phaser";
 import type { Room } from "@colyseus/sdk";
-import { ClientMessage, TUNING, type Role } from "@sink-or-sail/shared";
+import { ClientMessage, Phase, TUNING, type Role } from "@sink-or-sail/shared";
 import { CREW_STYLES } from "./crews.ts";
 import { GameScene } from "./GameScene.ts";
+import type { ShipEffect } from "./effects.ts";
 import { formatClock } from "./hud.ts";
 import { startInputSender } from "./inputSender.ts";
 import { SnapshotBuffer, type Frame } from "./interpolation.ts";
+import { countdownLabel, respawnText, resultTitle, scoreRows, sinkBanner } from "./matchText.ts";
 import { blockGestures, goFullscreenLandscape, isPortrait, isTouchFirst } from "./phone.ts";
 import { snapshotFromState, type GameStateView } from "./snapshot.ts";
 import { TouchControls } from "./touchControls.ts";
 import { createTouchLayer } from "./touchLayer.ts";
 
-interface PlayerView {
+export interface PlayerView {
+  name: string;
   crew?: number;
   role?: string;
+  connected: boolean;
 }
-interface RoomStateView extends GameStateView {
-  players: { get(sessionId: string): PlayerView | undefined };
+export interface RoomStateView extends GameStateView {
+  players: {
+    get(sessionId: string): PlayerView | undefined;
+    forEach(cb: (player: PlayerView, sessionId: string) => void): void;
+  };
+  hostId: string;
+  phase: string;
+  countdown: number;
   timeLeft: number;
+  winner: number;
 }
 
 export interface GameHandle {
@@ -26,8 +37,11 @@ export interface GameHandle {
 
 const byId = (id: string) => document.getElementById(id)!;
 
-/** Shows the game view for a running match: draws the sea and sends this player's input. */
-export function startGame(room: Room): GameHandle {
+/**
+ * Shows the game view from the countdown to the scoreboard: draws the sea, sends this player's input,
+ * and shows the countdown, sink banner and end-of-match scoreboard. `onExit` runs on "Back to room".
+ */
+export function startGame(room: Room, onExit: () => void): GameHandle {
   const buffer = new SnapshotBuffer();
   const onState = (state: RoomStateView) => buffer.push(snapshotFromState(state, performance.now()));
   room.onStateChange(onState);
@@ -45,7 +59,11 @@ export function startGame(room: Room): GameHandle {
   const screen = byId("game-screen");
   const canvasHost = byId("game");
   const rotate = byId("rotate");
+  const countdown = byId("countdown");
+  const banner = byId("banner");
+  const scoreboard = byId("scoreboard");
   screen.hidden = false;
+  byId("back-to-room").onclick = onExit;
 
   // Phone controls: shown on touch-first devices, or as soon as anyone touches the screen.
   const touch = new TouchControls(TUNING.client.stickRadius, TUNING.client.stickDeadZone);
@@ -65,15 +83,17 @@ export function startGame(room: Room): GameHandle {
     seat,
     touch,
     setInput: (next) => { input = next; },
-    drawn: (frame) => {
+    drawn: (frame, effects) => {
       const mine = seat();
+      const state = room.state as RoomStateView;
+      showMatchOverlays(state, frame, effects, mine?.crew ?? null, { countdown, banner, scoreboard });
       // Read by the browser smoke tests (a canvas has no elements to inspect).
       canvasHost.dataset.ships = String(frame?.ships.filter((s) => !s.sunk).length ?? 0);
       const own = mine ? frame?.ships[mine.crew] : undefined;
       if (own) canvasHost.dataset.ownX = String(Math.round(own.x));
       touchLayer.update(mine?.role ?? null);
       rotate.hidden = !(touchLayer.active && isPortrait(window.innerWidth, window.innerHeight));
-      updateHud(frame, mine, (room.state as RoomStateView).timeLeft);
+      updateHud(frame, mine, state.timeLeft);
     },
   });
 
@@ -101,12 +121,55 @@ export function startGame(room: Room): GameHandle {
       delete canvasHost.dataset.ships;
       delete canvasHost.dataset.ownX;
       rotate.hidden = true;
+      countdown.hidden = true;
+      banner.hidden = true;
+      scoreboard.hidden = true;
       screen.hidden = true;
     },
   };
 }
 
 const roleLabel: Record<Role, string> = { pilot: "Pilot", gunner: "Gunner" };
+
+/** Fills a scoreboard element: result title and one row per crew. Also used on the room screen. */
+export function renderResult(el: HTMLElement, state: RoomStateView): void {
+  const players: PlayerView[] = [];
+  state.players.forEach((p) => players.push(p));
+  const sinkings = [...state.ships].map((ship) => ship.sinkings);
+  const title = document.createElement("h2");
+  title.textContent = resultTitle(state.winner);
+  const rows = scoreRows(sinkings, players).map((row) => {
+    const line = document.createElement("p");
+    line.textContent = `${row.label}: ${row.sinkings} sinking${row.sinkings === 1 ? "" : "s"} (${row.names})`;
+    return line;
+  });
+  el.replaceChildren(title, ...rows);
+}
+
+function showMatchOverlays(
+  state: RoomStateView,
+  frame: Frame | null,
+  effects: ShipEffect[],
+  ownCrew: number | null,
+  els: { countdown: HTMLElement; banner: HTMLElement; scoreboard: HTMLElement },
+): void {
+  const label = countdownLabel(state.phase, state.countdown, state.timeLeft);
+  els.countdown.hidden = label === null;
+  if (label !== null && els.countdown.textContent !== label) els.countdown.textContent = label;
+
+  const own = ownCrew !== null ? frame?.ships[ownCrew] : undefined;
+  const showBanner = own?.sunk === true && state.phase === Phase.Running;
+  els.banner.hidden = !showBanner;
+  if (showBanner && own) {
+    const text = `${sinkBanner(own.sunkBy)} · ${respawnText(own.respawnIn)}`;
+    if (els.banner.textContent !== text) els.banner.textContent = text;
+  }
+  if (ownCrew !== null && effects[ownCrew]?.justSank) navigator.vibrate?.(TUNING.client.sinkVibrateMs);
+
+  const over = state.phase === Phase.Over;
+  if (over && els.scoreboard.hidden) renderResult(byId("result"), state);
+  els.scoreboard.hidden = !over;
+}
 
 function updateHud(frame: Frame | null, seat: { crew: number; role: Role } | null, timeLeft: number): void {
   const role = byId("hud-role");

@@ -12,7 +12,8 @@ export function snapshotFromState(state: GameStateView, t: number): Snapshot {
   for (const s of state.ships) {
     ships.push({
       x: s.x, y: s.y, heading: s.heading, turret: s.turret, health: s.health, energy: s.energy,
-      boosting: s.boosting, shielding: s.shielding, protection: s.protection, sunk: s.sunk, sinkings: s.sinkings,
+      boosting: s.boosting, shielding: s.shielding, protection: s.protection, sunk: s.sunk, respawnIn: s.respawnIn,
+      sinkings: s.sinkings, sunkBy: s.sunkBy, hits: s.hits,
     });
   }
   const shots = new Map<string, ShotView>();

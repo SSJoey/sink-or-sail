@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { Phase, TUNING, createWorld, step, type ShipInput, type World } from "@sink-or-sail/shared";
 import { CrewState } from "./state.ts";
-import { syncWorld } from "./sync.ts";
+import { applyEvents, syncWorld } from "./sync.ts";
 
 const fireAll: ShipInput = {
   pilot: { steer: { x: 1, y: 0 }, boost: true },
@@ -62,5 +62,42 @@ describe("syncWorld", () => {
     syncWorld(state, { ...createWorld(), time: TUNING.match.duration, over: true });
     expect(state.phase).toBe(Phase.Over);
     expect(state.timeLeft).toBe(0);
+  });
+});
+
+describe("applyEvents", () => {
+  const synced = () => {
+    const state = new CrewState();
+    syncWorld(state, createWorld());
+    return state;
+  };
+
+  it("counts hits on the target ship, including damaging bumps", () => {
+    const state = synced();
+    applyEvents(state, [
+      { type: "hit", attacker: 0, target: 1, damage: 20 },
+      { type: "hit", attacker: 0, target: 1, damage: 20 },
+      { type: "bump", ships: [0, 1], damage: [5, 0] },
+      { type: "bump", ships: [0, 1], damage: [0, 0] },
+    ]);
+    expect(state.ships[1]!.hits).toBe(2);
+    expect(state.ships[0]!.hits).toBe(1);
+  });
+
+  it("records who sank a ship (-1 for nobody)", () => {
+    const state = synced();
+    expect(state.ships[1]!.sunkBy).toBe(-1);
+    applyEvents(state, [{ type: "sunk", ship: 1, by: 0 }]);
+    expect(state.ships[1]!.sunkBy).toBe(0);
+    applyEvents(state, [{ type: "sunk", ship: 0, by: null }]);
+    expect(state.ships[0]!.sunkBy).toBe(-1);
+  });
+
+  it("records the winner, or -1 for a draw", () => {
+    const state = synced();
+    applyEvents(state, [{ type: "matchEnded", winner: 1 }]);
+    expect(state.winner).toBe(1);
+    applyEvents(state, [{ type: "matchEnded", winner: null }]);
+    expect(state.winner).toBe(-1);
   });
 });

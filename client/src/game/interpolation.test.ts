@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { SnapshotBuffer, lerpAngle, type Snapshot } from "./interpolation.ts";
 
-const ship = (x: number, heading = 0, extra = {}) => ({ x, y: 0, heading, turret: heading, health: 100, energy: 100, boosting: false, shielding: false, protection: 0, sunk: false, sinkings: 0, ...extra });
+const ship = (x: number, heading = 0, extra = {}) => ({ x, y: 0, heading, turret: heading, health: 100, energy: 100, boosting: false, shielding: false, protection: 0, sunk: false, respawnIn: 0, sinkings: 0, sunkBy: -1, hits: 0, ...extra });
 const snap = (t: number, x: number, shots: Record<string, { x: number; y: number; angle: number }> = {}, heading = 0): Snapshot => ({
   t,
   ships: [ship(x, heading)],

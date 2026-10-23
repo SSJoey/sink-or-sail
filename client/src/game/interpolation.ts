@@ -11,7 +11,12 @@ export interface ShipView {
   shielding: boolean;
   protection: number;
   sunk: boolean;
+  respawnIn: number;
   sinkings: number;
+  /** Ship id that last sank this ship; -1 for nobody. */
+  sunkBy: number;
+  /** Hits taken this match (for the hit flash). */
+  hits: number;
 }
 
 export interface ShotView {

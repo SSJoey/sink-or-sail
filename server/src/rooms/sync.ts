@@ -1,4 +1,4 @@
-import { Phase, timeLeft, type World } from "@sink-or-sail/shared";
+import { Phase, timeLeft, type SimEvent, type World } from "@sink-or-sail/shared";
 import { ShipState, ShotState, type CrewState } from "./state.ts";
 
 /** Copies the simulation world into the synced room state. Colyseus sends only what changed. */
@@ -35,6 +35,34 @@ export function syncWorld(state: CrewState, world: World): void {
       synced.y = shot.pos.y;
     } else {
       state.shots.set(id, new ShotState({ x: shot.pos.x, y: shot.pos.y, angle: Math.atan2(shot.vel.y, shot.vel.x) }));
+    }
+  }
+}
+
+/** Records what clients need from this step's events: hits (for the hit flash), who sank whom, and the winner. */
+export function applyEvents(state: CrewState, events: readonly SimEvent[]): void {
+  const ship = (id: number) => state.ships[id];
+  for (const event of events) {
+    switch (event.type) {
+      case "hit": {
+        const target = ship(event.target);
+        if (target) target.hits++;
+        break;
+      }
+      case "bump":
+        event.ships.forEach((id, i) => {
+          const target = ship(id);
+          if (target && event.damage[i]! > 0) target.hits++;
+        });
+        break;
+      case "sunk": {
+        const target = ship(event.ship);
+        if (target) target.sunkBy = event.by ?? -1;
+        break;
+      }
+      case "matchEnded":
+        state.winner = event.winner ?? -1;
+        break;
     }
   }
 }

@@ -26,7 +26,7 @@ export interface Seat {
 /** Messages a client may send to the room. */
 export const ClientMessage = {
   TakeSeat: "takeSeat",
-  /** Start the match (temporary until slice 8's match flow). */
+  /** Start the match (host only). */
   Start: "start",
   /** The sender's role input; see input.ts. */
   Input: "input",
@@ -35,6 +35,7 @@ export const ClientMessage = {
 /** Match phase shown to clients. */
 export const Phase = {
   Waiting: "waiting",
+  Countdown: "countdown",
   Running: "running",
   Over: "over",
 } as const;
@@ -48,6 +49,8 @@ export const ServerMessage = {
 export const RejectReason = {
   SeatTaken: "seatTaken",
   InvalidSeat: "invalidSeat",
+  /** Seated players can't switch seats while a match is on. */
+  SeatLocked: "seatLocked",
 } as const;
 export type RejectReason = (typeof RejectReason)[keyof typeof RejectReason];
 

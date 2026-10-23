@@ -13,22 +13,12 @@ import {
   type RejectedMessage,
   type Role,
 } from "@sink-or-sail/shared";
-import { startGame, type GameHandle } from "../game/game.ts";
+import { renderResult, startGame, type GameHandle, type PlayerView, type RoomStateView } from "../game/game.ts";
 import { joinErrorText, rejectedText } from "./messages.ts";
 import { clearToken, loadToken, saveToken } from "./reconnectToken.ts";
 
 /** The parts of the server's room state the lobby reads. */
-interface PlayerView {
-  name: string;
-  crew?: number;
-  role?: string;
-  connected: boolean;
-}
-interface StateView {
-  players: { forEach(cb: (player: PlayerView, sessionId: string) => void): void };
-  phase: string;
-  timeLeft: number;
-}
+type StateView = RoomStateView;
 
 const CONSENTED = 4000; // Colyseus close code for a deliberate leave.
 
@@ -48,6 +38,7 @@ export function startLobby(): void {
 
   const showError = (text: string) => { errorLine.textContent = text; };
   let game: GameHandle | null = null;
+  let lastPhase = "";
   const stopGame = () => {
     game?.stop();
     game = null;
@@ -80,17 +71,23 @@ export function startLobby(): void {
       if (code !== CONSENTED) showError("You were disconnected from the room.");
     });
     byId("leave").onclick = () => { void room.leave(); };
-    // Temporary until slice 8's match flow: any seated player can start when no match is running.
+    // Only the host sees Start; the server checks it too.
     byId("start").onclick = () => room.send(ClientMessage.Start);
   }
 
   function renderRoom(room: Room, state: StateView): void {
+    const phase = state.phase;
+    const matchOn = phase === Phase.Countdown || phase === Phase.Running;
+    const host = (sessionId: string) => (sessionId === state.hostId ? " ★" : "");
+    let iAmSeated = false;
+    state.players.forEach((p, id) => { if (id === room.sessionId && p.role !== undefined) iAmSeated = true; });
+
     const seats = byId("seats");
     seats.replaceChildren();
     const unseated: string[] = [];
     const holders = new Map<string, { player: PlayerView; sessionId: string }>();
     state.players.forEach((player, sessionId) => {
-      if (player.crew === undefined || player.role === undefined) unseated.push(player.name);
+      if (player.crew === undefined || player.role === undefined) unseated.push(player.name + host(sessionId));
       else holders.set(`${player.crew}:${player.role}`, { player, sessionId });
     });
 
@@ -100,23 +97,34 @@ export function startLobby(): void {
         const button = document.createElement("button");
         let label = `Crew ${crew + 1} · ${roleLabel[role]} — `;
         if (!holder) label += "free";
-        else label += holder.player.name + (holder.player.connected ? "" : " (reconnecting)");
+        else label += holder.player.name + host(holder.sessionId) + (holder.player.connected ? "" : " (reconnecting)");
         if (holder?.sessionId === room.sessionId) label += " ✓";
         button.textContent = label;
-        button.disabled = holder !== undefined;
+        // Seated players can't switch during a match; a seatless player may still take a free seat.
+        button.disabled = holder !== undefined || (matchOn && iAmSeated);
         button.onclick = () => takeSeat(room, crew, role);
         seats.append(button);
       }
     }
     byId("unseated").textContent = unseated.join(", ") || "nobody";
 
-    const running = state.phase === Phase.Running;
-    if (running && !game) game = startGame(room);
-    if (!running && game) stopGame();
-    byId<HTMLButtonElement>("start").disabled = running;
-    byId("match").textContent = running
-      ? `Match running: ${Math.ceil(state.timeLeft)} s left`
-      : state.phase === Phase.Over ? "Match over" : "";
+    // The game view runs from the countdown until the player leaves the scoreboard.
+    if (phase === Phase.Countdown && lastPhase !== Phase.Countdown && game) stopGame();
+    if (matchOn && !game) game = startGame(room, stopGame);
+    if (phase === Phase.Waiting && game) stopGame();
+    lastPhase = phase;
+
+    const isHost = state.hostId === room.sessionId;
+    const start = byId<HTMLButtonElement>("start");
+    start.hidden = !isHost;
+    start.disabled = matchOn;
+    byId("match").textContent = matchOn
+      ? "Match on"
+      : isHost ? "" : "Waiting for the host to start";
+
+    const lastResult = byId("last-result");
+    lastResult.hidden = phase !== Phase.Over;
+    if (phase === Phase.Over) renderResult(lastResult, state);
   }
 
   function takeSeat(room: Room, crew: Crew, role: Role): void {

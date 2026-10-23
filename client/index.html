@@ -30,6 +30,11 @@
       #btn-boost { width: 120px; height: 120px; right: 40px; bottom: 40px; }
       #btn-fire { width: 110px; height: 110px; right: 40px; bottom: 40px; }
       #btn-shield { width: 80px; height: 80px; right: 170px; bottom: 55px; }
+      .overlay-text { position: absolute; left: 50%; transform: translateX(-50%); pointer-events: none; text-shadow: 0 2px 6px rgba(0,0,0,0.6); text-align: center; }
+      #countdown { top: 35%; font-size: 96px; font-weight: bold; }
+      #banner { top: 64px; font-size: 22px; font-weight: bold; background: rgba(11,37,69,0.85); padding: 8px 16px; border-radius: 8px; }
+      #scoreboard { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); background: rgba(11,37,69,0.95); padding: 16px 24px; border-radius: 12px; text-align: center; min-width: 280px; }
+      #scoreboard h2 { margin: 0 0 8px; }
       #rotate { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: #0b2545; font-size: 24px; text-align: center; padding: 24px; }
     </style>
   </head>
@@ -50,6 +55,7 @@
       <p id="status"></p>
       <div id="seats"></div>
       <p>Not seated: <span id="unseated"></span></p>
+      <div id="last-result" hidden></div>
       <p><button id="start">Start match</button> <span id="match"></span></p>
       <p><button id="leave">Leave room</button></p>
     </section>
@@ -71,6 +77,12 @@
         <button id="btn-boost" class="touch-btn" data-button="boost" hidden>Boost</button>
         <button id="btn-shield" class="touch-btn" data-button="shield" hidden>Shield</button>
         <button id="btn-fire" class="touch-btn" data-button="fire" hidden>Fire</button>
+      </div>
+      <div id="countdown" class="overlay-text" hidden></div>
+      <div id="banner" class="overlay-text" hidden></div>
+      <div id="scoreboard" hidden>
+        <div id="result"></div>
+        <button id="back-to-room">Back to room</button>
       </div>
       <div id="rotate" hidden>Rotate your phone sideways to play</div>
     </section>

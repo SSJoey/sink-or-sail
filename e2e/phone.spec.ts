@@ -24,6 +24,7 @@ test("phone: touch controls show for the pilot and the stick sails the ship", as
   const cdp = await page.context().newCDPSession(page);
   await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: 150, y: 260 }] });
   await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: 230, y: 260 }] });
-  await expect.poll(ownX, { timeout: 5000 }).toBeGreaterThan(startX + 30);
+  // The ship stays frozen through the 3-2-1 countdown, then sails.
+  await expect.poll(ownX, { timeout: 9000 }).toBeGreaterThan(startX + 30);
   await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
 });
