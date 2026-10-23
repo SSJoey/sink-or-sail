@@ -42,7 +42,9 @@ export class GameScene extends Phaser.Scene {
     this.g = this.add.graphics();
     this.keys = this.input.keyboard!.addKeys("W,A,S,D,SPACE") as typeof this.keys;
     this.input.mouse?.disableContextMenu();
-    this.input.on("pointermove", () => { this.mouseSeen = true; });
+    this.input.on("pointermove", (pointer: Phaser.Input.Pointer) => {
+      if (pointer === this.input.mousePointer) this.mouseSeen = true;
+    });
   }
 
   update(): void {
@@ -64,7 +66,8 @@ export class GameScene extends Phaser.Scene {
       return mergePilot(keys, touch.pilotInput());
     }
     const ship = frame?.ships[seat.crew];
-    const pointer = this.input.activePointer;
+    // The mouse specifically: never a touch pointer, even if Phaser ever sees one.
+    const pointer = this.input.mousePointer!;
     const mouse = this.mouseSeen ? { x: pointer.worldX, y: pointer.worldY } : null;
     const fromMouse = gunnerFromMouse(ship ? mouse : null, ship ?? { x: 0, y: 0 }, pointer.leftButtonDown(), pointer.rightButtonDown());
     return mergeGunner(fromMouse, touch.gunnerInput());

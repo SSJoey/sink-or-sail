@@ -89,6 +89,7 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
       showMatchOverlays(state, frame, effects, mine?.crew ?? null, { countdown, banner, scoreboard });
       // Read by the browser smoke tests (a canvas has no elements to inspect).
       canvasHost.dataset.ships = String(frame?.ships.filter((s) => !s.sunk).length ?? 0);
+      canvasHost.dataset.shots = String(frame?.shots.size ?? 0);
       const own = mine ? frame?.ships[mine.crew] : undefined;
       if (own) canvasHost.dataset.ownX = String(Math.round(own.x));
       touchLayer.update(mine?.role ?? null);
@@ -101,6 +102,9 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
     type: Phaser.AUTO,
     parent: canvasHost,
     backgroundColor: "#1d4f91",
+    // Touch is handled by our own touch layer. Phaser's touch input listens on the whole window,
+    // so a thumb on the aiming stick would also count as a pressed mouse button (and fire).
+    input: { touch: false },
     scale: {
       mode: Phaser.Scale.FIT,
       autoCenter: Phaser.Scale.CENTER_BOTH,
@@ -120,6 +124,7 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
       screen.removeEventListener("pointerdown", onFirstTouch, true);
       delete canvasHost.dataset.ships;
       delete canvasHost.dataset.ownX;
+      delete canvasHost.dataset.shots;
       rotate.hidden = true;
       countdown.hidden = true;
       banner.hidden = true;

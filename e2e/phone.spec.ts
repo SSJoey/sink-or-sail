@@ -28,3 +28,34 @@ test("phone: touch controls show for the pilot and the stick sails the ship", as
   await expect.poll(ownX, { timeout: 9000 }).toBeGreaterThan(startX + 30);
   await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
 });
+
+test("phone: the gunner's aiming stick aims without firing; only Fire fires", async ({ page }) => {
+  await page.goto("/");
+  await page.fill("#name", "Aimer");
+  await page.click("#create");
+  await expect(page.locator("#code")).toHaveText(/^[A-Z]{4}$/);
+  await page.getByRole("button", { name: /Crew 1 · Gunner — free/ }).click();
+  await page.click("#start");
+  await expect(page.locator("#btn-fire")).toBeVisible();
+  await expect(page.locator("#countdown")).toBeHidden({ timeout: 6000 });
+
+  const shots = async () => Number(await page.locator("#game").getAttribute("data-shots"));
+  const cdp = await page.context().newCDPSession(page);
+
+  // Aim: thumb down on the left half, swing it around for a second and a half. No Fire button.
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: 150, y: 260, id: 1 }] });
+  for (const [x, y] of [[210, 260], [150, 200], [90, 260], [150, 320], [210, 260]] as const) {
+    await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x, y, id: 1 }] });
+    await page.waitForTimeout(300);
+  }
+  expect(await shots()).toBe(0);
+
+  // Holding Fire (second finger) does fire.
+  const fire = (await page.locator("#btn-fire").boundingBox())!;
+  await cdp.send("Input.dispatchTouchEvent", {
+    type: "touchStart",
+    touchPoints: [{ x: 210, y: 260, id: 1 }, { x: fire.x + fire.width / 2, y: fire.y + fire.height / 2, id: 2 }],
+  });
+  await expect.poll(shots, { timeout: 3000 }).toBeGreaterThan(0);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+});
