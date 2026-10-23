@@ -1,0 +1,8 @@
+services:
+  server:
+    build: .
+    ports:
+      - "2567:2567"
+    volumes:
+      - ./logs:/app/logs
+    restart: unless-stopped

@@ -1,0 +1,20 @@
+{
+  "name": "@sink-or-sail/server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.ts"
+  },
+  "dependencies": {
+    "@colyseus/core": "0.18.23",
+    "@colyseus/schema": "5.0.42",
+    "@colyseus/tools": "0.18.10",
+    "@colyseus/ws-transport": "0.18.4",
+    "@sink-or-sail/shared": "0.0.0",
+    "express": "5.3.0"
+  },
+  "devDependencies": {
+    "@types/express": "5.0.6"
+  }
+}
