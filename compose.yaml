@@ -4,5 +4,8 @@ services:
     ports:
       - "2567:2567"
     volumes:
+      # Match event logs stay on the laptop.
       - ./logs:/app/logs
+      # The laptop's time zone, so log file names use local time.
+      - /etc/localtime:/etc/localtime:ro
     restart: unless-stopped

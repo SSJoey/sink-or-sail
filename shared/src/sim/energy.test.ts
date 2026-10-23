@@ -78,4 +78,18 @@ describe("updateEnergy", () => {
     expect(state.boosting).toBe(false);
     expect(state.shielding).toBe(false);
   });
+
+  it("reports the energy spent on boost and on shield", () => {
+    const both = updateEnergy(full, 0, { boost: true, shield: true }, 0.5);
+    expect(both.spent.boost).toBeCloseTo(0.5 * TUNING.boost.energyPerSecond);
+    expect(both.spent.shield).toBeCloseTo(0.5 * TUNING.shield.energyPerSecond);
+    const resting = updateEnergy(at(50), 0, { boost: false, shield: false }, 1);
+    expect(resting.spent).toEqual({ boost: 0, shield: 0 });
+  });
+
+  it("never reports more spent than the bar held, split by each one's share", () => {
+    const { spent } = updateEnergy(at(7), 0, { boost: true, shield: true }, 1);
+    expect(spent.boost + spent.shield).toBeCloseTo(7);
+    expect(spent.boost / spent.shield).toBeCloseTo(TUNING.boost.energyPerSecond / TUNING.shield.energyPerSecond);
+  });
 });

@@ -16,7 +16,8 @@
     "build": "npm run build -w @sink-or-sail/client",
     "start": "npm run start -w @sink-or-sail/server",
     "test:unit": "vitest run",
-    "test:smoke": "playwright test"
+    "test:smoke": "playwright test",
+    "summary": "node server/src/log/summarise.ts"
   },
   "devDependencies": {
     "@playwright/test": "1.64.1",

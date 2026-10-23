@@ -11,7 +11,7 @@ describe("createWorld", () => {
     expect(world.shots).toEqual([]);
     expect(world.ships).toHaveLength(2);
     const [a, b] = world.ships;
-    expect(a).toMatchObject({ id: 0, pos: START_POINTS[0], health: TUNING.ship.maxHealth, energy: TUNING.energy.max, sinkings: 0, sunk: false });
+    expect(a).toMatchObject({ id: 0, pos: START_POINTS[0], health: TUNING.ship.maxHealth, energy: TUNING.energy.max, sinkings: 0, sunk: false, boostEnergy: 0, shieldEnergy: 0 });
     expect(b).toMatchObject({ id: 1, pos: START_POINTS[1] });
     expect(a!.heading).toBeCloseTo(0);
     expect(Math.abs(b!.heading)).toBeCloseTo(Math.PI);

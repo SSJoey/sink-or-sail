@@ -110,5 +110,19 @@
 - **Exit game:** host only (top bar and pause box), after a confirmation ("End the match now?"). It ends the match now with the current score as the result, and everyone gets the scoreboard, as at time-up.
 - The browser smoke tests now reach the scoreboard through Exit game, so the earlier gap (no test-only way to shorten the match) is closed without one.
 
+### 2026-10-24 — Slice 9: match event log
+
+- **One JSON Lines file per match** in `logs/`, named by local date, time and room code (e.g. `2026-10-24_18-30-05_KWPZ.jsonl`). It opens at match start and closes at match end. Every line has `t` (match time in ms; pauses don't count) and `type`; where relevant `ship`, and `player` + `role` for whoever acted. Ship-level events list both crew members.
+- **Events logged:** the CLAUDE.md list plus what was added since (bump, pause, resume, ended early, seat taken, energy restored). A `position` line per ship once a second.
+- **Energy spent on boost vs shield** is counted in the simulation (per-ship counters, pure and tested) and written in the position lines and at match end.
+- **Average survival time** includes the last life: a ship afloat at match end counts its last life up to the end.
+- **Accuracy** = hits that did damage ÷ shots fired; shots blocked by a shield count as misses and are shown in their own column.
+- **Time zone:** `compose.yaml` mounts the laptop's `/etc/localtime` read-only, so file names use local time.
+- Writes are buffered and flushed asynchronously about once a second and at match end; a write error is reported on the console and never stops the match.
+- Log lines use ship ids from 0 (ship 0 = Crew 1); the summary table says "Crew 1 / Crew 2" as players see it.
+- Extra line types beyond the list: `playerDropped`, `protectionEnded`, and `roomClosed` (everyone left mid-match; the log then has no `matchEnd`, and the summary says the log ends before the match did).
+- Tests (Vitest room tests and Playwright smoke tests) write their match logs to a temporary folder via the `LOG_DIR` environment variable, never to the real `logs/`.
+- Summary: `npm run summary -- logs/<file>.jsonl [more files]`.
+
 ## Later
 - Check ship size on phones: with the whole 1600 × 900 sea on screen, a hull is about 45 px long on a 1280 px laptop window and roughly 25–30 px on a landscape phone. If it's too small, consider a larger ship radius or a smaller sea (tuning, ask first).

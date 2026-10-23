@@ -1,3 +1,4 @@
+import { join } from "node:path";
 import { Room, ServerError, ErrorCode, type Client } from "@colyseus/core";
 import {
   ClientMessage,
@@ -24,6 +25,9 @@ import {
   type ShipInput,
   type World,
 } from "@sink-or-sail/shared";
+import { LOG_DIR } from "../config.ts";
+import { controlLine, matchEndLine, matchMs, matchStartLine, playerLine, positionLines, seatLine, simEventLines, type LogLine, type Roster } from "../log/events.ts";
+import { MatchLog, fileSink, logFileName, type LogSink } from "../log/matchLog.ts";
 import { canChangeSeat, canEndMatch, canPause, canResume, canStart, nextHost } from "./matchFlow.ts";
 import { generateUniqueCode } from "./roomCode.ts";
 import { isNameTaken, takeSeat, type SeatMap } from "./seats.ts";
@@ -59,6 +63,15 @@ export class CrewRoom extends Room<{ state: CrewState }> {
   /** Order players joined in, for passing on the host. */
   private joinOrder = new Map<string, number>();
   private joinCount = 0;
+  /** Where each match's log goes; fields so tests can capture it in memory. */
+  logSinkFor: (fileName: string) => LogSink = (fileName) => fileSink(join(LOG_DIR, fileName));
+  logErrors: (error: unknown) => void = (error) => console.error("Match log write failed:", error);
+  /** The current match's event log; open from match start to match end. */
+  private log: MatchLog | null = null;
+  /** Who crews each ship, for naming players in the log. */
+  private roster: Roster = [];
+  /** Match time (s) of the next once-a-second position lines. */
+  private nextPositionAt = 0;
 
   async onCreate(): Promise<void> {
     this.roomId = await generateUniqueCode(Math.random, async (code) =>
@@ -76,7 +89,12 @@ export class CrewRoom extends Room<{ state: CrewState }> {
         client.send(ServerMessage.Rejected, { reason: result.reason } satisfies RejectedMessage);
         return;
       }
-      this.applySeat(client.sessionId, result.seats.get(client.sessionId) ?? null);
+      const seat = result.seats.get(client.sessionId) ?? null;
+      this.applySeat(client.sessionId, seat);
+      if (this.log && seat) {
+        this.roster = this.buildRoster();
+        this.logLine(seatLine(this.logTime(), this.nameOf(client.sessionId), seat));
+      }
     });
 
     this.onMessage(ClientMessage.Start, (client) => {
@@ -88,6 +106,7 @@ export class CrewRoom extends Room<{ state: CrewState }> {
       this.state.pausedBy = this.state.players.get(client.sessionId)?.name ?? "";
       this.state.phase = Phase.Paused;
       this.latestInput.clear();
+      this.logLine(controlLine(this.logTime(), "paused", this.nameOf(client.sessionId), this.seatOf(client.sessionId)));
     });
 
     this.onMessage(ClientMessage.Resume, (client) => {
@@ -95,10 +114,11 @@ export class CrewRoom extends Room<{ state: CrewState }> {
       // The same 3-2-1 as a match start; the world carries on where it stopped.
       this.state.countdown = this.countdownSeconds;
       this.state.phase = Phase.Countdown;
+      this.logLine(controlLine(this.logTime(), "resumed", this.nameOf(client.sessionId), this.seatOf(client.sessionId)));
     });
 
     this.onMessage(ClientMessage.EndMatch, (client) => {
-      if (canEndMatch(client.sessionId, this.state.hostId, this.state.phase)) this.endMatchNow();
+      if (canEndMatch(client.sessionId, this.state.hostId, this.state.phase)) this.endMatchNow(client.sessionId);
     });
 
     this.onMessage(ClientMessage.Input, (client, message: unknown) => this.receiveInput(client.sessionId, message));
@@ -118,34 +138,48 @@ export class CrewRoom extends Room<{ state: CrewState }> {
     this.state.players.set(client.sessionId, new Player({ name }));
     this.joinOrder.set(client.sessionId, this.joinCount++);
     if (!this.state.hostId) this.state.hostId = client.sessionId;
+    this.logLine(playerLine(this.logTime(), "playerJoined", name, null));
   }
 
   onDrop(client: Client): void {
     const player = this.state.players.get(client.sessionId);
     if (player) player.connected = false;
     this.latestInput.delete(client.sessionId);
+    this.logLine(playerLine(this.logTime(), "playerDropped", this.nameOf(client.sessionId), this.seatOf(client.sessionId)));
     this.allowReconnection(client, this.reconnectSeconds);
   }
 
   onReconnect(client: Client): void {
     const player = this.state.players.get(client.sessionId);
     if (player) player.connected = true;
+    this.logLine(playerLine(this.logTime(), "playerReconnected", this.nameOf(client.sessionId), this.seatOf(client.sessionId)));
   }
 
   onLeave(client: Client): void {
+    this.logLine(playerLine(this.logTime(), "playerLeft", this.nameOf(client.sessionId), this.seatOf(client.sessionId)));
     this.state.players.delete(client.sessionId);
+    if (this.log) this.roster = this.buildRoster();
     this.latestInput.delete(client.sessionId);
     this.joinOrder.delete(client.sessionId);
     if (this.state.hostId === client.sessionId) this.state.hostId = nextHost(this.joinOrder);
   }
 
   async onDispose(): Promise<void> {
+    // Everyone left mid-match: note it and write out what we have.
+    this.logLine({ t: this.logTime(), type: "roomClosed" });
+    await this.closeLog();
     await this.presence.srem(CODES_KEY, this.roomId);
   }
 
   /** A fresh world, scores and result reset, then the 3-2-1 countdown with ships frozen. */
   private startMatch(): void {
+    void this.closeLog();
     this.world = createWorld();
+    this.roster = this.buildRoster();
+    this.log = new MatchLog(this.logSinkFor(logFileName(new Date(), this.roomId)), { onError: (error) => this.logErrors(error) });
+    this.logLine(matchStartLine(this.roomId, this.roster));
+    for (const line of positionLines(this.world)) this.logLine(line);
+    this.nextPositionAt = 1;
     this.latestInput.clear();
     syncWorld(this.state, this.world);
     for (const ship of this.state.ships) {
@@ -158,12 +192,16 @@ export class CrewRoom extends Room<{ state: CrewState }> {
   }
 
   /** Host's "Exit game": the match ends now and the current score is the result, as at time-up. */
-  private endMatchNow(): void {
+  private endMatchNow(sessionId: string): void {
     if (!this.world) return;
     this.world = { ...this.world, over: true };
     this.latestInput.clear();
     syncWorld(this.state, this.world);
-    this.state.winner = matchResult(this.world).winner ?? -1;
+    const winner = matchResult(this.world).winner;
+    this.state.winner = winner ?? -1;
+    this.logLine(controlLine(this.logTime(), "endedEarly", this.nameOf(sessionId), this.seatOf(sessionId)));
+    this.logLine(matchEndLine(this.world, winner, true));
+    void this.closeLog();
   }
 
   private tick(dt: number): void {
@@ -178,6 +216,47 @@ export class CrewRoom extends Room<{ state: CrewState }> {
     this.world = result.world;
     syncWorld(this.state, this.world);
     applyEvents(this.state, result.events);
+
+    for (const line of simEventLines(this.logTime(), result.events, this.roster)) this.logLine(line);
+    if (this.world.time >= this.nextPositionAt - 1e-9) {
+      for (const line of positionLines(this.world)) this.logLine(line);
+      this.nextPositionAt += 1;
+    }
+    if (this.world.over) {
+      this.logLine(matchEndLine(this.world, matchResult(this.world).winner, false));
+      void this.closeLog();
+    }
+  }
+
+  /** Match time for log lines (ms); pauses don't count. */
+  private logTime(): number {
+    return matchMs(this.world?.time ?? 0);
+  }
+
+  /** Only writes while a match's log is open. */
+  private logLine(line: LogLine): void {
+    this.log?.write(line);
+  }
+
+  private async closeLog(): Promise<void> {
+    const log = this.log;
+    this.log = null;
+    await log?.close();
+  }
+
+  private nameOf(sessionId: string): string {
+    return this.state.players.get(sessionId)?.name ?? "";
+  }
+
+  /** Names in each ship's seats right now (index = ship id). */
+  private buildRoster(): Roster {
+    const roster: Roster = (this.world?.ships ?? []).map(() => ({ pilot: null, gunner: null }));
+    this.state.players.forEach((player, sessionId) => {
+      const seat = this.seatOf(sessionId);
+      const crew = seat ? roster[seat.crew] : undefined;
+      if (seat && crew) crew[seat.role] = player.name;
+    });
+    return roster;
   }
 
   /** Keeps the latest valid input for the sender's current role; anything else is ignored. */

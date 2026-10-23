@@ -19,6 +19,8 @@ export function testShip(overrides: Partial<Ship> = {}): Ship {
     sunk: false,
     respawnIn: 0,
     sinkings: 0,
+    boostEnergy: 0,
+    shieldEnergy: 0,
     ...overrides,
   };
 }

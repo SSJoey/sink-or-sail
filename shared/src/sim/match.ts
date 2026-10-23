@@ -22,6 +22,8 @@ export function createWorld(): World {
       sunk: false,
       respawnIn: 0,
       sinkings: 0,
+      boostEnergy: 0,
+      shieldEnergy: 0,
     };
   });
   return { time: 0, ships, shots: [], nextShotId: 0, contacts: [], over: false };

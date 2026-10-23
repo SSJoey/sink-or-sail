@@ -19,7 +19,7 @@ export function updateEnergy(
   shipId: number,
   wants: EnergyWants,
   dt: number,
-): { state: EnergyState; events: SimEvent[] } {
+): { state: EnergyState; events: SimEvent[]; spent: { boost: number; shield: number } } {
   const events: SimEvent[] = [];
   let { energy, locked } = prev;
 
@@ -34,7 +34,10 @@ export function updateEnergy(
   if (boosting && !prev.boosting) events.push({ type: "boostStarted", ship: shipId });
   if (shielding && !prev.shielding) events.push({ type: "shieldRaised", ship: shipId });
 
-  const cost = (boosting ? TUNING.boost.energyPerSecond : 0) + (shielding ? TUNING.shield.energyPerSecond : 0);
+  const boostCost = boosting ? TUNING.boost.energyPerSecond : 0;
+  const shieldCost = shielding ? TUNING.shield.energyPerSecond : 0;
+  const cost = boostCost + shieldCost;
+  const before = energy;
   if (cost > 0) {
     energy -= cost * dt;
     if (energy <= 0) {
@@ -46,5 +49,9 @@ export function updateEnergy(
     energy = Math.min(TUNING.energy.max, energy + TUNING.energy.refillPerSecond * dt);
   }
 
-  return { state: { energy, locked, boosting, shielding }, events };
+  // What was actually used (never more than the bar held), split by each one's share of the cost.
+  const used = cost > 0 ? before - energy : 0;
+  const spent = { boost: cost > 0 ? (used * boostCost) / cost : 0, shield: cost > 0 ? (used * shieldCost) / cost : 0 };
+
+  return { state: { energy, locked, boosting, shielding }, events, spent };
 }

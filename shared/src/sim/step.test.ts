@@ -85,6 +85,13 @@ describe("sailing", () => {
     expect(ofType(events, "boostStarted")).toEqual([{ type: "boostStarted", ship: 0 }]);
   });
 
+  it("counts energy spent on boost and on shield for each ship", () => {
+    const { world } = run(createWorld(), 1, [input({ boost: true }), input({ shield: true })]);
+    expect(world.ships[0]!.boostEnergy).toBeCloseTo(TUNING.boost.energyPerSecond, 0);
+    expect(world.ships[0]!.shieldEnergy).toBe(0);
+    expect(world.ships[1]!.shieldEnergy).toBeCloseTo(TUNING.shield.energyPerSecond, 0);
+  });
+
   it("stops boosting when the bar runs empty, and slows to normal speed", () => {
     const boostAll = [input({ steer: { x: 0, y: 1 }, boost: true })];
     // A full bar lasts 100 / 30 ≈ 3.3 s; boost comes back at 20 energy, 20 / 10.5 ≈ 1.9 s later.

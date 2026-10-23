@@ -23,7 +23,7 @@ describe("chooseSpawn", () => {
 
 describe("respawnShip", () => {
   it("brings the ship back whole, with protection, facing the middle of the sea", () => {
-    const sunk = testShip({ sunk: true, health: 0, energy: 3, energyLocked: true, fireCooldown: 0.2, vel: { x: 9, y: 9 }, sinkings: 2 });
+    const sunk = testShip({ sunk: true, health: 0, energy: 3, energyLocked: true, fireCooldown: 0.2, vel: { x: 9, y: 9 }, sinkings: 2, boostEnergy: 40, shieldEnergy: 12 });
     const at = SPAWN_POINTS[0]!;
     const ship = respawnShip(sunk, at);
     expect(ship).toMatchObject({
@@ -37,6 +37,8 @@ describe("respawnShip", () => {
       fireCooldown: 0,
       protection: TUNING.respawn.protection,
       sinkings: 2,
+      boostEnergy: 40,
+      shieldEnergy: 12,
     });
     expect(ship.heading).toBeCloseTo(angleOf(sub(SEA_CENTRE, at)));
     expect(ship.turret).toBeCloseTo(ship.heading);

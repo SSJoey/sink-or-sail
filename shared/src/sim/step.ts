@@ -68,7 +68,15 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
       dt,
     );
     events.push(...energy.events);
-    ship = { ...ship, energy: energy.state.energy, energyLocked: energy.state.locked, boosting: energy.state.boosting, shielding: energy.state.shielding };
+    ship = {
+      ...ship,
+      energy: energy.state.energy,
+      energyLocked: energy.state.locked,
+      boosting: energy.state.boosting,
+      shielding: energy.state.shielding,
+      boostEnergy: ship.boostEnergy + energy.spent.boost,
+      shieldEnergy: ship.shieldEnergy + energy.spent.shield,
+    };
 
     ship = steerShip(ship, input.pilot, ship.boosting, dt);
 

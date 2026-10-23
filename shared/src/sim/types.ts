@@ -46,6 +46,9 @@ export interface Ship {
   respawnIn: number;
   /** Score: enemy ships this ship has sunk. */
   sinkings: number;
+  /** Energy spent on boost and on shield this match (for the match log). */
+  boostEnergy: number;
+  shieldEnergy: number;
 }
 
 export interface Shot {
