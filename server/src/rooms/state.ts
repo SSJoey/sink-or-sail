@@ -46,6 +46,8 @@ export const CrewState = schema({
   /** Session id of the host, who starts matches. */
   hostId: t.string(),
   phase: t.string().default(Phase.Waiting),
+  /** Name of the player who paused the match (while paused). */
+  pausedBy: t.string(),
   /** Seconds of 3-2-1 countdown left. */
   countdown: t.float32(),
   timeLeft: t.float32().default(TUNING.match.duration),

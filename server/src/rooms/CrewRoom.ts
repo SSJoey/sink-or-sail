@@ -10,6 +10,7 @@ import {
   ServerMessage,
   TUNING,
   createWorld,
+  matchResult,
   normaliseName,
   parseGunnerInput,
   parsePilotInput,
@@ -23,7 +24,7 @@ import {
   type ShipInput,
   type World,
 } from "@sink-or-sail/shared";
-import { canChangeSeat, canStart, nextHost } from "./matchFlow.ts";
+import { canChangeSeat, canEndMatch, canPause, canResume, canStart, nextHost } from "./matchFlow.ts";
 import { generateUniqueCode } from "./roomCode.ts";
 import { isNameTaken, takeSeat, type SeatMap } from "./seats.ts";
 import { CrewState, Player } from "./state.ts";
@@ -82,6 +83,24 @@ export class CrewRoom extends Room<{ state: CrewState }> {
       if (canStart(client.sessionId, this.state.hostId, this.state.phase)) this.startMatch();
     });
 
+    this.onMessage(ClientMessage.Pause, (client) => {
+      if (!canPause(this.state.phase, this.seatOf(client.sessionId) !== null)) return;
+      this.state.pausedBy = this.state.players.get(client.sessionId)?.name ?? "";
+      this.state.phase = Phase.Paused;
+      this.latestInput.clear();
+    });
+
+    this.onMessage(ClientMessage.Resume, (client) => {
+      if (!canResume(client.sessionId, this.state.hostId, this.state.phase)) return;
+      // The same 3-2-1 as a match start; the world carries on where it stopped.
+      this.state.countdown = this.countdownSeconds;
+      this.state.phase = Phase.Countdown;
+    });
+
+    this.onMessage(ClientMessage.EndMatch, (client) => {
+      if (canEndMatch(client.sessionId, this.state.hostId, this.state.phase)) this.endMatchNow();
+    });
+
     this.onMessage(ClientMessage.Input, (client, message: unknown) => this.receiveInput(client.sessionId, message));
 
     // Clients send only input; any other message type is ignored.
@@ -136,6 +155,15 @@ export class CrewRoom extends Room<{ state: CrewState }> {
     this.state.winner = -1;
     this.state.countdown = this.countdownSeconds;
     this.state.phase = Phase.Countdown;
+  }
+
+  /** Host's "Exit game": the match ends now and the current score is the result, as at time-up. */
+  private endMatchNow(): void {
+    if (!this.world) return;
+    this.world = { ...this.world, over: true };
+    this.latestInput.clear();
+    syncWorld(this.state, this.world);
+    this.state.winner = matchResult(this.world).winner ?? -1;
   }
 
   private tick(dt: number): void {

@@ -5,9 +5,9 @@ export function canStart(sessionId: string, hostId: string, phase: string): bool
   return sessionId === hostId && (phase === Phase.Waiting || phase === Phase.Over);
 }
 
-/** During the countdown or a match, seated players can't switch; seatless players may take a free seat. */
+/** During the countdown, a match or a pause, seated players can't switch; seatless players may take a free seat. */
 export function canChangeSeat(phase: string, isSeated: boolean): boolean {
-  const matchOn = phase === Phase.Countdown || phase === Phase.Running;
+  const matchOn = phase === Phase.Countdown || phase === Phase.Running || phase === Phase.Paused;
   return !matchOn || !isSeated;
 }
 
@@ -22,4 +22,19 @@ export function nextHost(joinOrder: ReadonlyMap<string, number>): string {
     }
   }
   return best;
+}
+
+/** Any seated player can pause during the countdown or match. */
+export function canPause(phase: string, isSeated: boolean): boolean {
+  return isSeated && (phase === Phase.Countdown || phase === Phase.Running);
+}
+
+/** Only the host resumes a paused match. */
+export function canResume(sessionId: string, hostId: string, phase: string): boolean {
+  return sessionId === hostId && phase === Phase.Paused;
+}
+
+/** Only the host ends a match early: during the countdown, the match, or a pause. */
+export function canEndMatch(sessionId: string, hostId: string, phase: string): boolean {
+  return sessionId === hostId && (phase === Phase.Countdown || phase === Phase.Running || phase === Phase.Paused);
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Phase } from "@sink-or-sail/shared";
-import { canChangeSeat, canStart, nextHost } from "./matchFlow.ts";
+import { canChangeSeat, canEndMatch, canPause, canResume, canStart, nextHost } from "./matchFlow.ts";
 
 describe("canStart", () => {
   it("lets only the host start, and only when no match is on", () => {
@@ -35,5 +35,43 @@ describe("nextHost", () => {
 
   it("is empty when nobody is left", () => {
     expect(nextHost(new Map())).toBe("");
+  });
+});
+
+describe("canPause", () => {
+  it("lets any seated player pause during the countdown or match", () => {
+    expect(canPause(Phase.Running, true)).toBe(true);
+    expect(canPause(Phase.Countdown, true)).toBe(true);
+  });
+
+  it("not seatless players, and not when nothing is running", () => {
+    expect(canPause(Phase.Running, false)).toBe(false);
+    expect(canPause(Phase.Paused, true)).toBe(false);
+    expect(canPause(Phase.Waiting, true)).toBe(false);
+    expect(canPause(Phase.Over, true)).toBe(false);
+  });
+});
+
+describe("canResume", () => {
+  it("lets only the host resume, and only while paused", () => {
+    expect(canResume("h", "h", Phase.Paused)).toBe(true);
+    expect(canResume("x", "h", Phase.Paused)).toBe(false);
+    expect(canResume("h", "h", Phase.Running)).toBe(false);
+  });
+});
+
+describe("canEndMatch", () => {
+  it("lets only the host end a match that is on or paused", () => {
+    for (const phase of [Phase.Countdown, Phase.Running, Phase.Paused]) expect(canEndMatch("h", "h", phase)).toBe(true);
+    expect(canEndMatch("x", "h", Phase.Running)).toBe(false);
+    expect(canEndMatch("h", "h", Phase.Waiting)).toBe(false);
+    expect(canEndMatch("h", "h", Phase.Over)).toBe(false);
+  });
+});
+
+describe("seats while paused", () => {
+  it("stay locked for seated players", () => {
+    expect(canChangeSeat(Phase.Paused, true)).toBe(false);
+    expect(canChangeSeat(Phase.Paused, false)).toBe(true);
   });
 });

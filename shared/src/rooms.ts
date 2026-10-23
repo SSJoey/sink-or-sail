@@ -30,12 +30,19 @@ export const ClientMessage = {
   Start: "start",
   /** The sender's role input; see input.ts. */
   Input: "input",
+  /** Pause the match (any seated player). */
+  Pause: "pause",
+  /** Resume after a pause, with a countdown (host only). */
+  Resume: "resume",
+  /** End the match now with the current score (host only). */
+  EndMatch: "endMatch",
 } as const;
 
 /** Match phase shown to clients. */
 export const Phase = {
   Waiting: "waiting",
   Countdown: "countdown",
+  Paused: "paused",
   Running: "running",
   Over: "over",
 } as const;

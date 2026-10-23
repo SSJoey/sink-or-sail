@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Phase, TUNING } from "@sink-or-sail/shared";
-import { blinkVisible, countdownLabel, respawnText, resultTitle, scoreRows, sinkBanner } from "./matchText.ts";
+import { blinkVisible, countdownLabel, pausedText, respawnText, resultTitle, scoreRows, sinkBanner } from "./matchText.ts";
 
 const D = TUNING.match.duration;
 
@@ -66,5 +66,13 @@ describe("blinkVisible", () => {
 
   it("is always visible without protection", () => {
     expect(blinkVisible(0, 4)).toBe(true);
+  });
+});
+
+describe("pausedText", () => {
+  it("says who paused, and tells non-hosts who resumes", () => {
+    expect(pausedText("Sam", true)).toBe("Paused by Sam");
+    expect(pausedText("Sam", false)).toBe("Paused by Sam · Waiting for the host to resume");
+    expect(pausedText("", false)).toBe("Paused · Waiting for the host to resume");
   });
 });

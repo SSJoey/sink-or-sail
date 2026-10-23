@@ -41,3 +41,9 @@ export function blinkVisible(protection: number, hz: number): boolean {
   if (protection <= 0) return true;
   return Math.floor((TUNING.respawn.protection - protection) * hz * 2 + 1e-9) % 2 === 0;
 }
+
+/** "Paused by Sam"; non-hosts also learn that only the host resumes. */
+export function pausedText(pausedBy: string, isHost: boolean): string {
+  const who = pausedBy ? `Paused by ${pausedBy}` : "Paused";
+  return isHost ? who : `${who} · Waiting for the host to resume`;
+}

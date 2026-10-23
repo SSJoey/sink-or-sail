@@ -103,5 +103,12 @@
 
 - **Energy refill slowed by 30%:** `energy.refillPerSecond` 15 → 10.5 (empty to full now takes 9.5 s instead of 6.7 s). It's the shared bar, so boost and shield are both affected.
 
+### 2026-10-24 — Plan change: Pause and Exit game (added after the first game, before slice 9)
+
+- **Pause:** any seated player can pause during the countdown or a match; everything freezes (timer, ships, shots, respawn and protection timers), input is ignored, and screens show "Paused by <name>". Seats stay locked while paused.
+- **Resume:** host only, with the same 3-2-1 countdown; the match carries on where it stopped.
+- **Exit game:** host only (top bar and pause box), after a confirmation ("End the match now?"). It ends the match now with the current score as the result, and everyone gets the scoreboard, as at time-up.
+- The browser smoke tests now reach the scoreboard through Exit game, so the earlier gap (no test-only way to shorten the match) is closed without one.
+
 ## Later
 - Check ship size on phones: with the whole 1600 × 900 sea on screen, a hull is about 45 px long on a 1280 px laptop window and roughly 25–30 px on a landscape phone. If it's too small, consider a larger ship radius or a smaller sea (tuning, ask first).

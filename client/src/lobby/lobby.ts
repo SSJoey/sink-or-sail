@@ -77,7 +77,7 @@ export function startLobby(): void {
 
   function renderRoom(room: Room, state: StateView): void {
     const phase = state.phase;
-    const matchOn = phase === Phase.Countdown || phase === Phase.Running;
+    const matchOn = phase === Phase.Countdown || phase === Phase.Running || phase === Phase.Paused;
     const host = (sessionId: string) => (sessionId === state.hostId ? " ★" : "");
     let iAmSeated = false;
     state.players.forEach((p, id) => { if (id === room.sessionId && p.role !== undefined) iAmSeated = true; });
@@ -109,7 +109,8 @@ export function startLobby(): void {
     byId("unseated").textContent = unseated.join(", ") || "nobody";
 
     // The game view runs from the countdown until the player leaves the scoreboard.
-    if (phase === Phase.Countdown && lastPhase !== Phase.Countdown && game) stopGame();
+    // A countdown straight after "over" is a new match (a fresh game view); after a pause it's a resume.
+    if (phase === Phase.Countdown && lastPhase === Phase.Over && game) stopGame();
     if (matchOn && !game) game = startGame(room, stopGame);
     if (phase === Phase.Waiting && game) stopGame();
     lastPhase = phase;

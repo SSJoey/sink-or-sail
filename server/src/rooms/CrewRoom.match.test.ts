@@ -314,3 +314,103 @@ describe("seats during a match", () => {
     await waitFor(() => room.state.players.get(pilot.sessionId)?.crew === 1);
   });
 });
+
+describe("pause and resume", () => {
+  it("lets any seated player pause; everything freezes", async () => {
+    const { room, gunner, pilot } = await started();
+    pilot.send(ClientMessage.Input, steer(1, 0, true));
+    await sleep(200);
+    gunner.send(ClientMessage.Pause);
+    await waitFor(() => room.state.phase === Phase.Paused);
+    expect(room.state.pausedBy).toBe("Gunner");
+    const time = room.world!.time;
+    const x = ship0(room).x;
+    await sleep(300);
+    expect(room.world!.time).toBe(time);
+    expect(ship0(room).x).toBe(x);
+  });
+
+  it("ignores a pause from a player without a seat", async () => {
+    const { room, watcher } = await started();
+    watcher.send(ClientMessage.Pause);
+    await sleep(150);
+    expect(room.state.phase).toBe(Phase.Running);
+  });
+
+  it("ignores input while paused", async () => {
+    const { room, pilot } = await started();
+    pilot.send(ClientMessage.Pause);
+    await waitFor(() => room.state.phase === Phase.Paused);
+    pilot.send(ClientMessage.Input, steer(1, 0, true));
+    await sleep(200);
+    expect(ship0(room).boosting).toBe(false);
+  });
+
+  it("lets only the host resume, with a countdown, carrying on where it stopped", async () => {
+    const { room, pilot, gunner } = await started();
+    await sleep(300);
+    gunner.send(ClientMessage.Pause);
+    await waitFor(() => room.state.phase === Phase.Paused);
+    const time = room.world!.time;
+
+    gunner.send(ClientMessage.Resume);
+    await sleep(150);
+    expect(room.state.phase).toBe(Phase.Paused);
+
+    room.countdownSeconds = 0.3;
+    pilot.send(ClientMessage.Resume);
+    await waitFor(() => room.state.phase === Phase.Countdown);
+    expect(room.world!.time).toBe(time);
+    await waitFor(() => room.state.phase === Phase.Running);
+    await waitFor(() => room.world!.time > time);
+    expect(room.world!.time).toBeLessThan(time + 1);
+  });
+
+  it("keeps seats locked while paused", async () => {
+    const { room, pilot } = await started();
+    pilot.send(ClientMessage.Pause);
+    await waitFor(() => room.state.phase === Phase.Paused);
+    const rejected = pilot.waitForMessage(ServerMessage.Rejected);
+    pilot.send(ClientMessage.TakeSeat, { crew: 1, role: "pilot" });
+    expect(await rejected).toEqual({ reason: RejectReason.SeatLocked });
+  });
+});
+
+describe("ending the match early", () => {
+  it("lets the host end the match now, with the current score as the result", async () => {
+    const { room, pilot } = await started();
+    const world = room.world!;
+    room.world = { ...world, ships: world.ships.map((s, i) => ({ ...s, sinkings: i === 1 ? 2 : 0 })) };
+    pilot.send(ClientMessage.EndMatch);
+    await waitFor(() => room.state.phase === Phase.Over);
+    expect(room.state.winner).toBe(1);
+    expect(room.state.timeLeft).toBeGreaterThan(TUNING.match.duration - 10);
+    expect(room.world!.over).toBe(true);
+  });
+
+  it("works while paused", async () => {
+    const { room, pilot, gunner } = await started();
+    gunner.send(ClientMessage.Pause);
+    await waitFor(() => room.state.phase === Phase.Paused);
+    pilot.send(ClientMessage.EndMatch);
+    await waitFor(() => room.state.phase === Phase.Over);
+    expect(room.state.winner).toBe(-1);
+  });
+
+  it("ignores an end request from anyone but the host", async () => {
+    const { room, gunner, watcher } = await started();
+    gunner.send(ClientMessage.EndMatch);
+    watcher.send(ClientMessage.EndMatch);
+    await sleep(150);
+    expect(room.state.phase).toBe(Phase.Running);
+  });
+
+  it("lets the host start a fresh match afterwards", async () => {
+    const { room, pilot } = await started();
+    pilot.send(ClientMessage.EndMatch);
+    await waitFor(() => room.state.phase === Phase.Over);
+    pilot.send(ClientMessage.Start);
+    await waitFor(() => room.state.phase === Phase.Running);
+    expect(room.world!.time).toBeLessThan(1);
+  });
+});

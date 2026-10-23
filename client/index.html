@@ -35,6 +35,8 @@
       #banner { top: 64px; font-size: 22px; font-weight: bold; background: rgba(11,37,69,0.85); padding: 8px 16px; border-radius: 8px; }
       #scoreboard { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); background: rgba(11,37,69,0.95); padding: 16px 24px; border-radius: 12px; text-align: center; min-width: 280px; }
       #scoreboard h2 { margin: 0 0 8px; }
+      #paused { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); background: rgba(11,37,69,0.95); padding: 16px 24px; border-radius: 12px; text-align: center; min-width: 280px; }
+      #hud button { padding: 4px 12px; min-height: 36px; }
       #rotate { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: #0b2545; font-size: 24px; text-align: center; padding: 24px; }
     </style>
   </head>
@@ -69,6 +71,8 @@
         <div id="hud-energy" title="Shared energy"><div id="hud-energy-fill"></div></div>
         <span id="hud-score"></span>
         <span id="hud-clock"></span>
+        <button id="hud-pause" hidden>Pause</button>
+        <button id="hud-exit" hidden>Exit</button>
       </div>
       <div id="game"></div>
       <div id="touch" hidden>
@@ -83,6 +87,13 @@
       <div id="scoreboard" hidden>
         <div id="result"></div>
         <button id="back-to-room">Back to room</button>
+      </div>
+      <div id="paused" hidden>
+        <p id="paused-text"></p>
+        <div id="paused-host">
+          <button id="resume">Resume</button>
+          <button id="paused-exit">Exit game</button>
+        </div>
       </div>
       <div id="rotate" hidden>Rotate your phone sideways to play</div>
     </section>

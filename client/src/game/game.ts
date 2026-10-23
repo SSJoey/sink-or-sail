@@ -7,7 +7,7 @@ import type { ShipEffect } from "./effects.ts";
 import { formatClock } from "./hud.ts";
 import { startInputSender } from "./inputSender.ts";
 import { SnapshotBuffer, type Frame } from "./interpolation.ts";
-import { countdownLabel, respawnText, resultTitle, scoreRows, sinkBanner } from "./matchText.ts";
+import { countdownLabel, pausedText, respawnText, resultTitle, scoreRows, sinkBanner } from "./matchText.ts";
 import { blockGestures, goFullscreenLandscape, isPortrait, isTouchFirst } from "./phone.ts";
 import { snapshotFromState, type GameStateView } from "./snapshot.ts";
 import { TouchControls } from "./touchControls.ts";
@@ -26,6 +26,7 @@ export interface RoomStateView extends GameStateView {
   };
   hostId: string;
   phase: string;
+  pausedBy: string;
   countdown: number;
   timeLeft: number;
   winner: number;
@@ -62,8 +63,18 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
   const countdown = byId("countdown");
   const banner = byId("banner");
   const scoreboard = byId("scoreboard");
+  const paused = byId("paused");
   screen.hidden = false;
   byId("back-to-room").onclick = onExit;
+
+  // Pause: any seated player. Resume and Exit: host only (the server checks both).
+  const endMatch = () => {
+    if (window.confirm("End the match now?")) room.send(ClientMessage.EndMatch);
+  };
+  byId("hud-pause").onclick = () => room.send(ClientMessage.Pause);
+  byId("hud-exit").onclick = endMatch;
+  byId("resume").onclick = () => room.send(ClientMessage.Resume);
+  byId("paused-exit").onclick = endMatch;
 
   // Phone controls: shown on touch-first devices, or as soon as anyone touches the screen.
   const touch = new TouchControls(TUNING.client.stickRadius, TUNING.client.stickDeadZone);
@@ -87,6 +98,7 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
       const mine = seat();
       const state = room.state as RoomStateView;
       showMatchOverlays(state, frame, effects, mine?.crew ?? null, { countdown, banner, scoreboard });
+      showPauseControls(state, mine !== null, state.hostId === room.sessionId, paused);
       // Read by the browser smoke tests (a canvas has no elements to inspect).
       canvasHost.dataset.ships = String(frame?.ships.filter((s) => !s.sunk).length ?? 0);
       canvasHost.dataset.shots = String(frame?.shots.size ?? 0);
@@ -129,6 +141,7 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
       countdown.hidden = true;
       banner.hidden = true;
       scoreboard.hidden = true;
+      paused.hidden = true;
       screen.hidden = true;
     },
   };
@@ -149,6 +162,20 @@ export function renderResult(el: HTMLElement, state: RoomStateView): void {
     return line;
   });
   el.replaceChildren(title, ...rows);
+}
+
+function showPauseControls(state: RoomStateView, seated: boolean, isHost: boolean, paused: HTMLElement): void {
+  const phase = state.phase;
+  const playing = phase === Phase.Countdown || phase === Phase.Running;
+  byId("hud-pause").hidden = !(seated && playing);
+  byId("hud-exit").hidden = !(isHost && (playing || phase === Phase.Paused));
+
+  paused.hidden = phase !== Phase.Paused;
+  if (phase !== Phase.Paused) return;
+  const text = pausedText(state.pausedBy, isHost);
+  const line = byId("paused-text");
+  if (line.textContent !== text) line.textContent = text;
+  byId("paused-host").hidden = !isHost;
 }
 
 function showMatchOverlays(
