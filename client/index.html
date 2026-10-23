@@ -5,10 +5,37 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Sink or Sail</title>
     <style>
-      html, body { margin: 0; height: 100%; background: #1d4f91; overflow: hidden; }
+      body { margin: 0; padding: 16px; font: 18px/1.4 sans-serif; background: #1d4f91; color: #fff; }
+      input, button { font: inherit; padding: 8px 12px; margin: 4px 0; }
+      button { min-width: 44px; min-height: 44px; }
+      [hidden] { display: none !important; }
+      #seats button { display: block; width: 100%; max-width: 320px; text-align: left; }
+      #code { font-size: 40px; letter-spacing: 6px; font-weight: bold; }
+      .error { color: #ffd166; min-height: 1.4em; }
     </style>
   </head>
   <body>
+    <h1>Sink or Sail</h1>
+
+    <section id="join-screen">
+      <label>Your name <input id="name" maxlength="24" autocomplete="nickname" /></label>
+      <p><button id="create">Create room</button></p>
+      <p>
+        <label>Room code <input id="code-input" maxlength="8" autocapitalize="characters" autocomplete="off" /></label>
+        <button id="join">Join</button>
+      </p>
+    </section>
+
+    <section id="room-screen" hidden>
+      <p>Room code <span id="code"></span></p>
+      <p id="status"></p>
+      <div id="seats"></div>
+      <p>Not seated: <span id="unseated"></span></p>
+      <p><button id="leave">Leave room</button></p>
+    </section>
+
+    <p id="error" class="error" role="alert"></p>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
