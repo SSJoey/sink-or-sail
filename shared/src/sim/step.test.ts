@@ -87,7 +87,7 @@ describe("sailing", () => {
 
   it("stops boosting when the bar runs empty, and slows to normal speed", () => {
     const boostAll = [input({ steer: { x: 0, y: 1 }, boost: true })];
-    // A full bar lasts 100 / 30 ≈ 3.3 s; boost comes back at 20 energy, 20 / 15 ≈ 1.3 s later.
+    // A full bar lasts 100 / 30 ≈ 3.3 s; boost comes back at 20 energy, 20 / 10.5 ≈ 1.9 s later.
     const { world, events } = run(createWorld(), 4.6, boostAll);
     expect(ofType(events, "energyEmpty")).toHaveLength(1);
     expect(world.ships[0]!.boosting).toBe(false);
