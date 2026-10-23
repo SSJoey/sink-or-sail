@@ -52,4 +52,10 @@ export const TUNING = {
     /** Simulation steps per second; state is sent to clients at the same rate. */
     tickRate: 20,
   },
+  client: {
+    /** Input messages sent per second. */
+    inputRate: 20,
+    /** Clients draw this far behind the server, blending between snapshots. */
+    interpolationDelayMs: 100,
+  },
 } as const;

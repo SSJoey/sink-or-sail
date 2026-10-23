@@ -13,6 +13,7 @@ import {
   type RejectedMessage,
   type Role,
 } from "@sink-or-sail/shared";
+import { startGame, type GameHandle } from "../game/game.ts";
 import { joinErrorText, rejectedText } from "./messages.ts";
 import { clearToken, loadToken, saveToken } from "./reconnectToken.ts";
 
@@ -46,6 +47,11 @@ export function startLobby(): void {
   const errorLine = byId("error");
 
   const showError = (text: string) => { errorLine.textContent = text; };
+  let game: GameHandle | null = null;
+  const stopGame = () => {
+    game?.stop();
+    game = null;
+  };
 
   function showJoinScreen(): void {
     roomScreen.hidden = true;
@@ -68,6 +74,7 @@ export function startLobby(): void {
       byId("status").textContent = "";
     });
     room.onLeave((code) => {
+      stopGame();
       clearToken(storage);
       showJoinScreen();
       if (code !== CONSENTED) showError("You were disconnected from the room.");
@@ -104,6 +111,8 @@ export function startLobby(): void {
     byId("unseated").textContent = unseated.join(", ") || "nobody";
 
     const running = state.phase === Phase.Running;
+    if (running && !game) game = startGame(room);
+    if (!running && game) stopGame();
     byId<HTMLButtonElement>("start").disabled = running;
     byId("match").textContent = running
       ? `Match running: ${Math.ceil(state.timeLeft)} s left`
