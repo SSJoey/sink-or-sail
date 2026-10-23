@@ -3,9 +3,13 @@ import type { Room } from "@colyseus/sdk";
 import { ClientMessage, TUNING, type Role } from "@sink-or-sail/shared";
 import { CREW_STYLES } from "./crews.ts";
 import { GameScene } from "./GameScene.ts";
+import { formatClock } from "./hud.ts";
 import { startInputSender } from "./inputSender.ts";
 import { SnapshotBuffer, type Frame } from "./interpolation.ts";
+import { blockGestures, goFullscreenLandscape, isPortrait, isTouchFirst } from "./phone.ts";
 import { snapshotFromState, type GameStateView } from "./snapshot.ts";
+import { TouchControls } from "./touchControls.ts";
+import { createTouchLayer } from "./touchLayer.ts";
 
 interface PlayerView {
   crew?: number;
@@ -13,6 +17,7 @@ interface PlayerView {
 }
 interface RoomStateView extends GameStateView {
   players: { get(sessionId: string): PlayerView | undefined };
+  timeLeft: number;
 }
 
 export interface GameHandle {
@@ -39,15 +44,36 @@ export function startGame(room: Room): GameHandle {
 
   const screen = byId("game-screen");
   const canvasHost = byId("game");
+  const rotate = byId("rotate");
   screen.hidden = false;
+
+  // Phone controls: shown on touch-first devices, or as soon as anyone touches the screen.
+  const touch = new TouchControls(TUNING.client.stickRadius, TUNING.client.stickDeadZone);
+  const touchLayer = createTouchLayer(touch);
+  if (isTouchFirst()) touchLayer.activate();
+  const unblockGestures = blockGestures(screen);
+  const onFirstTouch = (e: PointerEvent) => {
+    if (e.pointerType !== "touch") return;
+    touchLayer.activate();
+    void goFullscreenLandscape(document.documentElement);
+    screen.removeEventListener("pointerdown", onFirstTouch, true);
+  };
+  screen.addEventListener("pointerdown", onFirstTouch, true);
 
   const scene = new GameScene({
     frame: (): Frame | null => buffer.sample(performance.now() - TUNING.client.interpolationDelayMs),
     seat,
+    touch,
     setInput: (next) => { input = next; },
     drawn: (frame) => {
+      const mine = seat();
+      // Read by the browser smoke tests (a canvas has no elements to inspect).
       canvasHost.dataset.ships = String(frame?.ships.filter((s) => !s.sunk).length ?? 0);
-      updateHud(frame, seat());
+      const own = mine ? frame?.ships[mine.crew] : undefined;
+      if (own) canvasHost.dataset.ownX = String(Math.round(own.x));
+      touchLayer.update(mine?.role ?? null);
+      rotate.hidden = !(touchLayer.active && isPortrait(window.innerWidth, window.innerHeight));
+      updateHud(frame, mine, (room.state as RoomStateView).timeLeft);
     },
   });
 
@@ -69,7 +95,12 @@ export function startGame(room: Room): GameHandle {
       stopSending();
       room.onStateChange.remove(onState);
       game.destroy(true);
+      touchLayer.destroy();
+      unblockGestures();
+      screen.removeEventListener("pointerdown", onFirstTouch, true);
       delete canvasHost.dataset.ships;
+      delete canvasHost.dataset.ownX;
+      rotate.hidden = true;
       screen.hidden = true;
     },
   };
@@ -77,11 +108,21 @@ export function startGame(room: Room): GameHandle {
 
 const roleLabel: Record<Role, string> = { pilot: "Pilot", gunner: "Gunner" };
 
-function updateHud(frame: Frame | null, seat: { crew: number; role: Role } | null): void {
+function updateHud(frame: Frame | null, seat: { crew: number; role: Role } | null, timeLeft: number): void {
   const role = byId("hud-role");
   const crew = byId("hud-crew");
   const bar = byId("hud-energy");
   const fill = byId("hud-energy-fill");
+
+  byId("hud-clock").textContent = formatClock(timeLeft);
+  const score = byId("hud-score");
+  const parts = (frame?.ships ?? []).map((ship, i) => {
+    const style = CREW_STYLES[i] ?? CREW_STYLES[0];
+    return `<span style="color:${style.css}">${style.symbol} ${ship.sinkings}</span>`;
+  });
+  const html = parts.join(" – ");
+  if (score.innerHTML !== html) score.innerHTML = html;
+
   if (!seat) {
     role.textContent = "Watching";
     crew.textContent = "";

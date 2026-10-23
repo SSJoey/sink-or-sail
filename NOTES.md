@@ -73,5 +73,17 @@
 - **Aiming guide** (own ship only, both crewmates): a dashed line from the turret to the 600 shot range, a faint 10°-wide cone along it, and a crosshair at the end of the range.
 - Sunk ships aren't drawn yet (slice 8 shows sinking and respawn). Shield = a ring around the ship; protection = a see-through ship; boost = a short wake.
 
+### 2026-10-23 — Slice 7: phone controls
+
+- **Fire and Shield: first pressed wins.** While one is held, touching the other does nothing until the first is released.
+- **Touch controls appear** from the start on devices whose main pointer is a finger (CSS `pointer: coarse`), and on any device as soon as the screen is touched. Keyboard and mouse keep working alongside.
+- **Stick:** 60 CSS px of travel and a 10% dead zone (in `tuning.ts`); output rises smoothly from 0 at the dead-zone edge to 1 at full travel. Resting spot bottom-left; jumps to wherever the thumb lands on the left half. The gunner's stick aims; releasing keeps the last aim.
+- **Buttons:** Boost 120 px circle; Fire 110 px with Shield 80 px beside it, bottom-right.
+- **Phone smoke test:** a second Playwright test emulates a landscape touch phone, joins as pilot, drags the stick and checks the ship moves.
+- **Top bar** now also shows score (both crews' sinkings) and the timer, on phones and laptops.
+- The viewport meta blocks zoom page-wide (`maximum-scale=1, user-scalable=no`), which also covers the room screen; the other gesture blocks apply only to the game screen.
+- The touch layer covers the whole game area, so touches never reach the canvas (where Phaser would read them as mouse clicks).
+- **Android fullscreen + landscape lock** are requested on the first tap on the game screen (browsers allow them only after a user gesture). **Portrait** on a touch device shows a "Rotate your phone" screen over the game.
+
 ## Later
 - Check ship size on phones: with the whole 1600 × 900 sea on screen, a hull is about 45 px long on a 1280 px laptop window and roughly 25–30 px on a landscape phone. If it's too small, consider a larger ship radius or a smaller sea (tuning, ask first).

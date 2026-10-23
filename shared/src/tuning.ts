@@ -57,5 +57,8 @@ export const TUNING = {
     inputRate: 20,
     /** Clients draw this far behind the server, blending between snapshots. */
     interpolationDelayMs: 100,
+    /** Phone stick: how far the thumb travels for full push (CSS px), and the dead zone as a fraction of that. */
+    stickRadius: 60,
+    stickDeadZone: 0.1,
   },
 } as const;

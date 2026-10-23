@@ -4,11 +4,14 @@ import { CREW_STYLES } from "./crews.ts";
 import { aimGuide, dashes, hullPoints, turretEnd } from "./hull.ts";
 import type { Frame, ShipView } from "./interpolation.ts";
 import { gunnerFromMouse, pilotFromKeys } from "./laptopInput.ts";
+import { mergeGunner, mergePilot, type TouchControls } from "./touchControls.ts";
 
 /** What the scene needs from the game: the frame to draw, the local seat, and where to report state. */
 export interface SceneLink {
   frame(): Frame | null;
   seat(): { crew: number; role: Role } | null;
+  /** Phone controls; merged with keyboard and mouse. */
+  touch: TouchControls;
   /** Called every frame with the latest local input (null when the player has no seat). */
   setInput(input: unknown | null): void;
   /** Called every frame after drawing. */
@@ -49,14 +52,17 @@ export class GameScene extends Phaser.Scene {
 
   private readInput(frame: Frame | null, seat: { crew: number; role: Role } | null): unknown | null {
     if (!seat) return null;
+    const touch = this.link.touch;
     if (seat.role === "pilot") {
       const k = this.keys;
-      return pilotFromKeys({ up: k.W.isDown, left: k.A.isDown, down: k.S.isDown, right: k.D.isDown, boost: k.SPACE.isDown });
+      const keys = pilotFromKeys({ up: k.W.isDown, left: k.A.isDown, down: k.S.isDown, right: k.D.isDown, boost: k.SPACE.isDown });
+      return mergePilot(keys, touch.pilotInput());
     }
     const ship = frame?.ships[seat.crew];
     const pointer = this.input.activePointer;
     const mouse = this.mouseSeen ? { x: pointer.worldX, y: pointer.worldY } : null;
-    return gunnerFromMouse(ship ? mouse : null, ship ?? { x: 0, y: 0 }, pointer.leftButtonDown(), pointer.rightButtonDown());
+    const fromMouse = gunnerFromMouse(ship ? mouse : null, ship ?? { x: 0, y: 0 }, pointer.leftButtonDown(), pointer.rightButtonDown());
+    return mergeGunner(fromMouse, touch.gunnerInput());
   }
 
   private draw(frame: Frame | null, ownCrew: number | null): void {
