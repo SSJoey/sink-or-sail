@@ -123,3 +123,22 @@ describe("packs in the synced state", () => {
     expect(state.packs.get("4")?.signalled).toBe(false);
   });
 });
+
+describe("mines in the synced state", () => {
+  it("shows each mine's place, owner and whether it is armed", () => {
+    const state = new CrewState();
+    const world = createWorld({ packs: true, seed: 1 });
+    world.mines = [
+      { id: 0, owner: 1, pos: { x: 300, y: 200 }, age: 0.5 },
+      { id: 1, owner: 0, pos: { x: 500, y: 600 }, age: 2 },
+    ];
+    syncWorld(state, world);
+    expect(state.mines.get("0")?.toJSON()).toEqual({ x: 300, y: 200, owner: 1, armed: false });
+    expect(state.mines.get("1")?.toJSON()).toEqual({ x: 500, y: 600, owner: 0, armed: true });
+
+    world.mines = [{ id: 0, owner: 1, pos: { x: 300, y: 200 }, age: 1.2 }];
+    syncWorld(state, world);
+    expect(state.mines.has("1")).toBe(false);
+    expect(state.mines.get("0")?.armed).toBe(true);
+  });
+});

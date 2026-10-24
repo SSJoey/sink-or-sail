@@ -10,8 +10,13 @@ describe("pack rules", () => {
     expect(PACK_LABELS).toEqual({ mine: "Mine", torpedo: "Torpedo", emp: "EMP", health: "Health" });
   });
 
-  it("keeps every Pack button dim in slice 1: nothing is usable yet", () => {
-    for (const pack of ["mine", "torpedo", "emp"] as const) {
+  it("lights the pilot's Pack button for a mine, never the gunner's", () => {
+    expect(packButtonLit("mine", "pilot")).toBe(true);
+    expect(packButtonLit("mine", "gunner")).toBe(false);
+  });
+
+  it("keeps the button dim for packs not usable yet, and for an empty slot", () => {
+    for (const pack of ["torpedo", "emp"] as const) {
       expect(packButtonLit(pack, "pilot")).toBe(false);
       expect(packButtonLit(pack, "gunner")).toBe(false);
     }

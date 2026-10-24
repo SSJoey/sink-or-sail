@@ -145,3 +145,24 @@ describe("Stage 1 pack lines", () => {
     expect(positionLines(world).map((l) => l.held)).toEqual(["torpedo", null]);
   });
 });
+
+describe("Stage 1 mine lines", () => {
+  const lines = (e: SimEvent) => simEventLines(5000, [e], roster);
+
+  it("records the pack used with the player and role", () => {
+    expect(lines({ type: "packUsed", ship: 0, packType: "mine", role: "pilot" })).toEqual([{ t: 5000, type: "packUsed", ship: 0, player: "Joey", role: "pilot", packType: "mine" }]);
+  });
+
+  it("records drop, arming and expiry", () => {
+    expect(lines({ type: "mineDropped", mine: 3, owner: 0, pos: { x: 350.04, y: 300 } })).toEqual([{ t: 5000, type: "mineDropped", mine: 3, ship: 0, x: 350, y: 300 }]);
+    expect(lines({ type: "mineArmed", mine: 3, owner: 0 })).toEqual([{ t: 5000, type: "mineArmed", mine: 3, owner: 0 }]);
+    expect(lines({ type: "mineExpired", mine: 3, owner: 0 })).toEqual([{ t: 5000, type: "mineExpired", mine: 3, owner: 0 }]);
+  });
+
+  it("records a mine going off: owner, who set it off, each ship hit, damage and whether it was the owner's own ship", () => {
+    expect(lines({ type: "mineTriggered", mine: 3, owner: 0, shooter: 1, hits: [{ ship: 0, damage: 20, ownMine: true }, { ship: 1, damage: 40, ownMine: false }] })).toEqual([
+      { t: 5000, type: "mineTriggered", mine: 3, owner: 0, setOffBy: "shot", shooter: 1, hits: [{ ship: 0, damage: 20, ownMine: true }, { ship: 1, damage: 40, ownMine: false }] },
+    ]);
+    expect(lines({ type: "mineTriggered", mine: 4, owner: 1, shooter: null, hits: [] })[0]).toMatchObject({ setOffBy: "ship", shooter: null, hits: [] });
+  });
+});

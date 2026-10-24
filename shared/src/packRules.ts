@@ -6,8 +6,8 @@ export const PACK_USER: Record<PackType, Role | null> = { mine: "pilot", torpedo
 
 export const PACK_LABELS: Record<PackType, string> = { mine: "Mine", torpedo: "Torpedo", emp: "EMP", health: "Health" };
 
-/** Packs that can be used so far; Stage 1 slices 2–4 add mine, torpedo and EMP. */
-export const USABLE_PACKS: ReadonlySet<PackType> = new Set();
+/** Packs that can be used so far; Stage 1 slices 3–4 add torpedo and EMP. */
+export const USABLE_PACKS: ReadonlySet<PackType> = new Set<PackType>(["mine"]);
 
 /** The Pack button is lit only for the role that can use what's loaded. */
 export function packButtonLit(held: PackType | null, role: Role): boolean {

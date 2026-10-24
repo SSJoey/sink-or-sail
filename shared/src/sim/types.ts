@@ -38,6 +38,16 @@ export interface Pack {
   signalLeft: number;
 }
 
+/** A dropped mine. Armed once `age` reaches the arm time; gone at its lifetime or when it goes off. */
+export interface Mine {
+  id: number;
+  /** Ship that dropped it. */
+  owner: number;
+  pos: Vec;
+  /** Seconds since it was dropped. */
+  age: number;
+}
+
 export interface Ship {
   id: number;
   pos: Vec;
@@ -93,6 +103,8 @@ export interface World {
   nextPackId: number;
   /** Seconds until the next spot is signalled; null while waiting (a pack is glowing, or the map is full). */
   nextSignalIn: number | null;
+  mines: Mine[];
+  nextMineId: number;
 }
 
 export type SimEvent =
@@ -112,4 +124,10 @@ export type SimEvent =
   | { type: "packSpawned"; pack: number; spot: number; packType: PackType }
   | { type: "packPickedUp"; ship: number; pack: number; packType: PackType }
   | { type: "packLost"; ship: number; packType: PackType }
-  | { type: "healthRestored"; ship: number; amount: number };
+  | { type: "healthRestored"; ship: number; amount: number }
+  | { type: "packUsed"; ship: number; packType: PackType; role: "pilot" | "gunner" }
+  | { type: "mineDropped"; mine: number; owner: number; pos: Vec }
+  | { type: "mineArmed"; mine: number; owner: number }
+  /** `shooter` is the ship whose shot set it off, or null when a ship sailed into it. */
+  | { type: "mineTriggered"; mine: number; owner: number; shooter: number | null; hits: { ship: number; damage: number; ownMine: boolean }[] }
+  | { type: "mineExpired"; mine: number; owner: number };

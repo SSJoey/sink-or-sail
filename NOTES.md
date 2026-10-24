@@ -158,4 +158,18 @@
 - The Pack button sends `pack: true` only when lit; in this slice nothing is usable yet (`USABLE_PACKS` is empty), so it is always dim.
 - Watch on small phones (667 px wide): "Pack: Torpedo" in the top bar plus the host's Pause and Exit squeeze the energy bar.
 
+### 2026-10-24 — Stage 1 slice 2: mine
+
+- **Size and look:** trigger circle radius **20** (a ship sets it off when its circle touches). Unarmed: hollow grey circle with small spikes; armed: solid red with a blinking ring. Visible to everyone.
+- **Drop:** just behind the stern, clear of the hull (centre 28 + 20 + 2 = 50 behind the ship's centre). If that spot is in the island or off the sea, nothing happens and the crew keeps the mine.
+- **Blast (revised the same day):** a mine is set off when a ship touches it (or a shot reaches it, once armed), and then hurts **every ship within its blast radius of 60** (a ship is hurt when its centre is within 28 + 60 = 88 of the mine), the dropper included; then the mine is gone. Found while testing: with 'blast hurts only ships touching it', a shot could never hurt anyone (a ship touching an armed mine sets it off first), so shooting mines would only ever clear them.
+- **Respawn protection** stops mine damage like shots and bumps: a protected ship touching an armed mine sets it off but takes no damage.
+- **A raised shield halves mine damage** (40% → 20%), the same rule as the torpedo.
+- **Own mine:** a ship sunk by its own mine gives nobody the sinking (the log records it as an own-mine hit).
+- **Shots set off armed mines:** the shot is used up and the mine blasts every ship touching it. If the blast sinks a ship, the **shooter** scores (nobody if it's the shooter's own ship). Unarmed mines don't stop shots. The same protection and shield rules apply to these blasts.
+- **Pack presses can't be lost:** a quick tap of E or the Pack button could fall between two input messages (sent every 50 ms), and a press could be overwritten by the next message before a server tick used it. The client now latches a press until it has been sent once, and the server latches it until a tick has used it. Found by the laptop smoke test (a quick E press didn't drop the mine).
+- Smoke tests now use `MATCH_SEED=1` (first pack: a mine at (450, 600)).
+- Log `mineTriggered` lines carry `setOffBy` ("ship" or "shot"), `shooter`, and per ship hit `damage` and `ownMine`; drops are logged as `mineDropped` (mine, ship, x, y) after the `packUsed` line.
+- Housekeeping: committed the user's Stage 1 edits to `CLAUDE.md` and `docs/design.md`; deleted `CLAUDE.md0` and `docs/design.md0` (identical to the committed versions, i.e. backups).
+
 ## Later

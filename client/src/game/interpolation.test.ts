@@ -7,6 +7,7 @@ const snap = (t: number, x: number, shots: Record<string, { x: number; y: number
   ships: [ship(x, heading)],
   shots: new Map(Object.entries(shots)),
   packs: new Map(),
+  mines: new Map(),
 });
 
 describe("lerpAngle", () => {
@@ -57,8 +58,8 @@ describe("SnapshotBuffer", () => {
 
   it("takes on/off values from the newer snapshot", () => {
     const buffer = new SnapshotBuffer();
-    buffer.push({ t: 0, ships: [ship(0)], shots: new Map(), packs: new Map() });
-    buffer.push({ t: 100, ships: [ship(0, 0, { shielding: true })], shots: new Map(), packs: new Map() });
+    buffer.push({ t: 0, ships: [ship(0)], shots: new Map(), packs: new Map(), mines: new Map() });
+    buffer.push({ t: 100, ships: [ship(0, 0, { shielding: true })], shots: new Map(), packs: new Map(), mines: new Map() });
     expect(buffer.sample(10)!.ships[0]!.shielding).toBe(true);
   });
 

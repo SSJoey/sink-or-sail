@@ -38,6 +38,21 @@ export function simEventLines(t: number, events: readonly SimEvent[], roster: Ro
       case "packPickedUp": lines.push({ t, type: "packPickedUp", ...crew(e.ship), pack: e.pack, packType: e.packType }); break;
       case "packLost": lines.push({ t, type: "packLost", ...crew(e.ship), packType: e.packType }); break;
       case "healthRestored": lines.push({ t, type: "healthRestored", ...crew(e.ship), amount: r1(e.amount) }); break;
+      case "packUsed": lines.push({ t, type: "packUsed", ...actor(roster, e.ship, e.role), packType: e.packType }); break;
+      case "mineDropped": lines.push({ t, type: "mineDropped", mine: e.mine, ship: e.owner, x: r1(e.pos.x), y: r1(e.pos.y) }); break;
+      case "mineArmed": lines.push({ t, type: "mineArmed", mine: e.mine, owner: e.owner }); break;
+      case "mineTriggered":
+        lines.push({
+          t,
+          type: "mineTriggered",
+          mine: e.mine,
+          owner: e.owner,
+          setOffBy: e.shooter === null ? "ship" : "shot",
+          shooter: e.shooter,
+          hits: e.hits.map((h) => ({ ship: h.ship, damage: r1(h.damage), ownMine: h.ownMine })),
+        });
+        break;
+      case "mineExpired": lines.push({ t, type: "mineExpired", mine: e.mine, owner: e.owner }); break;
       case "matchEnded": break;
     }
   }

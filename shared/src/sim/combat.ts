@@ -1,6 +1,6 @@
 import { TUNING } from "../tuning.ts";
 import { segmentCircleHit, segmentPolygonHit, type Polygon } from "./geometry.ts";
-import type { Ship } from "./types.ts";
+import type { Mine, Ship } from "./types.ts";
 import type { Vec } from "./vec.ts";
 
 /** Damage each ship takes from a bump, scaled by closing speed. */
@@ -33,10 +33,13 @@ export function damageShip(ship: Ship, amount: number): { ship: Ship; sank: bool
   };
 }
 
-export type ShotTrace = { kind: "none" } | { kind: "island" } | { kind: "ship"; target: number };
+export type ShotTrace = { kind: "none" } | { kind: "island" } | { kind: "ship"; target: number } | { kind: "mine"; mine: number };
 
-/** What a shot's path from→to runs into first: a ship afloat (not its own), the island, or nothing. */
-export function traceShot(owner: number, from: Vec, to: Vec, ships: readonly Ship[], island: Polygon): ShotTrace {
+/**
+ * What a shot's path from→to runs into first: a ship afloat (not its own), the island, one of `mines`
+ * (pass only armed mines; Stage 1), or nothing.
+ */
+export function traceShot(owner: number, from: Vec, to: Vec, ships: readonly Ship[], island: Polygon, mines: readonly Mine[] = []): ShotTrace {
   let nearest = segmentPolygonHit(from, to, island);
   let result: ShotTrace = nearest === null ? { kind: "none" } : { kind: "island" };
   for (const ship of ships) {
@@ -45,6 +48,13 @@ export function traceShot(owner: number, from: Vec, to: Vec, ships: readonly Shi
     if (t !== null && (nearest === null || t < nearest)) {
       nearest = t;
       result = { kind: "ship", target: ship.id };
+    }
+  }
+  for (const mine of mines) {
+    const t = segmentCircleHit(from, to, mine.pos, TUNING.mine.radius);
+    if (t !== null && (nearest === null || t < nearest)) {
+      nearest = t;
+      result = { kind: "mine", mine: mine.id };
     }
   }
   return result;

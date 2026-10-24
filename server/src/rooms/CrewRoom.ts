@@ -60,6 +60,8 @@ export class CrewRoom extends Room<{ state: CrewState }> {
   world: World | null = null;
   /** Latest valid input per session id. */
   private latestInput = new Map<string, LatestInput>();
+  /** Players who pressed Pack since the last tick, so a press isn't lost if a release arrives first. */
+  private packPressed = new Set<string>();
   /** Order players joined in, for passing on the host. */
   private joinOrder = new Map<string, number>();
   private joinCount = 0;
@@ -223,6 +225,7 @@ export class CrewRoom extends Room<{ state: CrewState }> {
     }
     if (this.state.phase !== Phase.Running) return;
     const result = step(this.world, this.shipInputs(), dt);
+    this.packPressed.clear();
     this.world = result.world;
     syncWorld(this.state, this.world);
     applyEvents(this.state, result.events);
@@ -277,9 +280,11 @@ export class CrewRoom extends Room<{ state: CrewState }> {
     if (seat.role === "pilot") {
       const input = parsePilotInput(message);
       if (input) this.latestInput.set(sessionId, { role: "pilot", input });
+      if (input?.pack) this.packPressed.add(sessionId);
     } else {
       const input = parseGunnerInput(message);
       if (input) this.latestInput.set(sessionId, { role: "gunner", input });
+      if (input?.pack) this.packPressed.add(sessionId);
     }
   }
 
@@ -292,8 +297,9 @@ export class CrewRoom extends Room<{ state: CrewState }> {
       if (!seat || !player.connected || !latest || latest.role !== seat.role) return;
       const ship = inputs[seat.crew];
       if (!ship) return;
-      if (latest.role === "pilot") ship.pilot = latest.input;
-      else ship.gunner = latest.input;
+      const pack = !!latest.input.pack || this.packPressed.has(sessionId);
+      if (latest.role === "pilot") ship.pilot = { ...latest.input, pack };
+      else ship.gunner = { ...latest.input, pack };
     });
     return inputs;
   }

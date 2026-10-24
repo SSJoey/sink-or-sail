@@ -1,5 +1,5 @@
 import type { PackType } from "@sink-or-sail/shared";
-import type { PackView, ShipView, ShotView, Snapshot } from "./interpolation.ts";
+import type { MineView, PackView, ShipView, ShotView, Snapshot } from "./interpolation.ts";
 
 /** The parts of the synced room state the game reads. */
 /** A ship as synced: the held pack is "" when the slot is empty. */
@@ -9,6 +9,7 @@ export interface GameStateView {
   ships: Iterable<SyncedShip>;
   shots: { forEach(cb: (shot: ShotView, id: string) => void): void };
   packs: { forEach(cb: (pack: PackView, id: string) => void): void };
+  mines: { forEach(cb: (mine: MineView, id: string) => void): void };
 }
 
 /** Copies the synced state (which Colyseus updates in place) into a plain, timestamped snapshot. */
@@ -25,5 +26,7 @@ export function snapshotFromState(state: GameStateView, t: number): Snapshot {
   state.shots.forEach((shot, id) => shots.set(id, { x: shot.x, y: shot.y, angle: shot.angle }));
   const packs = new Map<string, PackView>();
   state.packs.forEach((pack, id) => packs.set(id, { x: pack.x, y: pack.y, type: pack.type, signalled: pack.signalled }));
-  return { t, ships, shots, packs };
+  const mines = new Map<string, MineView>();
+  state.mines.forEach((mine, id) => mines.set(id, { x: mine.x, y: mine.y, owner: mine.owner, armed: mine.armed }));
+  return { t, ships, shots, packs, mines };
 }

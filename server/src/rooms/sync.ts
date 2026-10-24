@@ -1,5 +1,5 @@
-import { PACK_SPOTS, Phase, timeLeft, type SimEvent, type World } from "@sink-or-sail/shared";
-import { PackState, ShipState, ShotState, type CrewState } from "./state.ts";
+import { PACK_SPOTS, Phase, TUNING, timeLeft, type SimEvent, type World } from "@sink-or-sail/shared";
+import { MineState, PackState, ShipState, ShotState, type CrewState } from "./state.ts";
 
 /** Copies the simulation world into the synced room state. Colyseus sends only what changed. */
 export function syncWorld(state: CrewState, world: World): void {
@@ -37,6 +37,18 @@ export function syncWorld(state: CrewState, world: World): void {
       const spot = PACK_SPOTS[pack.spot]!;
       state.packs.set(id, new PackState({ x: spot.x, y: spot.y, type: pack.type, signalled }));
     }
+  }
+
+  const liveMines = new Set(world.mines.map((mine) => String(mine.id)));
+  for (const id of [...state.mines.keys()]) {
+    if (!liveMines.has(id)) state.mines.delete(id);
+  }
+  for (const mine of world.mines) {
+    const id = String(mine.id);
+    const armed = mine.age >= TUNING.mine.armTime - 1e-9;
+    const synced = state.mines.get(id);
+    if (synced) synced.armed = armed;
+    else state.mines.set(id, new MineState({ x: mine.pos.x, y: mine.pos.y, owner: mine.owner, armed }));
   }
 
   const live = new Set(world.shots.map((shot) => String(shot.id)));

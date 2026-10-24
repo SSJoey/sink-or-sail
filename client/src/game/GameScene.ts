@@ -3,7 +3,7 @@ import { ISLAND, TUNING, packButtonLit, type Role, type Vec } from "@sink-or-sai
 import { CREW_STYLES } from "./crews.ts";
 import { ShipEffects, type ShipEffect } from "./effects.ts";
 import { aimGuide, dashes, hullPoints, turretEnd } from "./hull.ts";
-import type { Frame, PackView, ShipView } from "./interpolation.ts";
+import type { Frame, MineView, PackView, ShipView } from "./interpolation.ts";
 import { blinkVisible } from "./matchText.ts";
 import { gunnerFromMouse, pilotFromKeys } from "./laptopInput.ts";
 import { mergeGunner, mergePilot, type TouchControls } from "./touchControls.ts";
@@ -88,6 +88,7 @@ export class GameScene extends Phaser.Scene {
     this.polygon(ISLAND, ISLAND_SAND, ISLAND_EDGE);
     this.drawPacks(frame?.packs ?? new Map());
     if (!frame) return;
+    this.drawMines(frame.mines);
 
     if (ownCrew !== null) {
       const own = frame.ships[ownCrew];
@@ -142,6 +143,32 @@ export class GameScene extends Phaser.Scene {
       if (!pack || pack.signalled) {
         letter.destroy();
         this.packLetters.delete(id);
+      }
+    }
+  }
+
+  /** Mines, visible to everyone: hollow grey with spikes until armed, then solid red with a blinking ring. */
+  private drawMines(mines: Map<string, MineView>): void {
+    const g = this.g;
+    const r = TUNING.mine.radius;
+    const blink = Math.floor(performance.now() / 250) % 2 === 0;
+    for (const mine of mines.values()) {
+      const { x, y } = mine;
+      if (mine.armed) {
+        g.fillStyle(0xd7263d, 1);
+        g.fillCircle(x, y, r * 0.8);
+        if (blink) {
+          g.lineStyle(2, 0xff8a8a, 1);
+          g.strokeCircle(x, y, r);
+        }
+      } else {
+        g.lineStyle(2, 0xb0b0b0, 1);
+        g.strokeCircle(x, y, r * 0.8);
+      }
+      g.lineStyle(2, mine.armed ? 0xd7263d : 0xb0b0b0, 1);
+      for (let i = 0; i < 8; i++) {
+        const a = (i * Math.PI) / 4;
+        g.lineBetween(x + Math.cos(a) * r * 0.8, y + Math.sin(a) * r * 0.8, x + Math.cos(a) * r * 1.15, y + Math.sin(a) * r * 1.15);
       }
     }
   }

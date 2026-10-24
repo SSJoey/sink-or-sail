@@ -64,6 +64,20 @@ export const TUNING = {
     /** Health pack: fraction of full health restored (never above full). */
     healthRestore: 0.4,
   },
+  mine: {
+    /** Trigger circle: a ship sets it off when its circle touches this one. */
+    radius: 20,
+    /** Seconds after the drop before it can go off. */
+    armTime: 1,
+    /** Seconds after the drop before it disappears unused. */
+    lifetime: 30,
+    /** When it goes off (touched or shot), it hurts every ship whose circle overlaps this blast circle. */
+    blastRadius: 60,
+    /** Fraction of full health dealt to every ship in the blast. */
+    damage: 0.4,
+    /** A raised shield multiplies mine damage by this. */
+    shieldFactor: 0.5,
+  },
   server: {
     /** Simulation steps per second; state is sent to clients at the same rate. */
     tickRate: 20,

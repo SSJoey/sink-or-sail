@@ -29,6 +29,13 @@ export interface PackView {
   signalled: boolean;
 }
 
+export interface MineView {
+  x: number;
+  y: number;
+  owner: number;
+  armed: boolean;
+}
+
 export interface ShotView {
   x: number;
   y: number;
@@ -41,6 +48,7 @@ export interface Snapshot {
   ships: ShipView[];
   shots: Map<string, ShotView>;
   packs: Map<string, PackView>;
+  mines: Map<string, MineView>;
 }
 
 export type Frame = Omit<Snapshot, "t">;
@@ -104,7 +112,7 @@ export class SnapshotBuffer {
       const before = a.shots.get(id);
       shots.set(id, before ? { x: lerp(before.x, shot.x, k), y: lerp(before.y, shot.y, k), angle: shot.angle } : shot);
     }
-    // Packs don't move: take them from the newer snapshot.
-    return { ships, shots, packs: b.packs };
+    // Packs and mines don't move: take them from the newer snapshot.
+    return { ships, shots, packs: b.packs, mines: b.mines };
   }
 }

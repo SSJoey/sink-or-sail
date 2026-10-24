@@ -6,6 +6,7 @@ import { GameScene } from "./GameScene.ts";
 import type { ShipEffect } from "./effects.ts";
 import { formatClock, packSlotText } from "./hud.ts";
 import { startInputSender } from "./inputSender.ts";
+import { PackLatch } from "./packLatch.ts";
 import { SnapshotBuffer, type Frame } from "./interpolation.ts";
 import { countdownLabel, pausedText, respawnText, resultTitle, scoreRows, sinkBanner } from "./matchText.ts";
 import { blockGestures, goFullscreenLandscape, isPortrait, isTouchFirst } from "./phone.ts";
@@ -55,8 +56,13 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
     return { crew: me.crew, role: me.role as Role };
   };
 
-  let input: unknown | null = null;
-  const stopSending = startInputSender(() => input, (message) => room.send(ClientMessage.Input, message), TUNING.client.inputRate);
+  let input: { pack?: boolean } | null = null;
+  const packLatch = new PackLatch();
+  const stopSending = startInputSender(
+    () => (input === null ? null : { ...input, pack: packLatch.take() }),
+    (message) => room.send(ClientMessage.Input, message),
+    TUNING.client.inputRate,
+  );
 
   const screen = byId("game-screen");
   const canvasHost = byId("game");
@@ -94,7 +100,10 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
     frame: (): Frame | null => buffer.sample(performance.now() - TUNING.client.interpolationDelayMs),
     seat,
     touch,
-    setInput: (next) => { input = next; },
+    setInput: (next) => {
+      input = next as { pack?: boolean } | null;
+      packLatch.update(!!input?.pack);
+    },
     drawn: (frame, effects) => {
       const mine = seat();
       const state = room.state as RoomStateView;
@@ -113,6 +122,7 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
         .filter((p) => !p.signalled)
         .map((p) => `${p.type}@${Math.round(p.x)},${Math.round(p.y)}`)
         .join(";");
+      canvasHost.dataset.mines = String(frame?.mines.size ?? 0);
       touchLayer.update(mine?.role ?? null, own?.held ?? null);
       rotate.hidden = !(touchLayer.active && isPortrait(window.innerWidth, window.innerHeight));
       updateHud(frame, mine, state.timeLeft);
@@ -147,6 +157,7 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
       delete canvasHost.dataset.ownX;
       delete canvasHost.dataset.ownY;
       delete canvasHost.dataset.packs;
+      delete canvasHost.dataset.mines;
       delete canvasHost.dataset.shots;
       rotate.hidden = true;
       countdown.hidden = true;

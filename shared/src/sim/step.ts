@@ -2,11 +2,12 @@ import { TUNING } from "../tuning.ts";
 import { bumpDamage, canBeDamaged, damageShip, traceShot } from "./combat.ts";
 import { updateEnergy } from "./energy.ts";
 import { ISLAND, SPAWN_POINTS } from "./map.ts";
+import { blastMine, canDropAt, dropSpot, isArmed, updateMines } from "./mines.ts";
 import { pickUpPacks, updatePacks } from "./packs.ts";
 import { matchResult } from "./match.ts";
 import { chooseSpawn, respawnShip } from "./respawn.ts";
 import { keepInSea, pushOutOfIsland, separateShips, steerShip } from "./ship.ts";
-import { NO_INPUT, type Ship, type ShipInput, type Shot, type SimEvent, type World } from "./types.ts";
+import { NO_INPUT, type Mine, type Ship, type ShipInput, type Shot, type SimEvent, type World } from "./types.ts";
 import { aimTurret, fireGun, moveShot } from "./weapons.ts";
 
 /** Guards timer comparisons against float drift from adding dt many times. */
@@ -28,6 +29,8 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
   const ships: Ship[] = [...world.ships];
   const shots: Shot[] = [...world.shots];
   let nextShotId = world.nextShotId;
+  const droppedMines: Mine[] = [];
+  let nextMineId = world.nextMineId;
 
   const sink = (targetIndex: number, by: number | null) => {
     const sunk = ships[targetIndex]!;
@@ -93,6 +96,17 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
       shots.push(fired.shot);
       nextShotId++;
     }
+
+    // Stage 1: the pilot's Pack button drops a loaded mine behind the stern (if that spot is clear).
+    if (world.packsOn && input.pilot.pack && ship.held === "mine") {
+      const pos = dropSpot(ship);
+      if (canDropAt(pos, ISLAND)) {
+        const mine: Mine = { id: nextMineId++, owner: ship.id, pos, age: 0 };
+        droppedMines.push(mine);
+        ship = { ...ship, held: null };
+        events.push({ type: "packUsed", ship: ship.id, packType: "mine", role: "pilot" }, { type: "mineDropped", mine: mine.id, owner: ship.id, pos });
+      }
+    }
     ships[i] = ship;
   }
 
@@ -144,11 +158,41 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
     events.push(...updated.events, ...picked.events);
   }
 
-  // Shots move along their path and stop at the first ship or the island in the way.
+  // A mine goes off: every ship touching it takes damage; sinkings are credited by blastMine's rules.
+  const blast = (mine: Mine, shooter: number | null) => {
+    const result = blastMine(ships, mine, shooter);
+    events.push(result.event);
+    for (const hit of result.hits) {
+      if (hit.damage <= 0) continue;
+      const hurt = damageShip(ships[hit.index]!, hit.damage);
+      ships[hit.index] = hurt.ship;
+      if (hurt.sank) sink(hit.index, result.creditFor(hurt.ship.id));
+    }
+  };
+
+  // Stage 1 mines age, arm, expire, and go off when a ship touches an armed one. Mines dropped this
+  // step start ageing next step, so they arm exactly the arm time after the drop.
+  let mines: Mine[] = world.mines;
+  if (mines.length > 0) {
+    const updated = updateMines(mines, ships, dt);
+    events.push(...updated.events);
+    for (const mine of updated.touched) blast(mine, null);
+    mines = updated.mines;
+  }
+  mines = [...mines, ...droppedMines];
+
+  // Shots move along their path and stop at the first ship, the island or an armed mine in the way.
+  // A shot that reaches an armed mine sets it off and is used up.
   const survivingShots: Shot[] = [];
   for (const shot of shots) {
     const moved = moveShot(shot, dt);
-    const trace = traceShot(shot.owner, moved.from, moved.to, ships, ISLAND);
+    const trace = traceShot(shot.owner, moved.from, moved.to, ships, ISLAND, mines.filter(isArmed));
+    if (trace.kind === "mine") {
+      const mine = mines.find((m) => m.id === trace.mine)!;
+      mines = mines.filter((m) => m.id !== trace.mine);
+      blast(mine, shot.owner);
+      continue;
+    }
     if (trace.kind === "ship") {
       const index = ships.findIndex((s) => s.id === trace.target);
       const target = ships[index]!;
@@ -174,6 +218,8 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
     ships,
     shots: survivingShots,
     nextShotId,
+    mines,
+    nextMineId,
     contacts,
     over: false,
   };

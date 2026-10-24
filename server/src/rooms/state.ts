@@ -51,6 +51,15 @@ export const PackState = schema({
 }, "PackState");
 export type PackState = SchemaType<typeof PackState>;
 
+export const MineState = schema({
+  x: t.float32(),
+  y: t.float32(),
+  /** Ship that dropped it. */
+  owner: t.int8(),
+  armed: t.boolean(),
+}, "MineState");
+export type MineState = SchemaType<typeof MineState>;
+
 export const CrewState = schema({
   /** Keyed by session id. */
   players: t.map(Player),
@@ -71,5 +80,7 @@ export const CrewState = schema({
   packsEnabled: t.boolean().default(true),
   /** Keyed by pack id. */
   packs: t.map(PackState),
+  /** Keyed by mine id. */
+  mines: t.map(MineState),
 }, "CrewState");
 export type CrewState = SchemaType<typeof CrewState>;

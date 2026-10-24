@@ -466,3 +466,40 @@ describe("packs on/off (Stage 1)", () => {
     expect(room.state.packs.size).toBe(0);
   });
 });
+
+describe("mines (Stage 1)", () => {
+  /** Puts a mine in Crew 1's slot, in open water facing east. */
+  const loadMine = (room: CrewRoom) => {
+    const world = room.world!;
+    room.world = { ...world, nextSignalIn: null, ships: [{ ...world.ships[0]!, pos: { x: 400, y: 300 }, heading: 0, held: "mine" }, world.ships[1]!] };
+  };
+
+  it("the pilot drops a loaded mine with the Pack button", async () => {
+    const { room, pilot } = await started();
+    loadMine(room);
+    pilot.send(ClientMessage.Input, { steer: { x: 0, y: 0 }, boost: false, pack: true });
+    await waitFor(() => room.state.mines.size === 1);
+    expect(room.state.ships[0]!.held).toBe("");
+    expect(room.state.mines.values().next().value?.armed).toBe(false);
+  });
+
+  it("ignores the gunner's Pack button for a mine", async () => {
+    const { room, gunner } = await started();
+    loadMine(room);
+    gunner.send(ClientMessage.Input, { aim: { x: 1, y: 0 }, fire: false, shield: false, pack: true });
+    await sleep(300);
+    expect(room.state.mines.size).toBe(0);
+    expect(room.state.ships[0]!.held).toBe("mine");
+  });
+});
+
+describe("Pack button presses aren't lost (Stage 1)", () => {
+  it("uses a press even if the release arrives before the next tick", async () => {
+    const { room, pilot } = await started();
+    const world = room.world!;
+    room.world = { ...world, nextSignalIn: null, ships: [{ ...world.ships[0]!, pos: { x: 400, y: 300 }, heading: 0, held: "mine" }, world.ships[1]!] };
+    pilot.send(ClientMessage.Input, { steer: { x: 0, y: 0 }, boost: false, pack: true });
+    pilot.send(ClientMessage.Input, { steer: { x: 0, y: 0 }, boost: false, pack: false });
+    await waitFor(() => room.state.mines.size === 1);
+  });
+});
