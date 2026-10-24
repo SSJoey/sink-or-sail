@@ -4,23 +4,38 @@ A standalone, browser-based 2D naval battle game. Up to 10 two-person ships (20 
 
 Full design: `docs/design.md` (exported from the "Sink or Sail — Game Design" doc). Visual mock-ups: the Sink or Sail look-options canvas on claude.ai (sea-chart look, lobby screens, phone controllers). This file covers what Claude Code needs to build now; `docs/design.md` describes the whole game, including later stages — use it for context, not as a to-do list. When the two disagree, ask.
 
-## Progress (updated 2026-10-24)
+## Progress (updated 2026-10-25)
 
-**Stage 0 is built: all 10 slices are done and committed.** Its 5-round playtest has been moved: Stage 0 and Stage 1 will be playtested together once Stage 1 is built (see "Definition of done for Stage 1"). **Current work: Stage 1, slice 1.** Every decision, with its date, is in `NOTES.md`.
+**Stage 0 is built** (all 10 slices). **Stage 1 slices 1–5 are built and committed** (pack basics and health, mine, torpedo, EMP, summary script additions). **Current work: Stage 1 slice 6 (home network play).** Done so far: a production build checked locally, and `docs/playtest.md` rewritten as the combined Stage 0 + Stage 1 playtest guide. **Next:** the user rebuilds Docker and plays one full 4-minute packs-on check match with 4 real people on phones; then check its log and summary, clear the verify items below, fix only what blocks a full match, update `NOTES.md`, commit, and hand over for the combined playtest. Every decision, with its date, is in `NOTES.md`.
 
 **Changes to the plan agreed during Stage 0** (details in `NOTES.md`):
 - Added after the first game: **Pause** (any seated player) / **Resume** (host only, with a 3-2-1 countdown) and **Exit game** (host only, ends the match with the current score).
 - Slice 8 match flow: only the **host** (room creator, ★) starts matches; 3-2-1-Go countdown; seats locked for seated players during a match.
 - Pages left open across a rebuild reload themselves and rejoin their seat.
-- Energy refill slowed three times after games: now 5 per second.
+- Energy refill slowed after games: now 5 per second (the Stage 0 reference recording was re-recorded at 5, with approval).
 
-**Still to verify from Stage 0** (also in `NOTES.md`, slice 10) — fold these into Stage 1 slice 6: log file names still showed UTC after setting `TZ` in `compose.yaml`; reload each phone by hand once; run a full 4-player match to time-up and check its log and summary.
+**Main Stage 1 decisions** (all values in `tuning.ts`; full list in `NOTES.md`):
+- Packs: a replacement is signalled 8 s after the last pack appeared, one at a time, max 2 on the map. Spots holding a pack or a ship are skipped.
+- Mine: radius 20; blast radius 60 (hits every ship in it, owner included); shots set off armed mines, with the shooter credited; a raised shield halves it; respawn protection blocks it.
+- Torpedo: speed 300; no lifetime; launched from the bow tip; can be fired with the shield up; firing ends protection.
+- EMP: radius 200. Caught ships can't fire, boost, shield or use packs for 3 s, and their shield drops at once. No stacking (a new EMP restarts the 3 s). Protected ships aren't caught; only ships are affected.
+- Summary: mine hits go to whoever set the blast off; logs with no packs setting read as "Packs off"; no Packs table with packs off.
+
+**Still to verify from Stage 0** (also in `NOTES.md`, slice 10), part of Stage 1 slice 6:
+- Time zone: already verified (log names are local time).
+- Reload each phone by hand once.
+- Run a full 4-player match to time-up and check its log and summary.
+
+**Watch items:**
+- On 667 px phones, the top bar squeezes the energy bar.
+- One browser-test run in slice 5 had a single failing text check (which test wasn't captured); later runs passed.
 
 **Where things are:**
-- `shared/src/`: `tuning.ts` (every gameplay and client number; CLAUDE.md's "`shared/tuning.ts`"), `rooms.ts` (room rules, message names), `input.ts` (input validation), `sim/` (pure, deterministic simulation; `step()` returns the new world plus events).
+- `shared/src/`: `tuning.ts` (every gameplay and client number; CLAUDE.md's "`shared/tuning.ts`"), `rooms.ts` (room rules, message names), `input.ts` (input validation), `packRules.ts` (who uses each pack, labels, when the Pack button is lit), `sim/` (pure, deterministic simulation; `step()` returns the new world plus events; `packs.ts`, `mines.ts`, `torpedoes.ts`, `random.ts` seeded generator, `map.ts` spawn spots; `fixtures/stage0-run.json` is the Stage 0 reference recording that packs-off play must match).
 - `server/src/`: `rooms/CrewRoom.ts` (room: codes, seats, host, match flow, 20 Hz loop), `rooms/matchFlow.ts`, `rooms/sync.ts`, `log/` (match event log, `summary.ts`).
-- `client/src/`: `lobby/` (plain HTML room screen), `game/` (Phaser scene, interpolation, laptop and touch controls, top bar, overlays).
-- `e2e/`: Playwright smoke tests (laptop, emulated phone, pause/exit, stale page).
+- `client/src/`: `lobby/` (plain HTML room screen, packs toggle), `game/` (Phaser scene, interpolation, laptop and touch controls, top bar, overlays, pack latch, EMP ring, pickup buzz).
+- `e2e/`: Playwright smoke tests (laptop, emulated phone, pause/exit, stale page, `packs.spec.ts` mine and torpedo, `emp.spec.ts`; shared `helpers.ts`).
+- `docs/playtest.md`: the combined playtest guide and notes sheets.
 
 **Commands:** `npm test` (Vitest, then Playwright smoke tests with the installed Chrome), `npm run test:unit`, `npm run typecheck`, `npm run build`, `npm start` (port 2567), `npm run summary -- logs/<file>.jsonl`. Docker: `sudo docker compose up --build -d`, **in a normal terminal**; the `!` prompt has no terminal, so `sudo` can't ask for the password.
 
@@ -29,6 +44,8 @@ Full design: `docs/design.md` (exported from the "Sink or Sail — Game Design" 
 - Colyseus 0.18 with the `schema()` builder, no decorators. Only the needed Colyseus packages, not the all-in-one `colyseus` (security advisories).
 - Exact version pins; ask before adding any dependency.
 - Server test files run one at a time (they share a port). Tests log to a temporary folder via `LOG_DIR`, never to the real `logs/`.
+- `MATCH_SEED` fixes every match's seed (used by the browser tests: port 2577 with seed 367 for mine and torpedo, port 2578 with seed 8 for the EMP).
+- Pack presses are latched on the client and server so quick taps aren't lost; the E key also uses a key-down listener.
 - Phaser's own touch input is off (`input: { touch: false }`). Our touch layer handles all touch; Phaser's window-wide touch listener made aiming fire the gun.
 
 ## Current goal: Stage 1 — packs
