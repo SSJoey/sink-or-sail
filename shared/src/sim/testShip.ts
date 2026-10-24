@@ -22,6 +22,7 @@ export function testShip(overrides: Partial<Ship> = {}): Ship {
     boostEnergy: 0,
     shieldEnergy: 0,
     held: null,
+    disabled: 0,
     ...overrides,
   };
 }

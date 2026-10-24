@@ -34,6 +34,9 @@
       #btn-pack { width: 76px; height: 76px; right: 57px; bottom: 175px; font-size: 14px; border-radius: 12px; opacity: 0.4; }
       #btn-pack.lit { opacity: 1; background: rgba(255,209,102,0.35); border-color: #ffd166; }
       #hud-pack { white-space: nowrap; }
+      #hud-emp { color: #7fd8ff; white-space: nowrap; }
+      /* EMP'd crew: every button dim (the stick still steers). */
+      #touch.emp .touch-btn { opacity: 0.25; }
       .overlay-text { position: absolute; left: 50%; transform: translateX(-50%); pointer-events: none; text-shadow: 0 2px 6px rgba(0,0,0,0.6); text-align: center; }
       #countdown { top: 35%; font-size: 96px; font-weight: bold; }
       #banner { top: 64px; font-size: 22px; font-weight: bold; background: rgba(11,37,69,0.85); padding: 8px 16px; border-radius: 8px; }
@@ -78,6 +81,7 @@
         <span id="hud-crew"></span>
         <div id="hud-energy" title="Shared energy"><div id="hud-energy-fill"></div></div>
         <span id="hud-pack"></span>
+        <span id="hud-emp"></span>
         <span id="hud-score"></span>
         <span id="hud-clock"></span>
         <button id="hud-pause" hidden>Pause</button>

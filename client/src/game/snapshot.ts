@@ -21,6 +21,7 @@ export function snapshotFromState(state: GameStateView, t: number): Snapshot {
       x: s.x, y: s.y, heading: s.heading, turret: s.turret, health: s.health, energy: s.energy,
       boosting: s.boosting, shielding: s.shielding, protection: s.protection, sunk: s.sunk, respawnIn: s.respawnIn,
       sinkings: s.sinkings, sunkBy: s.sunkBy, hits: s.hits, held: s.held ? (s.held as PackType) : null,
+      disabled: s.disabled, empsFired: s.empsFired,
     });
   }
   const shots = new Map<string, ShotView>();

@@ -11,7 +11,7 @@ export interface TouchLayer {
   activate(): void;
   readonly active: boolean;
   /** Updates which controls show, the Pack button, and where the stick is drawn; call every frame. */
-  update(role: Role | null, held: PackType | null): void;
+  update(role: Role | null, held: PackType | null, disabled: boolean): void;
   destroy(): void;
 }
 
@@ -75,8 +75,10 @@ export function createTouchLayer(controls: TouchControls): TouchLayer {
     get active() {
       return active;
     },
-    update(role, held) {
+    update(role, held, disabled) {
       if (!active) return;
+      // EMP'd: every button goes dim (the stick still steers).
+      layer.classList.toggle("emp", disabled);
       const seated = role !== null;
       base.hidden = !seated;
       knob.hidden = !seated;
@@ -87,7 +89,7 @@ export function createTouchLayer(controls: TouchControls): TouchLayer {
       buttons.pack.hidden = !seated;
       const label = held ? PACK_LABELS[held] : "Pack";
       if (buttons.pack.textContent !== label) buttons.pack.textContent = label;
-      buttons.pack.classList.toggle("lit", role !== null && packButtonLit(held, role));
+      buttons.pack.classList.toggle("lit", role !== null && !disabled && packButtonLit(held, role));
       if (!seated) {
         controls.releaseAll();
         return;

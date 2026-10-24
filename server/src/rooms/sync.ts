@@ -22,6 +22,7 @@ export function syncWorld(state: CrewState, world: World): void {
     synced.respawnIn = ship.respawnIn;
     synced.sinkings = ship.sinkings;
     synced.held = ship.held ?? "";
+    synced.disabled = ship.disabled;
   });
 
   const livePacks = new Set(world.packs.map((pack) => String(pack.id)));
@@ -106,6 +107,11 @@ export function applyEvents(state: CrewState, events: readonly SimEvent[]): void
       case "matchEnded":
         state.winner = event.winner ?? -1;
         break;
+      case "empFired": {
+        const firer = ship(event.ship);
+        if (firer) firer.empsFired++;
+        break;
+      }
     }
   }
 }

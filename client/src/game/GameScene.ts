@@ -2,6 +2,7 @@ import * as Phaser from "phaser";
 import { ISLAND, TUNING, packButtonLit, type Role, type Vec } from "@sink-or-sail/shared";
 import { CREW_STYLES } from "./crews.ts";
 import { ShipEffects, type ShipEffect } from "./effects.ts";
+import { EmpRings } from "./empRing.ts";
 import { aimGuide, dashes, hullPoints, turretEnd } from "./hull.ts";
 import type { Frame, MineView, PackView, ShipView } from "./interpolation.ts";
 import { blinkVisible } from "./matchText.ts";
@@ -37,6 +38,7 @@ export class GameScene extends Phaser.Scene {
    *  down and up land in the same frame never shows as "down"; the keydown event still fires. */
   private eTapped = false;
   private readonly effects = new ShipEffects(TUNING.client.hitFlashMs, TUNING.client.sinkFadeMs);
+  private readonly empRings = new EmpRings();
 
   private readonly link: SceneLink;
 
@@ -60,6 +62,7 @@ export class GameScene extends Phaser.Scene {
     const seat = this.link.seat();
     const now = performance.now();
     const effects = frame ? frame.ships.map((ship, id) => this.effects.update(id, ship, now)) : [];
+    if (frame) this.empRings.update(frame.ships, now);
     this.draw(frame, seat?.crew ?? null, effects);
     this.link.setInput(this.readInput(frame, seat));
     this.link.drawn(frame, effects);
@@ -69,8 +72,8 @@ export class GameScene extends Phaser.Scene {
     if (!seat) return null;
     const touch = this.link.touch;
     const ship = frame?.ships[seat.crew];
-    // A dim Pack button does nothing: only send it when this role can use what's loaded.
-    const lit = packButtonLit(ship?.held ?? null, seat.role);
+    // A dim Pack button does nothing: only send it when this role can use what's loaded (and no EMP is on us).
+    const lit = packButtonLit(ship?.held ?? null, seat.role) && !(ship && ship.disabled > 0);
     const ePressed = this.keys.E.isDown || this.eTapped;
     this.eTapped = false;
     if (seat.role === "pilot") {
@@ -110,6 +113,14 @@ export class GameScene extends Phaser.Scene {
     g.fillStyle(0xffffff, 1);
     for (const shot of frame.shots.values()) g.fillCircle(shot.x, shot.y, 4);
     for (const torpedo of frame.torpedoes.values()) this.drawTorpedo(torpedo.x, torpedo.y, torpedo.angle);
+
+    // EMP rings: grow from the firing ship, then fade.
+    for (const ring of this.empRings.active(performance.now())) {
+      g.lineStyle(4, 0x7fd8ff, ring.alpha);
+      g.strokeCircle(ring.x, ring.y, ring.radius);
+      g.fillStyle(0x7fd8ff, 0.12 * ring.alpha);
+      g.fillCircle(ring.x, ring.y, ring.radius);
+    }
   }
 
   /** Glowing spots pulse; packs on the water show their shape and letter (M circle, T capsule, E diamond, H square). */
@@ -198,6 +209,21 @@ export class GameScene extends Phaser.Scene {
     g.strokeCircle(x + dir.x * 7, y + dir.y * 7, 4);
   }
 
+  private drawSparks(ship: ShipView, alpha: number): void {
+    const g = this.g;
+    const t = Math.floor(performance.now() / 90);
+    g.lineStyle(2, 0x7fd8ff, alpha);
+    for (let i = 0; i < 4; i++) {
+      // A few short zig-zags whose angles change every 90 ms, so they flicker.
+      const a = ((t * 7 + i * 13) % 24) * (Math.PI / 12);
+      const r1 = 14;
+      const r2 = 30;
+      const mid = a + 0.25;
+      g.lineBetween(ship.x + Math.cos(a) * r1, ship.y + Math.sin(a) * r1, ship.x + Math.cos(mid) * 22, ship.y + Math.sin(mid) * 22);
+      g.lineBetween(ship.x + Math.cos(mid) * 22, ship.y + Math.sin(mid) * 22, ship.x + Math.cos(a) * r2, ship.y + Math.sin(a) * r2);
+    }
+  }
+
   private drawAimGuide(ship: ShipView): void {
     const g = this.g;
     const guide = aimGuide(ship, ship.turret);
@@ -229,7 +255,10 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
-    this.polygon(hullPoints(ship, ship.heading), flashing ? 0xffffff : style.colour, HULL_EDGE, alpha);
+    // EMP'd: grey hull with flickering blue sparks.
+    const disabled = ship.disabled > 0;
+    this.polygon(hullPoints(ship, ship.heading), flashing ? 0xffffff : disabled ? 0x8a8a8a : style.colour, HULL_EDGE, alpha);
+    if (disabled) this.drawSparks(ship, alpha);
 
     // Crew flag near the stern: ● for crew 1, ■ for crew 2.
     const flag = { x: ship.x - Math.cos(ship.heading) * 14, y: ship.y - Math.sin(ship.heading) * 14 };

@@ -527,3 +527,19 @@ describe("torpedoes (Stage 1)", () => {
     expect(room.state.ships[0]!.held).toBe("torpedo");
   });
 });
+
+describe("EMP (Stage 1)", () => {
+  it("the gunner fires a loaded EMP; the enemy in range is disabled", async () => {
+    const { room, gunner } = await started();
+    const world = room.world!;
+    room.world = {
+      ...world,
+      nextSignalIn: null,
+      ships: [{ ...world.ships[0]!, pos: { x: 400, y: 300 }, held: "emp" }, { ...world.ships[1]!, pos: { x: 550, y: 300 } }],
+    };
+    gunner.send(ClientMessage.Input, { aim: { x: 1, y: 0 }, fire: false, shield: false, pack: true });
+    await waitFor(() => room.state.ships[1]!.disabled > 0);
+    expect(room.state.ships[0]!.held).toBe("");
+    expect(room.state.ships[0]!.empsFired).toBe(1);
+  });
+});

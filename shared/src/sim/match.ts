@@ -33,6 +33,7 @@ export function createWorld(options: WorldOptions = {}): World {
       boostEnergy: 0,
       shieldEnergy: 0,
       held: null,
+      disabled: 0,
     };
   });
   return {

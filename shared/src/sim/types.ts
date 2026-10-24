@@ -84,6 +84,8 @@ export interface Ship {
   shieldEnergy: number;
   /** The crew's pack slot (never a health pack, which is used on pickup). */
   held: PackType | null;
+  /** Seconds left of an EMP: no fire, boost, shield or packs (steering still works). */
+  disabled: number;
 }
 
 export interface Shot {
@@ -143,5 +145,6 @@ export type SimEvent =
   | { type: "mineExpired"; mine: number; owner: number }
   | { type: "torpedoFired"; torpedo: number; owner: number; pos: Vec; heading: number }
   | { type: "torpedoHit"; torpedo: number; attacker: number; target: number; damage: number; shieldHalved: boolean }
+  | { type: "empFired"; ship: number; caught: number[] }
   /** A torpedo that didn't hit a ship: stopped by the island or the sea edge, or used up setting off a mine. */
   | { type: "torpedoEnded"; torpedo: number; owner: number; reason: "island" | "edge" | "mine" };

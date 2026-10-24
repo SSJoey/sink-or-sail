@@ -4,7 +4,7 @@ import { ClientMessage, Phase, TUNING, type PackType, type Role } from "@sink-or
 import { CREW_STYLES } from "./crews.ts";
 import { GameScene } from "./GameScene.ts";
 import type { ShipEffect } from "./effects.ts";
-import { formatClock, packSlotText } from "./hud.ts";
+import { empText, formatClock, packSlotText } from "./hud.ts";
 import { startInputSender } from "./inputSender.ts";
 import { PackLatch } from "./packLatch.ts";
 import { gunnerPackBuzz } from "./packBuzz.ts";
@@ -130,7 +130,9 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
       const heldNow = own?.held ?? null;
       if (mine && gunnerPackBuzz(heldBefore, heldNow, mine.role)) navigator.vibrate?.(TUNING.client.gunnerPackVibrateMs);
       heldBefore = heldNow;
-      touchLayer.update(mine?.role ?? null, own?.held ?? null);
+      touchLayer.update(mine?.role ?? null, own?.held ?? null, (own?.disabled ?? 0) > 0);
+      // Read by the EMP smoke test: is any ship disabled right now?
+      canvasHost.dataset.disabled = (frame?.ships ?? []).map((s) => (s.disabled > 0 ? "1" : "0")).join("");
       rotate.hidden = !(touchLayer.active && isPortrait(window.innerWidth, window.innerHeight));
       updateHud(frame, mine, state.timeLeft);
     },
@@ -166,6 +168,7 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
       delete canvasHost.dataset.packs;
       delete canvasHost.dataset.mines;
       delete canvasHost.dataset.torpedoes;
+      delete canvasHost.dataset.disabled;
       delete canvasHost.dataset.shots;
       rotate.hidden = true;
       countdown.hidden = true;
@@ -240,6 +243,9 @@ function updateHud(frame: Frame | null, seat: { crew: number; role: Role } | nul
   const fill = byId("hud-energy-fill");
 
   byId("hud-clock").textContent = formatClock(timeLeft);
+  const empLine = byId("hud-emp");
+  const emp = seat ? empText(frame?.ships[seat.crew]?.disabled ?? 0) : "";
+  if (empLine.textContent !== emp) empLine.textContent = emp;
   const packSlot = byId("hud-pack");
   const slotText = seat ? packSlotText(frame?.ships[seat.crew]?.held ?? null) : "";
   if (packSlot.textContent !== slotText) packSlot.textContent = slotText;

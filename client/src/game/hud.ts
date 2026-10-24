@@ -8,3 +8,6 @@ export function formatClock(seconds: number): string {
 
 /** The pack slot in the top bar. */
 export const packSlotText = (held: PackType | null) => `Pack: ${held ? PACK_LABELS[held] : "—"}`;
+
+/** "EMP 3…2…1" in the top bar while the crew's ship is disabled. */
+export const empText = (disabled: number) => (disabled > 0 ? `EMP ${Math.ceil(disabled)}` : "");

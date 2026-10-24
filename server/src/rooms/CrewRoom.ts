@@ -197,6 +197,7 @@ export class CrewRoom extends Room<{ state: CrewState }> {
     for (const ship of this.state.ships) {
       ship.hits = 0;
       ship.sunkBy = -1;
+      ship.empsFired = 0;
     }
     this.state.winner = -1;
     this.state.countdown = this.countdownSeconds;

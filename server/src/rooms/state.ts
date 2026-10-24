@@ -31,6 +31,10 @@ export const ShipState = schema({
   hits: t.uint16().default(0),
   /** The crew's pack slot: a pack type, or "" when empty. */
   held: t.string().default(""),
+  /** Seconds left of an EMP (no fire, boost, shield or packs). */
+  disabled: t.float32().default(0),
+  /** EMPs this ship has fired this match; clients draw the ring when it goes up. */
+  empsFired: t.uint16().default(0),
 }, "ShipState");
 export type ShipState = SchemaType<typeof ShipState>;
 

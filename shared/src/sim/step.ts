@@ -9,7 +9,7 @@ import { matchResult } from "./match.ts";
 import { chooseSpawn, respawnShip } from "./respawn.ts";
 import { keepInSea, pushOutOfIsland, separateShips, steerShip } from "./ship.ts";
 import { NO_INPUT, type Mine, type Ship, type ShipInput, type Shot, type SimEvent, type Torpedo, type World } from "./types.ts";
-import { add, scale } from "./vec.ts";
+import { add, distance, scale } from "./vec.ts";
 import { aimTurret, fireGun, moveShot } from "./weapons.ts";
 
 /** Guards timer comparisons against float drift from adding dt many times. */
@@ -49,6 +49,11 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
     }
   };
 
+  // EMP timers run down first, so a ship caught during this step is disabled for exactly the full time.
+  for (let i = 0; i < ships.length; i++) {
+    if (ships[i]!.disabled > 0) ships[i] = { ...ships[i]!, disabled: Math.max(0, ships[i]!.disabled - dt) };
+  }
+
   // Sunk ships count down and respawn; afloat ships act on their crew's input.
   for (let i = 0; i < ships.length; i++) {
     let ship = ships[i]!;
@@ -72,12 +77,14 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
     }
 
     const input = inputs[ship.id] ?? NO_INPUT;
+    // An EMP'd ship can steer, but can't fire, boost, shield or use packs.
+    const disabled = ship.disabled > EPSILON;
     ship = aimTurret(ship, input.gunner.aim);
 
     const energy = updateEnergy(
       { energy: ship.energy, locked: ship.energyLocked, boosting: ship.boosting, shielding: ship.shielding },
       ship.id,
-      { boost: input.pilot.boost, shield: input.gunner.shield },
+      { boost: input.pilot.boost && !disabled, shield: input.gunner.shield && !disabled },
       dt,
     );
     events.push(...energy.events);
@@ -93,7 +100,7 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
 
     ship = steerShip(ship, input.pilot, ship.boosting, dt);
 
-    const fired = fireGun(ship, input.gunner, dt, nextShotId);
+    const fired = fireGun(ship, disabled ? { ...input.gunner, fire: false } : input.gunner, dt, nextShotId);
     ship = fired.ship;
     events.push(...fired.events);
     if (fired.shot) {
@@ -102,7 +109,7 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
     }
 
     // Stage 1: the pilot's Pack button drops a loaded mine behind the stern (if that spot is clear).
-    if (world.packsOn && input.pilot.pack && ship.held === "mine") {
+    if (world.packsOn && !disabled && input.pilot.pack && ship.held === "mine") {
       const pos = dropSpot(ship);
       if (canDropAt(pos, ISLAND)) {
         const mine: Mine = { id: nextMineId++, owner: ship.id, pos, age: 0 };
@@ -113,13 +120,28 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
     }
     // Stage 1: the gunner's Pack button fires a loaded torpedo along the heading (allowed with the shield up).
     // Like firing the gun, it ends respawn protection.
-    if (world.packsOn && input.gunner.pack && ship.held === "torpedo") {
+    if (world.packsOn && !disabled && input.gunner.pack && ship.held === "torpedo") {
       const torpedo = launchTorpedo(ship, nextTorpedoId++);
       torpedoes.push(torpedo);
       events.push(
         { type: "packUsed", ship: ship.id, packType: "torpedo", role: "gunner" },
         { type: "torpedoFired", torpedo: torpedo.id, owner: ship.id, pos: torpedo.pos, heading: ship.heading },
       );
+      if (ship.protection > 0) events.push({ type: "protectionEnded", ship: ship.id });
+      ship = { ...ship, held: null, protection: 0 };
+    }
+    // Stage 1: the gunner's Pack button fires a loaded EMP, centred on this ship. Enemy ships in range
+    // (afloat, not protected) lose fire, boost, shield and packs for the EMP's duration; shields drop at once.
+    if (world.packsOn && !disabled && input.gunner.pack && ship.held === "emp") {
+      const caught: number[] = [];
+      for (let j = 0; j < ships.length; j++) {
+        const other = ships[j]!;
+        if (j === i || other.sunk || other.protection > 0) continue;
+        if (distance(other.pos, ship.pos) >= TUNING.ship.radius + TUNING.emp.radius) continue;
+        ships[j] = { ...other, disabled: TUNING.emp.duration, shielding: false, boosting: false };
+        caught.push(other.id);
+      }
+      events.push({ type: "packUsed", ship: ship.id, packType: "emp", role: "gunner" }, { type: "empFired", ship: ship.id, caught });
       if (ship.protection > 0) events.push({ type: "protectionEnded", ship: ship.id });
       ship = { ...ship, held: null, protection: 0 };
     }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatClock, packSlotText } from "./hud.ts";
+import { empText, formatClock, packSlotText } from "./hud.ts";
 
 describe("formatClock", () => {
   it("shows minutes and seconds, rounding up so 0:00 means time is up", () => {
@@ -17,5 +17,14 @@ describe("packSlotText", () => {
     expect(packSlotText("torpedo")).toBe("Pack: Torpedo");
     expect(packSlotText("emp")).toBe("Pack: EMP");
     expect(packSlotText(null)).toBe("Pack: —");
+  });
+});
+
+describe("empText", () => {
+  it("counts down whole seconds while the crew's ship is disabled", () => {
+    expect(empText(3)).toBe("EMP 3");
+    expect(empText(2.1)).toBe("EMP 3");
+    expect(empText(0.2)).toBe("EMP 1");
+    expect(empText(0)).toBe("");
   });
 });

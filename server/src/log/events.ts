@@ -59,6 +59,7 @@ export function simEventLines(t: number, events: readonly SimEvent[], roster: Ro
       case "torpedoHit":
         lines.push({ t, type: "torpedoHit", torpedo: e.torpedo, ...actor(roster, e.attacker, "gunner"), target: e.target, damage: r1(e.damage), shieldHalved: e.shieldHalved });
         break;
+      case "empFired": lines.push({ t, type: "empFired", ...actor(roster, e.ship, "gunner"), caught: e.caught }); break;
       case "torpedoEnded": lines.push({ t, type: "torpedoEnded", torpedo: e.torpedo, ship: e.owner, reason: e.reason }); break;
       case "matchEnded": break;
     }

@@ -86,6 +86,12 @@ export const TUNING = {
     /** A raised shield multiplies torpedo damage by this. */
     shieldFactor: 0.5,
   },
+  emp: {
+    /** Enemy ships whose circle overlaps this circle around the firing ship are caught. */
+    radius: 200,
+    /** Seconds a caught ship can't fire, boost, shield or use packs (steering still works). */
+    duration: 3,
+  },
   server: {
     /** Simulation steps per second; state is sent to clients at the same rate. */
     tickRate: 20,
@@ -108,5 +114,8 @@ export const TUNING = {
     sinkFadeMs: 1000,
     /** Short buzz on the gunner's phone when the crew picks up a torpedo or EMP (Android only). */
     gunnerPackVibrateMs: 200,
+    /** EMP ring: grows from the firing ship to the full radius, then fades. */
+    empRingGrowMs: 400,
+    empRingFadeMs: 300,
   },
 } as const;

@@ -195,4 +195,18 @@
 - Smoke tests now use `MATCH_SEED=367`: a mine at (450, 300) first, then a torpedo at (450, 600) at 0:22. Torpedo tests use two players (a laptop pilot picks it up; the gunner, on a laptop or an emulated phone, fires it). Steering in the tests is time-based (up to 40 s), and the mouse-fire smoke test waits up to 10 s for the first shot, because ten browser pages at once slow everything down.
 - Log: `torpedoFired` (torpedo, ship, x, y, heading), `torpedoHit` (torpedo, attacker ship with gunner name/role, target, damage, `shieldHalved`), `torpedoEnded` (torpedo, ship, reason: island, edge or mine).
 
+### 2026-10-24 — Stage 1 slice 4: EMP
+
+- **Radius 200**: a circle check centred on the firing ship at the moment it fires; an enemy ship is caught if its circle overlaps (centre within 28 + 200 = 228). The firing ship is never affected.
+- **Effect 3 s:** caught ships can't fire, boost, shield **or use packs** (the design doc's "weapons"; a held pack stays in the slot). They can still steer. Energy refills as normal, since boost and shield are off.
+- **A raised shield drops at once** and can't be raised again until the 3 s are up.
+- **Caught again before it wears off:** the 3 s restart from the latest EMP (no stacking).
+- **Respawn protection:** protected ships aren't caught; firing an EMP ends the firer's own protection (like the gun and torpedo).
+- **Only ships:** shots, torpedoes and mines already in the water are unaffected.
+- **Look:** a ring expands from the firing ship to the full radius over 0.4 s, then fades. A caught ship's hull turns grey with flickering blue sparks for 3 s (everyone sees it). The caught crew's Fire, Shield, Boost and Pack buttons go dim, and their top bar shows "EMP 3…2…1".
+- Fired by the gunner (Pack button / E); the pickup buzz on the gunner's phone now covers the EMP too.
+- The EMP timer counts down at the start of each step, so a ship caught during a step is disabled for exactly the full 3 s whichever ship fired. A respawned ship is never disabled.
+- Synced state: each ship's `disabled` seconds and an `empsFired` count (from the simulation's `empFired` events) so clients know when to draw the ring. Log: `empFired` (ship, gunner name/role, `caught` ship ids).
+- **Second browser-test server:** the EMP smoke test needs a different `MATCH_SEED` (8: an EMP first, at (800, 150)) from the other pack tests (367), so `playwright.config.ts` starts a second server on port 2578 serving the same build. The EMP test uses three players (Crew 1 pilot and gunner, Crew 2 pilot), steers level onto the pack, then closes in on the enemy and checks it is in range before firing (WASD steering with drift wasn't precise enough to rely on fixed spots). Shared helpers moved to `e2e/helpers.ts`.
+
 ## Later

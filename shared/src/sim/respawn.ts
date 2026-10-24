@@ -35,5 +35,6 @@ export function respawnShip(ship: Ship, pos: Vec): Ship {
     protection: TUNING.respawn.protection,
     sunk: false,
     respawnIn: 0,
+    disabled: 0,
   };
 }

@@ -19,6 +19,10 @@ export interface ShipView {
   hits: number;
   /** The crew's pack slot. */
   held: PackType | null;
+  /** Seconds left of an EMP. */
+  disabled: number;
+  /** EMPs this ship fired (the client draws a ring when it goes up). */
+  empsFired: number;
 }
 
 export interface PackView {

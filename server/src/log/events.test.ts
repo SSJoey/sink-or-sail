@@ -185,3 +185,11 @@ describe("Stage 1 torpedo lines", () => {
     expect(lines({ type: "torpedoEnded", torpedo: 1, owner: 0, reason: "edge" })).toEqual([{ t: 6000, type: "torpedoEnded", torpedo: 1, ship: 0, reason: "edge" }]);
   });
 });
+
+describe("Stage 1 EMP line", () => {
+  it("records the firing ship (with the gunner) and the ships caught", () => {
+    expect(simEventLines(7000, [{ type: "empFired", ship: 0, caught: [1] }], roster)).toEqual([
+      { t: 7000, type: "empFired", ship: 0, player: "Sam", role: "gunner", caught: [1] },
+    ]);
+  });
+});

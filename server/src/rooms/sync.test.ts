@@ -162,3 +162,22 @@ describe("torpedoes in the synced state", () => {
     expect(state.torpedoes.size).toBe(0);
   });
 });
+
+describe("EMP in the synced state", () => {
+  it("shows how long each ship stays disabled", () => {
+    const state = new CrewState();
+    const world = createWorld({ packs: true, seed: 1 });
+    world.ships[1] = { ...world.ships[1]!, disabled: 2.5 };
+    syncWorld(state, world);
+    expect(state.ships[1]!.disabled).toBeCloseTo(2.5);
+    expect(state.ships[0]!.disabled).toBe(0);
+  });
+
+  it("counts EMPs each ship fired, so clients know when to draw the ring", () => {
+    const state = new CrewState();
+    syncWorld(state, createWorld({ packs: true, seed: 1 }));
+    expect(state.ships[0]!.empsFired).toBe(0);
+    applyEvents(state, [{ type: "empFired", ship: 0, caught: [1] }]);
+    expect(state.ships[0]!.empsFired).toBe(1);
+  });
+});
