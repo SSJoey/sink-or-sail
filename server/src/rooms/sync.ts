@@ -39,6 +39,21 @@ export function syncWorld(state: CrewState, world: World): void {
     }
   }
 
+  const liveTorpedoes = new Set(world.torpedoes.map((torpedo) => String(torpedo.id)));
+  for (const id of [...state.torpedoes.keys()]) {
+    if (!liveTorpedoes.has(id)) state.torpedoes.delete(id);
+  }
+  for (const torpedo of world.torpedoes) {
+    const id = String(torpedo.id);
+    const synced = state.torpedoes.get(id);
+    if (synced) {
+      synced.x = torpedo.pos.x;
+      synced.y = torpedo.pos.y;
+    } else {
+      state.torpedoes.set(id, new ShotState({ x: torpedo.pos.x, y: torpedo.pos.y, angle: Math.atan2(torpedo.vel.y, torpedo.vel.x) }));
+    }
+  }
+
   const liveMines = new Set(world.mines.map((mine) => String(mine.id)));
   for (const id of [...state.mines.keys()]) {
     if (!liveMines.has(id)) state.mines.delete(id);

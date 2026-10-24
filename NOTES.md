@@ -179,4 +179,20 @@
 - **Time zone verified:** the container's log files now have local-time names (e.g. `2026-10-24_13-41-25_ZYDS.jsonl`), clearing that Stage 0 "still to verify" item.
 - **Packs felt inactive:** in both games the crew picked up a torpedo or an EMP, which only become usable in slices 3–4, and was then stuck holding it (a mine that appeared later couldn't be taken). Decision: no temporary change; build the torpedo and EMP slices next.
 
+### 2026-10-24 — Stage 1 slice 3: torpedo
+
+- **Speed 300** (two-thirds of a shot's 450): slower than a shot, faster than any ship even boosting (270), so a crew can't sail into its own torpedo. Crosses the sea in about 5.3 s.
+- **No lifetime limit:** it runs until it hits a ship, the island or the sea edge.
+- **Launch:** from just ahead of the bow tip (28 + 2 in front of the centre), along the heading at that moment, at fixed speed (doesn't add the ship's speed). No aiming line.
+- **Damage 50% of full health**, halved by a raised shield (CLAUDE.md); **respawn protection blocks it** (the torpedo is used up).
+- **Never hits its own ship; sets off armed mines** in its path like a shot (the torpedo is used up; shooter credit rules).
+- **Fired by the gunner** (Pack button / E). Allowed **while holding Shield** (Pack isn't Fire).
+- **Firing a torpedo ends respawn protection**, like firing the gun. Dropping a mine doesn't (unchanged).
+- **Vibration:** 200 ms on the gunner's phone, once, when their crew picks up a torpedo (later also an EMP). Android only. In `tuning.ts`.
+- **Look:** dark capsule 22 × 8 pointing the way it travels, with a short white wake; visible to everyone.
+- **Quick E taps could be lost (fixed):** Phaser handles key events once per frame, so a tap whose key-down and key-up land in the same frame (likelier on a busy machine) never showed E as down. The scene now also listens for the E key-down event. Found by the laptop mine smoke test under load.
+- The Stage 0 reference's "tuning changed" check now covers only the sections that shape a packs-off match (sea, ship, boost, shield, energy, gun, bump, respawn, match), so adding pack or client values doesn't trip it.
+- Smoke tests now use `MATCH_SEED=367`: a mine at (450, 300) first, then a torpedo at (450, 600) at 0:22. Torpedo tests use two players (a laptop pilot picks it up; the gunner, on a laptop or an emulated phone, fires it). Steering in the tests is time-based (up to 40 s), and the mouse-fire smoke test waits up to 10 s for the first shot, because ten browser pages at once slow everything down.
+- Log: `torpedoFired` (torpedo, ship, x, y, heading), `torpedoHit` (torpedo, attacker ship with gunner name/role, target, damage, `shieldHalved`), `torpedoEnded` (torpedo, ship, reason: island, edge or mine).
+
 ## Later

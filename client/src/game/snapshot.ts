@@ -10,6 +10,7 @@ export interface GameStateView {
   shots: { forEach(cb: (shot: ShotView, id: string) => void): void };
   packs: { forEach(cb: (pack: PackView, id: string) => void): void };
   mines: { forEach(cb: (mine: MineView, id: string) => void): void };
+  torpedoes: { forEach(cb: (torpedo: ShotView, id: string) => void): void };
 }
 
 /** Copies the synced state (which Colyseus updates in place) into a plain, timestamped snapshot. */
@@ -28,5 +29,7 @@ export function snapshotFromState(state: GameStateView, t: number): Snapshot {
   state.packs.forEach((pack, id) => packs.set(id, { x: pack.x, y: pack.y, type: pack.type, signalled: pack.signalled }));
   const mines = new Map<string, MineView>();
   state.mines.forEach((mine, id) => mines.set(id, { x: mine.x, y: mine.y, owner: mine.owner, armed: mine.armed }));
-  return { t, ships, shots, packs, mines };
+  const torpedoes = new Map<string, ShotView>();
+  state.torpedoes.forEach((torpedo, id) => torpedoes.set(id, { x: torpedo.x, y: torpedo.y, angle: torpedo.angle }));
+  return { t, ships, shots, packs, mines, torpedoes };
 }

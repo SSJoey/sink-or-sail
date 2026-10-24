@@ -49,6 +49,7 @@ export interface Snapshot {
   shots: Map<string, ShotView>;
   packs: Map<string, PackView>;
   mines: Map<string, MineView>;
+  torpedoes: Map<string, ShotView>;
 }
 
 export type Frame = Omit<Snapshot, "t">;
@@ -70,6 +71,16 @@ function blendShip(a: ShipView, b: ShipView, k: number): ShipView {
     health: lerp(a.health, b.health, k),
     energy: lerp(a.energy, b.energy, k),
   };
+}
+
+/** Shots and torpedoes: blend those in both snapshots, show new ones where they are, drop gone ones. */
+function blendMoving(a: Map<string, ShotView>, b: Map<string, ShotView>, k: number): Map<string, ShotView> {
+  const out = new Map<string, ShotView>();
+  for (const [id, item] of b) {
+    const before = a.get(id);
+    out.set(id, before ? { x: lerp(before.x, item.x, k), y: lerp(before.y, item.y, k), angle: item.angle } : item);
+  }
+  return out;
 }
 
 /** Keeps recent server snapshots and blends between the two around a render time. */
@@ -107,12 +118,7 @@ export class SnapshotBuffer {
       const before = a.ships[index];
       return before ? blendShip(before, ship, k) : ship;
     });
-    const shots = new Map<string, ShotView>();
-    for (const [id, shot] of b.shots) {
-      const before = a.shots.get(id);
-      shots.set(id, before ? { x: lerp(before.x, shot.x, k), y: lerp(before.y, shot.y, k), angle: shot.angle } : shot);
-    }
     // Packs and mines don't move: take them from the newer snapshot.
-    return { ships, shots, packs: b.packs, mines: b.mines };
+    return { ships, shots: blendMoving(a.shots, b.shots, k), packs: b.packs, mines: b.mines, torpedoes: blendMoving(a.torpedoes, b.torpedoes, k) };
   }
 }

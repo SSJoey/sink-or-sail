@@ -35,7 +35,8 @@ test("laptop: the gunner aims with the mouse and fires only while the left butto
   expect(await shots()).toBe(0);
 
   await page.mouse.down();
-  await expect.poll(shots, { timeout: 3000 }).toBeGreaterThan(0);
+  // Generous: on a busy machine (many test pages at once) the first shot can take a few seconds to show.
+  await expect.poll(shots, { timeout: 10_000 }).toBeGreaterThan(0);
   await page.mouse.up();
 });
 

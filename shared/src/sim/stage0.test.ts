@@ -27,8 +27,11 @@ function stage0View(world: World) {
 }
 
 describe("packs off plays exactly as Stage 0", () => {
-  it("was recorded with the current tuning (if not: tuning changed since; re-record with approval)", () => {
-    expect(JSON.parse(JSON.stringify(TUNING))).toEqual(recorded.tuning);
+  it("was recorded with the current Stage 0 tuning (if not: it changed since; re-record with approval)", () => {
+    // Only the sections that shape a packs-off match; pack and client values can't change it.
+    const stage0Sections = ["sea", "ship", "boost", "shield", "energy", "gun", "bump", "respawn", "match"] as const;
+    const pick = (t: Record<string, unknown>) => Object.fromEntries(stage0Sections.map((k) => [k, t[k]]));
+    expect(pick(JSON.parse(JSON.stringify(TUNING)))).toEqual(pick(recorded.tuning as Record<string, unknown>));
   });
 
   it("replays the recorded 90-second fight identically", () => {

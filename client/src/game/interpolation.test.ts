@@ -8,6 +8,7 @@ const snap = (t: number, x: number, shots: Record<string, { x: number; y: number
   shots: new Map(Object.entries(shots)),
   packs: new Map(),
   mines: new Map(),
+  torpedoes: new Map(),
 });
 
 describe("lerpAngle", () => {
@@ -58,8 +59,8 @@ describe("SnapshotBuffer", () => {
 
   it("takes on/off values from the newer snapshot", () => {
     const buffer = new SnapshotBuffer();
-    buffer.push({ t: 0, ships: [ship(0)], shots: new Map(), packs: new Map(), mines: new Map() });
-    buffer.push({ t: 100, ships: [ship(0, 0, { shielding: true })], shots: new Map(), packs: new Map(), mines: new Map() });
+    buffer.push({ t: 0, ships: [ship(0)], shots: new Map(), packs: new Map(), mines: new Map(), torpedoes: new Map() });
+    buffer.push({ t: 100, ships: [ship(0, 0, { shielding: true })], shots: new Map(), packs: new Map(), mines: new Map(), torpedoes: new Map() });
     expect(buffer.sample(10)!.ships[0]!.shielding).toBe(true);
   });
 
@@ -74,5 +75,14 @@ describe("SnapshotBuffer", () => {
     buffer.push(snap(0, 0));
     buffer.clear();
     expect(buffer.sample(0)).toBeNull();
+  });
+});
+
+describe("torpedoes (Stage 1)", () => {
+  it("blend like shots between snapshots", () => {
+    const buffer = new SnapshotBuffer();
+    buffer.push({ ...snap(0, 0), torpedoes: new Map([["t", { x: 0, y: 0, angle: 0 }]]) });
+    buffer.push({ ...snap(100, 0), torpedoes: new Map([["t", { x: 30, y: 0, angle: 0 }]]) });
+    expect(buffer.sample(50)!.torpedoes.get("t")!.x).toBeCloseTo(15);
   });
 });

@@ -3,7 +3,8 @@
   "compilerOptions": {
     "module": "nodenext",
     "moduleResolution": "nodenext",
-    "types": ["node"]
+    "types": ["node"],
+    "lib": ["es2023", "dom"]
   },
   "include": ["*.ts", "../playwright.config.ts"]
 }

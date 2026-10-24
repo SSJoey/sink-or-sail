@@ -166,3 +166,22 @@ describe("Stage 1 mine lines", () => {
     expect(lines({ type: "mineTriggered", mine: 4, owner: 1, shooter: null, hits: [] })[0]).toMatchObject({ setOffBy: "ship", shooter: null, hits: [] });
   });
 });
+
+describe("Stage 1 torpedo lines", () => {
+  const lines = (e: SimEvent) => simEventLines(6000, [e], roster);
+
+  it("records a torpedo fired, with the gunner", () => {
+    expect(lines({ type: "packUsed", ship: 0, packType: "torpedo", role: "gunner" })).toEqual([{ t: 6000, type: "packUsed", ship: 0, player: "Sam", role: "gunner", packType: "torpedo" }]);
+    expect(lines({ type: "torpedoFired", torpedo: 1, owner: 0, pos: { x: 330.04, y: 200 }, heading: 0.12345 })).toEqual([{ t: 6000, type: "torpedoFired", torpedo: 1, ship: 0, x: 330, y: 200, heading: 0.123 }]);
+  });
+
+  it("records a hit: attacker (with the gunner), target, damage, whether the shield halved it", () => {
+    expect(lines({ type: "torpedoHit", torpedo: 1, attacker: 0, target: 1, damage: 25, shieldHalved: true })).toEqual([
+      { t: 6000, type: "torpedoHit", torpedo: 1, ship: 0, player: "Sam", role: "gunner", target: 1, damage: 25, shieldHalved: true },
+    ]);
+  });
+
+  it("records a torpedo that ended without a hit, and why", () => {
+    expect(lines({ type: "torpedoEnded", torpedo: 1, owner: 0, reason: "edge" })).toEqual([{ t: 6000, type: "torpedoEnded", torpedo: 1, ship: 0, reason: "edge" }]);
+  });
+});

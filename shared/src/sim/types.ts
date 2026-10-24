@@ -48,6 +48,14 @@ export interface Mine {
   age: number;
 }
 
+/** A torpedo in the water: a point moving in a straight line at fixed speed. */
+export interface Torpedo {
+  id: number;
+  owner: number;
+  pos: Vec;
+  vel: Vec;
+}
+
 export interface Ship {
   id: number;
   pos: Vec;
@@ -105,6 +113,8 @@ export interface World {
   nextSignalIn: number | null;
   mines: Mine[];
   nextMineId: number;
+  torpedoes: Torpedo[];
+  nextTorpedoId: number;
 }
 
 export type SimEvent =
@@ -130,4 +140,8 @@ export type SimEvent =
   | { type: "mineArmed"; mine: number; owner: number }
   /** `shooter` is the ship whose shot set it off, or null when a ship sailed into it. */
   | { type: "mineTriggered"; mine: number; owner: number; shooter: number | null; hits: { ship: number; damage: number; ownMine: boolean }[] }
-  | { type: "mineExpired"; mine: number; owner: number };
+  | { type: "mineExpired"; mine: number; owner: number }
+  | { type: "torpedoFired"; torpedo: number; owner: number; pos: Vec; heading: number }
+  | { type: "torpedoHit"; torpedo: number; attacker: number; target: number; damage: number; shieldHalved: boolean }
+  /** A torpedo that didn't hit a ship: stopped by the island or the sea edge, or used up setting off a mine. */
+  | { type: "torpedoEnded"; torpedo: number; owner: number; reason: "island" | "edge" | "mine" };

@@ -4,10 +4,12 @@ import { updateEnergy } from "./energy.ts";
 import { ISLAND, SPAWN_POINTS } from "./map.ts";
 import { blastMine, canDropAt, dropSpot, isArmed, updateMines } from "./mines.ts";
 import { pickUpPacks, updatePacks } from "./packs.ts";
+import { launchTorpedo, outsideSea, torpedoDamage } from "./torpedoes.ts";
 import { matchResult } from "./match.ts";
 import { chooseSpawn, respawnShip } from "./respawn.ts";
 import { keepInSea, pushOutOfIsland, separateShips, steerShip } from "./ship.ts";
-import { NO_INPUT, type Mine, type Ship, type ShipInput, type Shot, type SimEvent, type World } from "./types.ts";
+import { NO_INPUT, type Mine, type Ship, type ShipInput, type Shot, type SimEvent, type Torpedo, type World } from "./types.ts";
+import { add, scale } from "./vec.ts";
 import { aimTurret, fireGun, moveShot } from "./weapons.ts";
 
 /** Guards timer comparisons against float drift from adding dt many times. */
@@ -31,6 +33,8 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
   let nextShotId = world.nextShotId;
   const droppedMines: Mine[] = [];
   let nextMineId = world.nextMineId;
+  const torpedoes: Torpedo[] = [...world.torpedoes];
+  let nextTorpedoId = world.nextTorpedoId;
 
   const sink = (targetIndex: number, by: number | null) => {
     const sunk = ships[targetIndex]!;
@@ -106,6 +110,18 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
         ship = { ...ship, held: null };
         events.push({ type: "packUsed", ship: ship.id, packType: "mine", role: "pilot" }, { type: "mineDropped", mine: mine.id, owner: ship.id, pos });
       }
+    }
+    // Stage 1: the gunner's Pack button fires a loaded torpedo along the heading (allowed with the shield up).
+    // Like firing the gun, it ends respawn protection.
+    if (world.packsOn && input.gunner.pack && ship.held === "torpedo") {
+      const torpedo = launchTorpedo(ship, nextTorpedoId++);
+      torpedoes.push(torpedo);
+      events.push(
+        { type: "packUsed", ship: ship.id, packType: "torpedo", role: "gunner" },
+        { type: "torpedoFired", torpedo: torpedo.id, owner: ship.id, pos: torpedo.pos, heading: ship.heading },
+      );
+      if (ship.protection > 0) events.push({ type: "protectionEnded", ship: ship.id });
+      ship = { ...ship, held: null, protection: 0 };
     }
     ships[i] = ship;
   }
@@ -210,6 +226,37 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
     survivingShots.push(moved.shot);
   }
 
+  // Stage 1 torpedoes move straight on and stop at the first ship (not their own), the island, an armed
+  // mine (which they set off) or the sea edge.
+  const runningTorpedoes: Torpedo[] = [];
+  for (const torpedo of torpedoes) {
+    const to = add(torpedo.pos, scale(torpedo.vel, dt));
+    const trace = traceShot(torpedo.owner, torpedo.pos, to, ships, ISLAND, mines.filter(isArmed));
+    if (trace.kind === "ship") {
+      const index = ships.findIndex((s) => s.id === trace.target);
+      const { damage, shieldHalved } = torpedoDamage(ships[index]!);
+      events.push({ type: "torpedoHit", torpedo: torpedo.id, attacker: torpedo.owner, target: trace.target, damage, shieldHalved });
+      if (damage > 0) {
+        const hurt = damageShip(ships[index]!, damage);
+        ships[index] = hurt.ship;
+        if (hurt.sank) sink(index, torpedo.owner);
+      }
+      continue;
+    }
+    if (trace.kind === "mine") {
+      const mine = mines.find((m) => m.id === trace.mine)!;
+      mines = mines.filter((m) => m.id !== trace.mine);
+      events.push({ type: "torpedoEnded", torpedo: torpedo.id, owner: torpedo.owner, reason: "mine" });
+      blast(mine, torpedo.owner);
+      continue;
+    }
+    if (trace.kind === "island" || outsideSea(to)) {
+      events.push({ type: "torpedoEnded", torpedo: torpedo.id, owner: torpedo.owner, reason: trace.kind === "island" ? "island" : "edge" });
+      continue;
+    }
+    runningTorpedoes.push({ ...torpedo, pos: to });
+  }
+
   const time = world.time + dt;
   const next: World = {
     ...world,
@@ -220,6 +267,8 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
     nextShotId,
     mines,
     nextMineId,
+    torpedoes: runningTorpedoes,
+    nextTorpedoId,
     contacts,
     over: false,
   };

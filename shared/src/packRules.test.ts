@@ -15,8 +15,13 @@ describe("pack rules", () => {
     expect(packButtonLit("mine", "gunner")).toBe(false);
   });
 
+  it("lights the gunner's Pack button for a torpedo, never the pilot's", () => {
+    expect(packButtonLit("torpedo", "gunner")).toBe(true);
+    expect(packButtonLit("torpedo", "pilot")).toBe(false);
+  });
+
   it("keeps the button dim for packs not usable yet, and for an empty slot", () => {
-    for (const pack of ["torpedo", "emp"] as const) {
+    for (const pack of ["emp"] as const) {
       expect(packButtonLit(pack, "pilot")).toBe(false);
       expect(packButtonLit(pack, "gunner")).toBe(false);
     }

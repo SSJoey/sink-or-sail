@@ -1,12 +1,13 @@
 import * as Phaser from "phaser";
 import type { Room } from "@colyseus/sdk";
-import { ClientMessage, Phase, TUNING, type Role } from "@sink-or-sail/shared";
+import { ClientMessage, Phase, TUNING, type PackType, type Role } from "@sink-or-sail/shared";
 import { CREW_STYLES } from "./crews.ts";
 import { GameScene } from "./GameScene.ts";
 import type { ShipEffect } from "./effects.ts";
 import { formatClock, packSlotText } from "./hud.ts";
 import { startInputSender } from "./inputSender.ts";
 import { PackLatch } from "./packLatch.ts";
+import { gunnerPackBuzz } from "./packBuzz.ts";
 import { SnapshotBuffer, type Frame } from "./interpolation.ts";
 import { countdownLabel, pausedText, respawnText, resultTitle, scoreRows, sinkBanner } from "./matchText.ts";
 import { blockGestures, goFullscreenLandscape, isPortrait, isTouchFirst } from "./phone.ts";
@@ -57,6 +58,7 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
   };
 
   let input: { pack?: boolean } | null = null;
+  let heldBefore: PackType | null = null;
   const packLatch = new PackLatch();
   const stopSending = startInputSender(
     () => (input === null ? null : { ...input, pack: packLatch.take() }),
@@ -123,6 +125,11 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
         .map((p) => `${p.type}@${Math.round(p.x)},${Math.round(p.y)}`)
         .join(";");
       canvasHost.dataset.mines = String(frame?.mines.size ?? 0);
+      canvasHost.dataset.torpedoes = String(frame?.torpedoes.size ?? 0);
+      // A short buzz on the gunner's phone when the crew picks up a torpedo (Android only).
+      const heldNow = own?.held ?? null;
+      if (mine && gunnerPackBuzz(heldBefore, heldNow, mine.role)) navigator.vibrate?.(TUNING.client.gunnerPackVibrateMs);
+      heldBefore = heldNow;
       touchLayer.update(mine?.role ?? null, own?.held ?? null);
       rotate.hidden = !(touchLayer.active && isPortrait(window.innerWidth, window.innerHeight));
       updateHud(frame, mine, state.timeLeft);
@@ -158,6 +165,7 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
       delete canvasHost.dataset.ownY;
       delete canvasHost.dataset.packs;
       delete canvasHost.dataset.mines;
+      delete canvasHost.dataset.torpedoes;
       delete canvasHost.dataset.shots;
       rotate.hidden = true;
       countdown.hidden = true;

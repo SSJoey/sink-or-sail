@@ -78,6 +78,14 @@ export const TUNING = {
     /** A raised shield multiplies mine damage by this. */
     shieldFactor: 0.5,
   },
+  torpedo: {
+    /** Two-thirds of a shot's speed: slower than a shot, faster than any ship (even boosting). */
+    speed: 300,
+    /** Fraction of full health dealt on a hit. */
+    damage: 0.5,
+    /** A raised shield multiplies torpedo damage by this. */
+    shieldFactor: 0.5,
+  },
   server: {
     /** Simulation steps per second; state is sent to clients at the same rate. */
     tickRate: 20,
@@ -98,5 +106,7 @@ export const TUNING = {
     protectionBlinkHz: 4,
     /** How long a sunk ship takes to fade out. */
     sinkFadeMs: 1000,
+    /** Short buzz on the gunner's phone when the crew picks up a torpedo or EMP (Android only). */
+    gunnerPackVibrateMs: 200,
   },
 } as const;

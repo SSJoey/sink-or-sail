@@ -142,3 +142,23 @@ describe("mines in the synced state", () => {
     expect(state.mines.get("0")?.armed).toBe(true);
   });
 });
+
+describe("torpedoes in the synced state", () => {
+  it("shows each torpedo's place and direction, and drops ones that are gone", () => {
+    const state = new CrewState();
+    const world = createWorld({ packs: true, seed: 1 });
+    world.torpedoes = [{ id: 2, owner: 0, pos: { x: 400, y: 200 }, vel: { x: 0, y: 300 } }];
+    syncWorld(state, world);
+    const synced = state.torpedoes.get("2")!;
+    expect(synced.x).toBeCloseTo(400);
+    expect(synced.y).toBeCloseTo(200);
+    expect(synced.angle).toBeCloseTo(Math.PI / 2, 5);
+
+    world.torpedoes = [{ id: 2, owner: 0, pos: { x: 400, y: 215 }, vel: { x: 0, y: 300 } }];
+    syncWorld(state, world);
+    expect(state.torpedoes.get("2")!.y).toBeCloseTo(215);
+    world.torpedoes = [];
+    syncWorld(state, world);
+    expect(state.torpedoes.size).toBe(0);
+  });
+});

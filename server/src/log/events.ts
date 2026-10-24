@@ -53,6 +53,13 @@ export function simEventLines(t: number, events: readonly SimEvent[], roster: Ro
         });
         break;
       case "mineExpired": lines.push({ t, type: "mineExpired", mine: e.mine, owner: e.owner }); break;
+      case "torpedoFired":
+        lines.push({ t, type: "torpedoFired", torpedo: e.torpedo, ship: e.owner, x: r1(e.pos.x), y: r1(e.pos.y), heading: Math.round(e.heading * 1000) / 1000 });
+        break;
+      case "torpedoHit":
+        lines.push({ t, type: "torpedoHit", torpedo: e.torpedo, ...actor(roster, e.attacker, "gunner"), target: e.target, damage: r1(e.damage), shieldHalved: e.shieldHalved });
+        break;
+      case "torpedoEnded": lines.push({ t, type: "torpedoEnded", torpedo: e.torpedo, ship: e.owner, reason: e.reason }); break;
       case "matchEnded": break;
     }
   }

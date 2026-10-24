@@ -503,3 +503,27 @@ describe("Pack button presses aren't lost (Stage 1)", () => {
     await waitFor(() => room.state.mines.size === 1);
   });
 });
+
+describe("torpedoes (Stage 1)", () => {
+  const loadTorpedo = (room: CrewRoom) => {
+    const world = room.world!;
+    room.world = { ...world, nextSignalIn: null, ships: [{ ...world.ships[0]!, pos: { x: 300, y: 200 }, heading: 0, held: "torpedo" }, world.ships[1]!] };
+  };
+
+  it("the gunner fires a loaded torpedo with the Pack button", async () => {
+    const { room, gunner } = await started();
+    loadTorpedo(room);
+    gunner.send(ClientMessage.Input, { aim: { x: 0, y: 1 }, fire: false, shield: false, pack: true });
+    await waitFor(() => room.state.torpedoes.size === 1);
+    expect(room.state.ships[0]!.held).toBe("");
+  });
+
+  it("ignores the pilot's Pack button for a torpedo", async () => {
+    const { room, pilot } = await started();
+    loadTorpedo(room);
+    pilot.send(ClientMessage.Input, { steer: { x: 0, y: 0 }, boost: false, pack: true });
+    await sleep(300);
+    expect(room.state.torpedoes.size).toBe(0);
+    expect(room.state.ships[0]!.held).toBe("torpedo");
+  });
+});

@@ -33,6 +33,9 @@ export class GameScene extends Phaser.Scene {
   /** One letter label per pack on the map (Graphics can't draw text). */
   private packLetters = new Map<string, Phaser.GameObjects.Text>();
   private mouseSeen = false;
+  /** E went down since the last input read. Phaser handles key events once per frame, so a quick tap whose
+   *  down and up land in the same frame never shows as "down"; the keydown event still fires. */
+  private eTapped = false;
   private readonly effects = new ShipEffects(TUNING.client.hitFlashMs, TUNING.client.sinkFadeMs);
 
   private readonly link: SceneLink;
@@ -45,6 +48,7 @@ export class GameScene extends Phaser.Scene {
   create(): void {
     this.g = this.add.graphics();
     this.keys = this.input.keyboard!.addKeys("W,A,S,D,SPACE,E") as typeof this.keys;
+    this.input.keyboard!.on("keydown-E", () => { this.eTapped = true; });
     this.input.mouse?.disableContextMenu();
     this.input.on("pointermove", (pointer: Phaser.Input.Pointer) => {
       if (pointer === this.input.mousePointer) this.mouseSeen = true;
@@ -67,16 +71,18 @@ export class GameScene extends Phaser.Scene {
     const ship = frame?.ships[seat.crew];
     // A dim Pack button does nothing: only send it when this role can use what's loaded.
     const lit = packButtonLit(ship?.held ?? null, seat.role);
+    const ePressed = this.keys.E.isDown || this.eTapped;
+    this.eTapped = false;
     if (seat.role === "pilot") {
       const k = this.keys;
-      const keys = pilotFromKeys({ up: k.W.isDown, left: k.A.isDown, down: k.S.isDown, right: k.D.isDown, boost: k.SPACE.isDown, pack: k.E.isDown });
+      const keys = pilotFromKeys({ up: k.W.isDown, left: k.A.isDown, down: k.S.isDown, right: k.D.isDown, boost: k.SPACE.isDown, pack: ePressed });
       const input = mergePilot(keys, touch.pilotInput());
       return { ...input, pack: lit && !!input.pack };
     }
     // The mouse specifically: never a touch pointer, even if Phaser ever sees one.
     const pointer = this.input.mousePointer!;
     const mouse = this.mouseSeen ? { x: pointer.worldX, y: pointer.worldY } : null;
-    const fromMouse = gunnerFromMouse(ship ? mouse : null, ship ?? { x: 0, y: 0 }, pointer.leftButtonDown(), pointer.rightButtonDown(), this.keys.E.isDown);
+    const fromMouse = gunnerFromMouse(ship ? mouse : null, ship ?? { x: 0, y: 0 }, pointer.leftButtonDown(), pointer.rightButtonDown(), ePressed);
     const input = mergeGunner(fromMouse, touch.gunnerInput());
     return { ...input, pack: lit && !!input.pack };
   }
@@ -103,6 +109,7 @@ export class GameScene extends Phaser.Scene {
 
     g.fillStyle(0xffffff, 1);
     for (const shot of frame.shots.values()) g.fillCircle(shot.x, shot.y, 4);
+    for (const torpedo of frame.torpedoes.values()) this.drawTorpedo(torpedo.x, torpedo.y, torpedo.angle);
   }
 
   /** Glowing spots pulse; packs on the water show their shape and letter (M circle, T capsule, E diamond, H square). */
@@ -171,6 +178,24 @@ export class GameScene extends Phaser.Scene {
         g.lineBetween(x + Math.cos(a) * r * 0.8, y + Math.sin(a) * r * 0.8, x + Math.cos(a) * r * 1.15, y + Math.sin(a) * r * 1.15);
       }
     }
+  }
+
+  /** A torpedo: a dark capsule 22 × 8 pointing the way it travels, with a short white wake. */
+  private drawTorpedo(x: number, y: number, angle: number): void {
+    const g = this.g;
+    const dir = { x: Math.cos(angle), y: Math.sin(angle) };
+    const side = { x: -dir.y, y: dir.x };
+    g.lineStyle(2, 0xffffff, 0.6);
+    for (const s of [-3, 3]) {
+      g.lineBetween(x - dir.x * 11 + side.x * s, y - dir.y * 11 + side.y * s, x - dir.x * 26 + side.x * s * 1.6, y - dir.y * 26 + side.y * s * 1.6);
+    }
+    g.lineStyle(8, 0x1b1b1b, 1);
+    g.lineBetween(x - dir.x * 7, y - dir.y * 7, x + dir.x * 7, y + dir.y * 7);
+    g.fillStyle(0x1b1b1b, 1);
+    g.fillCircle(x - dir.x * 7, y - dir.y * 7, 4);
+    g.fillCircle(x + dir.x * 7, y + dir.y * 7, 4);
+    g.lineStyle(1, 0xffffff, 0.9);
+    g.strokeCircle(x + dir.x * 7, y + dir.y * 7, 4);
   }
 
   private drawAimGuide(ship: ShipView): void {

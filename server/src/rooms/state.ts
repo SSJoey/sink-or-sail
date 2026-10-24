@@ -82,5 +82,7 @@ export const CrewState = schema({
   packs: t.map(PackState),
   /** Keyed by mine id. */
   mines: t.map(MineState),
+  /** Keyed by torpedo id. */
+  torpedoes: t.map(ShotState),
 }, "CrewState");
 export type CrewState = SchemaType<typeof CrewState>;

@@ -49,6 +49,8 @@ export function createWorld(options: WorldOptions = {}): World {
     nextSignalIn: packsOn ? TUNING.packs.spawnInterval : null,
     mines: [],
     nextMineId: 0,
+    torpedoes: [],
+    nextTorpedoId: 0,
   };
 }
 
