@@ -414,3 +414,55 @@ describe("ending the match early", () => {
     expect(room.world!.time).toBeLessThan(1);
   });
 });
+
+describe("packs on/off (Stage 1)", () => {
+  it("is on by default and only the host can switch it, between matches", async () => {
+    const { room, pilot, gunner } = await crewedRoom();
+    expect(room.state.packsEnabled).toBe(true);
+    gunner.send(ClientMessage.SetPacks, { on: false });
+    await sleep(150);
+    expect(room.state.packsEnabled).toBe(true);
+    pilot.send(ClientMessage.SetPacks, { on: false });
+    await waitFor(() => room.state.packsEnabled === false);
+  });
+
+  it("ignores a malformed toggle", async () => {
+    const { room, pilot } = await crewedRoom();
+    for (const bad of [null, "off", { on: "no" }, { on: false, extra: 1 }]) pilot.send(ClientMessage.SetPacks, bad);
+    await sleep(150);
+    expect(room.state.packsEnabled).toBe(true);
+  });
+
+  it("applies from the next match: a running match keeps its setting", async () => {
+    const { room, pilot } = await started();
+    expect(room.world!.packsOn).toBe(true);
+    pilot.send(ClientMessage.SetPacks, { on: false });
+    await sleep(150);
+    expect(room.state.packsEnabled).toBe(true);
+    expect(room.world!.packsOn).toBe(true);
+
+    await endMatch(room);
+    pilot.send(ClientMessage.SetPacks, { on: false });
+    await waitFor(() => room.state.packsEnabled === false);
+    pilot.send(ClientMessage.Start);
+    await waitFor(() => room.state.phase === Phase.Running);
+    expect(room.world!.packsOn).toBe(false);
+  });
+
+  it("gives every match a new seed", async () => {
+    const { room, pilot } = await started();
+    const first = room.world!.rng;
+    await endMatch(room);
+    pilot.send(ClientMessage.Start);
+    await waitFor(() => room.state.phase === Phase.Running);
+    expect(room.world!.rng).not.toBe(first);
+  });
+
+  it("shows packs and the held pack to clients", async () => {
+    const { room } = await started();
+    const world = room.world!;
+    room.world = { ...world, packs: [{ id: 0, spot: 2, type: "torpedo", signalLeft: 0 }], nextPackId: 1, nextSignalIn: null, ships: [{ ...world.ships[0]!, pos: { x: 450, y: 300 } }, world.ships[1]!] };
+    await waitFor(() => room.state.ships[0]!.held === "torpedo");
+    expect(room.state.packs.size).toBe(0);
+  });
+});

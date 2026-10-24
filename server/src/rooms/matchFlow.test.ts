@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Phase } from "@sink-or-sail/shared";
-import { canChangeSeat, canEndMatch, canPause, canResume, canStart, nextHost } from "./matchFlow.ts";
+import { canChangeSeat, canEndMatch, canPause, canResume, canSetPacks, canStart, nextHost } from "./matchFlow.ts";
 
 describe("canStart", () => {
   it("lets only the host start, and only when no match is on", () => {
@@ -73,5 +73,14 @@ describe("seats while paused", () => {
   it("stay locked for seated players", () => {
     expect(canChangeSeat(Phase.Paused, true)).toBe(false);
     expect(canChangeSeat(Phase.Paused, false)).toBe(true);
+  });
+});
+
+describe("canSetPacks", () => {
+  it("lets only the host switch packs, and only between matches", () => {
+    expect(canSetPacks("h", "h", Phase.Waiting)).toBe(true);
+    expect(canSetPacks("h", "h", Phase.Over)).toBe(true);
+    expect(canSetPacks("x", "h", Phase.Waiting)).toBe(false);
+    for (const phase of [Phase.Countdown, Phase.Running, Phase.Paused]) expect(canSetPacks("h", "h", phase)).toBe(false);
   });
 });

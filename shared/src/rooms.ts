@@ -36,6 +36,8 @@ export const ClientMessage = {
   Resume: "resume",
   /** End the match now with the current score (host only). */
   EndMatch: "endMatch",
+  /** Packs on or off for the next match: { on: boolean } (host only, between matches). */
+  SetPacks: "setPacks",
 } as const;
 
 /** Match phase shown to clients. */

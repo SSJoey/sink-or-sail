@@ -1,4 +1,4 @@
-import type { Role } from "@sink-or-sail/shared";
+import { PACK_LABELS, packButtonLit, type PackType, type Role } from "@sink-or-sail/shared";
 import type { TouchButton, TouchControls } from "./touchControls.ts";
 
 /** Where the stick rests when no thumb is on it: this far from the layer's bottom-left corner (CSS px). */
@@ -10,8 +10,8 @@ export interface TouchLayer {
   /** Shows the controls (stays on once shown). */
   activate(): void;
   readonly active: boolean;
-  /** Updates which controls show and where the stick is drawn; call every frame. */
-  update(role: Role | null): void;
+  /** Updates which controls show, the Pack button, and where the stick is drawn; call every frame. */
+  update(role: Role | null, held: PackType | null): void;
   destroy(): void;
 }
 
@@ -28,6 +28,7 @@ export function createTouchLayer(controls: TouchControls): TouchLayer {
     boost: byId("btn-boost"),
     fire: byId("btn-fire"),
     shield: byId("btn-shield"),
+    pack: byId("btn-pack"),
   };
   let active = false;
 
@@ -74,7 +75,7 @@ export function createTouchLayer(controls: TouchControls): TouchLayer {
     get active() {
       return active;
     },
-    update(role) {
+    update(role, held) {
       if (!active) return;
       const seated = role !== null;
       base.hidden = !seated;
@@ -82,6 +83,11 @@ export function createTouchLayer(controls: TouchControls): TouchLayer {
       buttons.boost.hidden = role !== "pilot";
       buttons.fire.hidden = role !== "gunner";
       buttons.shield.hidden = role !== "gunner";
+      // Pack: shows what's loaded; lit only for the role that can use it, otherwise dim (and does nothing).
+      buttons.pack.hidden = !seated;
+      const label = held ? PACK_LABELS[held] : "Pack";
+      if (buttons.pack.textContent !== label) buttons.pack.textContent = label;
+      buttons.pack.classList.toggle("lit", role !== null && packButtonLit(held, role));
       if (!seated) {
         controls.releaseAll();
         return;

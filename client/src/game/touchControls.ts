@@ -1,7 +1,7 @@
 import type { GunnerInput, PilotInput, Vec } from "@sink-or-sail/shared";
 import { inStickZone, knobPosition, stickVector } from "./stick.ts";
 
-export type TouchButton = "boost" | "fire" | "shield";
+export type TouchButton = "boost" | "fire" | "shield" | "pack";
 
 const isZero = (v: Vec) => v.x === 0 && v.y === 0;
 
@@ -68,20 +68,25 @@ export class TouchControls {
   }
 
   pilotInput(): PilotInput {
-    return { steer: this.stick(), boost: this.held("boost") };
+    return { steer: this.stick(), boost: this.held("boost"), pack: this.held("pack") };
   }
 
   gunnerInput(): GunnerInput {
-    return { aim: this.stick(), fire: this.held("fire"), shield: this.held("shield") };
+    return { aim: this.stick(), fire: this.held("fire"), shield: this.held("shield"), pack: this.held("pack") };
   }
 }
 
 /** Keyboard and touch together: a pushed touch stick wins over the keys; boost from either. */
 export function mergePilot(keys: PilotInput, touch: PilotInput): PilotInput {
-  return { steer: isZero(touch.steer) ? keys.steer : touch.steer, boost: keys.boost || touch.boost };
+  return { steer: isZero(touch.steer) ? keys.steer : touch.steer, boost: keys.boost || touch.boost, pack: !!keys.pack || !!touch.pack };
 }
 
 /** Mouse and touch together: a pushed touch stick wins over the mouse; buttons from either. */
 export function mergeGunner(mouse: GunnerInput, touch: GunnerInput): GunnerInput {
-  return { aim: isZero(touch.aim) ? mouse.aim : touch.aim, fire: mouse.fire || touch.fire, shield: mouse.shield || touch.shield };
+  return {
+    aim: isZero(touch.aim) ? mouse.aim : touch.aim,
+    fire: mouse.fire || touch.fire,
+    shield: mouse.shield || touch.shield,
+    pack: !!mouse.pack || !!touch.pack,
+  };
 }

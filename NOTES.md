@@ -140,4 +140,22 @@
   2. Reload every phone by hand once (pages open before this build lack the self-reload check).
   3. A full 4-player match (both crews) run to time-up; check the log ends with `matchEnd` at 240000 ms and the summary shows both crews.
 
+### 2026-10-24 — Stage 1 slice 1: pack basics
+
+- **Seeded generator:** a small in-house one (mulberry32) in `shared/src/sim/random.ts`, no dependency. The server picks a new seed at each match start and writes it to the log, so a match can be replayed exactly.
+- **All four pack types spawn from slice 1**, 25% each. Mine, torpedo and EMP can be picked up and held (shown in the slot, Pack button dim) but only become usable in slices 2–4.
+- **Spawn clock (refines CLAUDE.md's starting values):** packs come one at a time, at most 2 on the map, and glowing spots count toward the 2. The first spot is signalled 8 s into the match (pack appears at 0:11); each next signal comes 8 s after the last pack appeared. When the map is full the clock waits; after a pickup from a full map, the next signal comes 8 s after that pickup.
+- **Pickup:** when the ship's circle (radius 28) touches the pack's (radius 18), so centres within 46. Any ship afloat can pick up, including during respawn protection.
+- **Spawn spots (6, mirror-symmetric):** (800, 150), (800, 750), (450, 300), (450, 600), (1150, 300), (1150, 600). A test checks each is well clear of the island and the respawn and start spots.
+- **Pack looks:** M circle, T capsule, E diamond, H square; white outline and letter on a dark fill, about 36 px across. Signalled spots show a pulsing white ring.
+- **Packs on/off toggle:** the host sees a "Packs on" checkbox next to Start; everyone else sees "Packs: on/off". Changes apply from the next match (disabled during a match). Default on.
+- **Pack button in input:** an optional `pack` field in both roles' input messages, so Stage 0 messages (and tests) stay valid.
+- **Stage 0 reference match:** before any pack code, a scripted 90-second two-ship fight (48 hits, 9 sinkings and respawns, shield blocks, a bump, empty bars) was recorded from the Stage 0 simulation (`shared/src/sim/fixtures/stage0-run.json`). A test replays it with packs off and requires every event and the final world to match exactly.
+- Within a step the spawn clock runs before pickups, so a clock restarted by a pickup counts its 8 s from the next step (same as after a pack appears).
+- Pickup order when two ships touch the same pack: lowest ship id first.
+- Pack events use the field `packType` for the pack's type (`type` is the event name).
+- **`MATCH_SEED` environment variable (added without asking first; easy to remove):** fixes every match's seed. The browser smoke tests use it (seed 13: the first pack is a torpedo at (450, 600)) so pack tests don't depend on chance; it also lets a logged match's pack spawns be replayed.
+- The Pack button sends `pack: true` only when lit; in this slice nothing is usable yet (`USABLE_PACKS` is empty), so it is always dim.
+- Watch on small phones (667 px wide): "Pack: Torpedo" in the top bar plus the host's Pause and Exit squeeze the energy bar.
+
 ## Later

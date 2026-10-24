@@ -29,6 +29,8 @@ export const ShipState = schema({
   sunkBy: t.int8().default(-1),
   /** Hits taken this match; clients flash the ship when it goes up. */
   hits: t.uint16().default(0),
+  /** The crew's pack slot: a pack type, or "" when empty. */
+  held: t.string().default(""),
 }, "ShipState");
 export type ShipState = SchemaType<typeof ShipState>;
 
@@ -39,6 +41,15 @@ export const ShotState = schema({
   angle: t.float32(),
 }, "ShotState");
 export type ShotState = SchemaType<typeof ShotState>;
+
+export const PackState = schema({
+  x: t.float32(),
+  y: t.float32(),
+  type: t.string(),
+  /** True while the spot is only glowing (the pack can't be picked up yet). */
+  signalled: t.boolean(),
+}, "PackState");
+export type PackState = SchemaType<typeof PackState>;
 
 export const CrewState = schema({
   /** Keyed by session id. */
@@ -56,5 +67,9 @@ export const CrewState = schema({
   ships: t.array(ShipState),
   /** Keyed by shot id. */
   shots: t.map(ShotState),
+  /** Room setting for the next match (host toggle); a running match keeps the setting it started with. */
+  packsEnabled: t.boolean().default(true),
+  /** Keyed by pack id. */
+  packs: t.map(PackState),
 }, "CrewState");
 export type CrewState = SchemaType<typeof CrewState>;

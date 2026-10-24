@@ -4,7 +4,7 @@ import { ClientMessage, Phase, TUNING, type Role } from "@sink-or-sail/shared";
 import { CREW_STYLES } from "./crews.ts";
 import { GameScene } from "./GameScene.ts";
 import type { ShipEffect } from "./effects.ts";
-import { formatClock } from "./hud.ts";
+import { formatClock, packSlotText } from "./hud.ts";
 import { startInputSender } from "./inputSender.ts";
 import { SnapshotBuffer, type Frame } from "./interpolation.ts";
 import { countdownLabel, pausedText, respawnText, resultTitle, scoreRows, sinkBanner } from "./matchText.ts";
@@ -25,6 +25,7 @@ export interface RoomStateView extends GameStateView {
     forEach(cb: (player: PlayerView, sessionId: string) => void): void;
   };
   hostId: string;
+  packsEnabled: boolean;
   phase: string;
   pausedBy: string;
   countdown: number;
@@ -103,8 +104,16 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
       canvasHost.dataset.ships = String(frame?.ships.filter((s) => !s.sunk).length ?? 0);
       canvasHost.dataset.shots = String(frame?.shots.size ?? 0);
       const own = mine ? frame?.ships[mine.crew] : undefined;
-      if (own) canvasHost.dataset.ownX = String(Math.round(own.x));
-      touchLayer.update(mine?.role ?? null);
+      if (own) {
+        canvasHost.dataset.ownX = String(Math.round(own.x));
+        canvasHost.dataset.ownY = String(Math.round(own.y));
+      }
+      // Packs on the water as "type@x,y;…", for the browser smoke tests.
+      canvasHost.dataset.packs = [...(frame?.packs.values() ?? [])]
+        .filter((p) => !p.signalled)
+        .map((p) => `${p.type}@${Math.round(p.x)},${Math.round(p.y)}`)
+        .join(";");
+      touchLayer.update(mine?.role ?? null, own?.held ?? null);
       rotate.hidden = !(touchLayer.active && isPortrait(window.innerWidth, window.innerHeight));
       updateHud(frame, mine, state.timeLeft);
     },
@@ -136,6 +145,8 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
       screen.removeEventListener("pointerdown", onFirstTouch, true);
       delete canvasHost.dataset.ships;
       delete canvasHost.dataset.ownX;
+      delete canvasHost.dataset.ownY;
+      delete canvasHost.dataset.packs;
       delete canvasHost.dataset.shots;
       rotate.hidden = true;
       countdown.hidden = true;
@@ -210,6 +221,9 @@ function updateHud(frame: Frame | null, seat: { crew: number; role: Role } | nul
   const fill = byId("hud-energy-fill");
 
   byId("hud-clock").textContent = formatClock(timeLeft);
+  const packSlot = byId("hud-pack");
+  const slotText = seat ? packSlotText(frame?.ships[seat.crew]?.held ?? null) : "";
+  if (packSlot.textContent !== slotText) packSlot.textContent = slotText;
   const score = byId("hud-score");
   const parts = (frame?.ships ?? []).map((ship, i) => {
     const style = CREW_STYLES[i] ?? CREW_STYLES[0];

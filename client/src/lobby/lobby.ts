@@ -82,6 +82,8 @@ export function startLobby(): void {
     byId("leave").onclick = () => { void room.leave(); };
     // Only the host sees Start; the server checks it too.
     byId("start").onclick = () => room.send(ClientMessage.Start);
+    byId<HTMLInputElement>("packs-toggle").onchange = (e) =>
+      room.send(ClientMessage.SetPacks, { on: (e.target as HTMLInputElement).checked });
   }
 
   function renderRoom(room: Room, state: StateView): void {
@@ -128,6 +130,13 @@ export function startLobby(): void {
     const start = byId<HTMLButtonElement>("start");
     start.hidden = !isHost;
     start.disabled = matchOn;
+
+    // Packs on/off: the host's checkbox (between matches, applies from the next match); others see the setting.
+    byId("packs-host").hidden = !isHost;
+    const toggle = byId<HTMLInputElement>("packs-toggle");
+    toggle.checked = state.packsEnabled;
+    toggle.disabled = matchOn;
+    byId("packs-status").textContent = isHost ? "" : `Packs: ${state.packsEnabled ? "on" : "off"}`;
     byId("match").textContent = matchOn
       ? "Match on"
       : isHost ? "" : "Waiting for the host to start";

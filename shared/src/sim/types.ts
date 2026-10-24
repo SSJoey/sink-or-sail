@@ -4,6 +4,8 @@ export interface PilotInput {
   /** Wanted direction; length 0–1 sets speed (longer vectors are clamped). */
   steer: Vec;
   boost: boolean;
+  /** Pack button (Stage 1); a mine is the pilot's pack. */
+  pack?: boolean;
 }
 
 export interface GunnerInput {
@@ -11,6 +13,8 @@ export interface GunnerInput {
   aim: Vec;
   fire: boolean;
   shield: boolean;
+  /** Pack button (Stage 1); torpedo and EMP are the gunner's packs. */
+  pack?: boolean;
 }
 
 export interface ShipInput {
@@ -22,6 +26,17 @@ export const NO_INPUT: ShipInput = {
   pilot: { steer: { x: 0, y: 0 }, boost: false },
   gunner: { aim: { x: 0, y: 0 }, fire: false, shield: false },
 };
+
+export type PackType = "mine" | "torpedo" | "emp" | "health";
+
+/** A pack on the map. While `signalLeft` > 0 its spot is glowing and it can't be picked up yet. */
+export interface Pack {
+  id: number;
+  /** Index into PACK_SPOTS. */
+  spot: number;
+  type: PackType;
+  signalLeft: number;
+}
 
 export interface Ship {
   id: number;
@@ -49,6 +64,8 @@ export interface Ship {
   /** Energy spent on boost and on shield this match (for the match log). */
   boostEnergy: number;
   shieldEnergy: number;
+  /** The crew's pack slot (never a health pack, which is used on pickup). */
+  held: PackType | null;
 }
 
 export interface Shot {
@@ -68,6 +85,14 @@ export interface World {
   /** Ship pairs touching after the last step, as "a:b" with a < b; bumps hurt only when contact starts. */
   contacts: string[];
   over: boolean;
+  /** Stage 1: packs spawn only when on (set for the whole match). */
+  packsOn: boolean;
+  /** Seeded generator state; the same seed gives the same packs. */
+  rng: number;
+  packs: Pack[];
+  nextPackId: number;
+  /** Seconds until the next spot is signalled; null while waiting (a pack is glowing, or the map is full). */
+  nextSignalIn: number | null;
 }
 
 export type SimEvent =
@@ -82,4 +107,9 @@ export type SimEvent =
   | { type: "protectionEnded"; ship: number }
   | { type: "sunk"; ship: number; by: number | null }
   | { type: "respawned"; ship: number; pos: Vec }
-  | { type: "matchEnded"; winner: number | null };
+  | { type: "matchEnded"; winner: number | null }
+  | { type: "packSignalled"; pack: number; spot: number; packType: PackType }
+  | { type: "packSpawned"; pack: number; spot: number; packType: PackType }
+  | { type: "packPickedUp"; ship: number; pack: number; packType: PackType }
+  | { type: "packLost"; ship: number; packType: PackType }
+  | { type: "healthRestored"; ship: number; amount: number };

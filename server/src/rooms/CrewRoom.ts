@@ -25,10 +25,10 @@ import {
   type ShipInput,
   type World,
 } from "@sink-or-sail/shared";
-import { LOG_DIR } from "../config.ts";
+import { LOG_DIR, fixedSeed } from "../config.ts";
 import { controlLine, matchEndLine, matchMs, matchStartLine, playerLine, positionLines, seatLine, simEventLines, type LogLine, type Roster } from "../log/events.ts";
 import { MatchLog, fileSink, logFileName, type LogSink } from "../log/matchLog.ts";
-import { canChangeSeat, canEndMatch, canPause, canResume, canStart, nextHost } from "./matchFlow.ts";
+import { canChangeSeat, canEndMatch, canPause, canResume, canSetPacks, canStart, nextHost } from "./matchFlow.ts";
 import { generateUniqueCode } from "./roomCode.ts";
 import { isNameTaken, takeSeat, type SeatMap } from "./seats.ts";
 import { CrewState, Player } from "./state.ts";
@@ -72,6 +72,8 @@ export class CrewRoom extends Room<{ state: CrewState }> {
   private roster: Roster = [];
   /** Match time (s) of the next once-a-second position lines. */
   private nextPositionAt = 0;
+  /** A new seed for each match's random generator (written to the log so a match can be replayed). */
+  seedForMatch: () => number = () => fixedSeed(process.env) ?? Math.floor(Math.random() * 2 ** 32);
 
   async onCreate(): Promise<void> {
     this.roomId = await generateUniqueCode(Math.random, async (code) =>
@@ -115,6 +117,12 @@ export class CrewRoom extends Room<{ state: CrewState }> {
       this.state.countdown = this.countdownSeconds;
       this.state.phase = Phase.Countdown;
       this.logLine(controlLine(this.logTime(), "resumed", this.nameOf(client.sessionId), this.seatOf(client.sessionId)));
+    });
+
+    this.onMessage(ClientMessage.SetPacks, (client, message: unknown) => {
+      if (!canSetPacks(client.sessionId, this.state.hostId, this.state.phase)) return;
+      const valid = typeof message === "object" && message !== null && Object.keys(message).length === 1 && typeof (message as { on?: unknown }).on === "boolean";
+      if (valid) this.state.packsEnabled = (message as { on: boolean }).on;
     });
 
     this.onMessage(ClientMessage.EndMatch, (client) => {
@@ -174,10 +182,12 @@ export class CrewRoom extends Room<{ state: CrewState }> {
   /** A fresh world, scores and result reset, then the 3-2-1 countdown with ships frozen. */
   private startMatch(): void {
     void this.closeLog();
-    this.world = createWorld();
+    const seed = this.seedForMatch() >>> 0;
+    const packsOn = this.state.packsEnabled;
+    this.world = createWorld({ packs: packsOn, seed });
     this.roster = this.buildRoster();
     this.log = new MatchLog(this.logSinkFor(logFileName(new Date(), this.roomId)), { onError: (error) => this.logErrors(error) });
-    this.logLine(matchStartLine(this.roomId, this.roster));
+    this.logLine(matchStartLine(this.roomId, this.roster, { packsOn, seed }));
     for (const line of positionLines(this.world)) this.logLine(line);
     this.nextPositionAt = 1;
     this.latestInput.clear();

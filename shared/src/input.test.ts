@@ -60,3 +60,19 @@ describe("parseGunnerInput", () => {
     expect(parseGunnerInput({ aim: { x: 0, y: 1 }, fire: true, shield: false, steer: { x: 1, y: 0 } })).toBeNull();
   });
 });
+
+describe("the Pack button (Stage 1)", () => {
+  it("is an optional field for both roles", () => {
+    expect(parsePilotInput({ steer: { x: 1, y: 0 }, boost: false, pack: true })).toEqual({ steer: { x: 1, y: 0 }, boost: false, pack: true });
+    expect(parseGunnerInput({ aim: { x: 0, y: 1 }, fire: false, shield: false, pack: true })).toEqual({ aim: { x: 0, y: 1 }, fire: false, shield: false, pack: true });
+  });
+
+  it("still accepts Stage 0 messages without it", () => {
+    expect(parsePilotInput({ steer: { x: 1, y: 0 }, boost: false })).toEqual({ steer: { x: 1, y: 0 }, boost: false });
+  });
+
+  it("must be true or false", () => {
+    expect(parsePilotInput({ steer: { x: 1, y: 0 }, boost: false, pack: "yes" })).toBeNull();
+    expect(parseGunnerInput({ aim: { x: 0, y: 1 }, fire: false, shield: false, pack: 1 })).toBeNull();
+  });
+});

@@ -51,9 +51,9 @@ describe("TouchControls buttons", () => {
     c.stickStart(1, 100, 300, W);
     c.stickMove(1, 100, 240);
     c.press(2, "boost");
-    expect(c.pilotInput()).toEqual({ steer: { x: 0, y: -1 }, boost: true });
+    expect(c.pilotInput()).toEqual({ steer: { x: 0, y: -1 }, boost: true, pack: false });
     c.pointerEnd(1);
-    expect(c.pilotInput()).toEqual({ steer: { x: 0, y: 0 }, boost: true });
+    expect(c.pilotInput()).toEqual({ steer: { x: 0, y: 0 }, boost: true, pack: false });
   });
 
   it("first pressed wins between Fire and Shield", () => {
@@ -90,20 +90,38 @@ describe("TouchControls buttons", () => {
     c.stickStart(1, 100, 300, W);
     c.press(2, "fire");
     c.releaseAll();
-    expect(c.gunnerInput()).toEqual({ aim: { x: 0, y: 0 }, fire: false, shield: false });
+    expect(c.gunnerInput()).toEqual({ aim: { x: 0, y: 0 }, fire: false, shield: false, pack: false });
   });
 });
 
 describe("merging touch with keyboard and mouse", () => {
   it("pilot: touch stick wins when pushed, otherwise keys; boost from either", () => {
     const keys = { steer: { x: 1, y: 0 }, boost: false };
-    expect(mergePilot(keys, { steer: { x: 0, y: 0 }, boost: true })).toEqual({ steer: { x: 1, y: 0 }, boost: true });
-    expect(mergePilot(keys, { steer: { x: 0, y: -1 }, boost: false })).toEqual({ steer: { x: 0, y: -1 }, boost: false });
+    expect(mergePilot(keys, { steer: { x: 0, y: 0 }, boost: true })).toEqual({ steer: { x: 1, y: 0 }, boost: true, pack: false });
+    expect(mergePilot(keys, { steer: { x: 0, y: -1 }, boost: false })).toEqual({ steer: { x: 0, y: -1 }, boost: false, pack: false });
   });
 
   it("gunner: touch aim wins when pushed, otherwise mouse; buttons from either", () => {
     const mouse = { aim: { x: 1, y: 0 }, fire: true, shield: false };
-    expect(mergeGunner(mouse, { aim: { x: 0, y: 0 }, fire: false, shield: false })).toEqual(mouse);
-    expect(mergeGunner(mouse, { aim: { x: 0, y: 1 }, fire: false, shield: true })).toEqual({ aim: { x: 0, y: 1 }, fire: true, shield: true });
+    expect(mergeGunner(mouse, { aim: { x: 0, y: 0 }, fire: false, shield: false })).toEqual({ ...mouse, pack: false });
+    expect(mergeGunner(mouse, { aim: { x: 0, y: 1 }, fire: false, shield: true })).toEqual({ aim: { x: 0, y: 1 }, fire: true, shield: true, pack: false });
+  });
+});
+
+describe("Pack button (Stage 1)", () => {
+  it("is held by its own finger, alongside the stick and other buttons", () => {
+    const c = make();
+    c.stickStart(1, 100, 300, W);
+    c.press(2, "fire");
+    expect(c.press(3, "pack")).toBe(true);
+    expect(c.gunnerInput()).toMatchObject({ fire: true, pack: true });
+    expect(c.pilotInput().pack).toBe(true);
+    c.pointerEnd(3);
+    expect(c.gunnerInput().pack).toBe(false);
+  });
+
+  it("merges with the E key: either one presses it", () => {
+    expect(mergePilot({ steer: { x: 0, y: 0 }, boost: false, pack: true }, { steer: { x: 0, y: 0 }, boost: false }).pack).toBe(true);
+    expect(mergeGunner({ aim: { x: 0, y: 0 }, fire: false, shield: false }, { aim: { x: 0, y: 0 }, fire: false, shield: false, pack: true }).pack).toBe(true);
   });
 });

@@ -3,7 +3,8 @@
   "compilerOptions": {
     "module": "nodenext",
     "moduleResolution": "nodenext",
-    "types": []
+    "types": [],
+    "resolveJsonModule": true
   },
   "include": ["src"]
 }

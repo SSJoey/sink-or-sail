@@ -6,10 +6,11 @@ import { clampLength, type Vec } from "./sim/vec.ts";
 
 type Fields = Record<string, unknown>;
 
-function hasExactly(value: unknown, keys: readonly string[]): value is Fields {
+/** All of `required`, and nothing outside `required` and `optional`. */
+function hasExactly(value: unknown, required: readonly string[], optional: readonly string[] = []): value is Fields {
   if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
   const actual = Object.keys(value);
-  return actual.length === keys.length && keys.every((key) => actual.includes(key));
+  return required.every((key) => actual.includes(key)) && actual.every((key) => required.includes(key) || optional.includes(key));
 }
 
 function parseVec(value: unknown): Vec | null {
@@ -19,16 +20,24 @@ function parseVec(value: unknown): Vec | null {
   return clampLength({ x, y }, 1);
 }
 
+/** The Pack button (Stage 1) is optional, so Stage 0 messages stay valid. */
+const parsePack = (fields: Fields): { pack?: boolean } | null => {
+  if (!("pack" in fields)) return {};
+  return typeof fields.pack === "boolean" ? { pack: fields.pack } : null;
+};
+
 export function parsePilotInput(message: unknown): PilotInput | null {
-  if (!hasExactly(message, ["steer", "boost"])) return null;
+  if (!hasExactly(message, ["steer", "boost"], ["pack"])) return null;
   const steer = parseVec(message.steer);
-  if (steer === null || typeof message.boost !== "boolean") return null;
-  return { steer, boost: message.boost };
+  const pack = parsePack(message);
+  if (steer === null || typeof message.boost !== "boolean" || pack === null) return null;
+  return { steer, boost: message.boost, ...pack };
 }
 
 export function parseGunnerInput(message: unknown): GunnerInput | null {
-  if (!hasExactly(message, ["aim", "fire", "shield"])) return null;
+  if (!hasExactly(message, ["aim", "fire", "shield"], ["pack"])) return null;
   const aim = parseVec(message.aim);
-  if (aim === null || typeof message.fire !== "boolean" || typeof message.shield !== "boolean") return null;
-  return { aim, fire: message.fire, shield: message.shield };
+  const pack = parsePack(message);
+  if (aim === null || typeof message.fire !== "boolean" || typeof message.shield !== "boolean" || pack === null) return null;
+  return { aim, fire: message.fire, shield: message.shield, ...pack };
 }

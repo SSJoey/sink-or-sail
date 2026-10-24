@@ -1,5 +1,5 @@
-import { Phase, timeLeft, type SimEvent, type World } from "@sink-or-sail/shared";
-import { ShipState, ShotState, type CrewState } from "./state.ts";
+import { PACK_SPOTS, Phase, timeLeft, type SimEvent, type World } from "@sink-or-sail/shared";
+import { PackState, ShipState, ShotState, type CrewState } from "./state.ts";
 
 /** Copies the simulation world into the synced room state. Colyseus sends only what changed. */
 export function syncWorld(state: CrewState, world: World): void {
@@ -21,7 +21,23 @@ export function syncWorld(state: CrewState, world: World): void {
     synced.sunk = ship.sunk;
     synced.respawnIn = ship.respawnIn;
     synced.sinkings = ship.sinkings;
+    synced.held = ship.held ?? "";
   });
+
+  const livePacks = new Set(world.packs.map((pack) => String(pack.id)));
+  for (const id of [...state.packs.keys()]) {
+    if (!livePacks.has(id)) state.packs.delete(id);
+  }
+  for (const pack of world.packs) {
+    const id = String(pack.id);
+    const signalled = pack.signalLeft > 0;
+    const synced = state.packs.get(id);
+    if (synced) synced.signalled = signalled;
+    else {
+      const spot = PACK_SPOTS[pack.spot]!;
+      state.packs.set(id, new PackState({ x: spot.x, y: spot.y, type: pack.type, signalled }));
+    }
+  }
 
   const live = new Set(world.shots.map((shot) => String(shot.id)));
   for (const id of [...state.shots.keys()]) {

@@ -38,3 +38,8 @@ export function canResume(sessionId: string, hostId: string, phase: string): boo
 export function canEndMatch(sessionId: string, hostId: string, phase: string): boolean {
   return sessionId === hostId && (phase === Phase.Countdown || phase === Phase.Running || phase === Phase.Paused);
 }
+
+/** Only the host switches packs on or off, and only between matches; it applies from the next match. */
+export function canSetPacks(sessionId: string, hostId: string, phase: string): boolean {
+  return sessionId === hostId && (phase === Phase.Waiting || phase === Phase.Over);
+}

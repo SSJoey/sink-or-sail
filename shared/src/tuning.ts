@@ -50,6 +50,20 @@ export const TUNING = {
     /** 3-2-1-Go before a match: ships visible but frozen. */
     countdown: 3,
   },
+  packs: {
+    /** Packs on the map at once, glowing (signalled) ones included. */
+    maxOnMap: 2,
+    /** Seconds from the match start, or from the last pack appearing, to the next signal; also from a pickup off a full map. */
+    spawnInterval: 8,
+    /** Seconds a spot glows before its pack appears. */
+    signalTime: 3,
+    /** Pack size for pickup: taken when it touches a ship's circle. */
+    radius: 18,
+    /** Relative chance of each pack type. */
+    chances: { mine: 1, torpedo: 1, emp: 1, health: 1 },
+    /** Health pack: fraction of full health restored (never above full). */
+    healthRestore: 0.4,
+  },
   server: {
     /** Simulation steps per second; state is sent to clients at the same rate. */
     tickRate: 20,

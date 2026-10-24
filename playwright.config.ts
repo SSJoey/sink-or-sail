@@ -19,7 +19,8 @@ export default defineConfig({
     url: `http://localhost:${PORT}`,
     reuseExistingServer: false,
     // Test matches log to a temporary folder, not the real logs/.
-    env: { LOG_DIR: join(tmpdir(), "sink-or-sail-test-logs") },
+    // MATCH_SEED fixes the packs: with seed 13 the first pack is a torpedo at (450, 600), near Crew 1's start.
+    env: { LOG_DIR: join(tmpdir(), "sink-or-sail-test-logs"), MATCH_SEED: "13" },
     timeout: 60_000,
   },
 });

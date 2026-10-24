@@ -1,4 +1,4 @@
-import { wrapAngle } from "@sink-or-sail/shared";
+import { wrapAngle, type PackType } from "@sink-or-sail/shared";
 
 export interface ShipView {
   x: number;
@@ -17,6 +17,16 @@ export interface ShipView {
   sunkBy: number;
   /** Hits taken this match (for the hit flash). */
   hits: number;
+  /** The crew's pack slot. */
+  held: PackType | null;
+}
+
+export interface PackView {
+  x: number;
+  y: number;
+  type: string;
+  /** Still only glowing: can't be picked up yet. */
+  signalled: boolean;
 }
 
 export interface ShotView {
@@ -30,6 +40,7 @@ export interface Snapshot {
   t: number;
   ships: ShipView[];
   shots: Map<string, ShotView>;
+  packs: Map<string, PackView>;
 }
 
 export type Frame = Omit<Snapshot, "t">;
@@ -93,6 +104,7 @@ export class SnapshotBuffer {
       const before = a.shots.get(id);
       shots.set(id, before ? { x: lerp(before.x, shot.x, k), y: lerp(before.y, shot.y, k), angle: shot.angle } : shot);
     }
-    return { ships, shots };
+    // Packs don't move: take them from the newer snapshot.
+    return { ships, shots, packs: b.packs };
   }
 }

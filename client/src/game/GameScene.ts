@@ -1,9 +1,9 @@
 import * as Phaser from "phaser";
-import { ISLAND, TUNING, type Role, type Vec } from "@sink-or-sail/shared";
+import { ISLAND, TUNING, packButtonLit, type Role, type Vec } from "@sink-or-sail/shared";
 import { CREW_STYLES } from "./crews.ts";
 import { ShipEffects, type ShipEffect } from "./effects.ts";
 import { aimGuide, dashes, hullPoints, turretEnd } from "./hull.ts";
-import type { Frame, ShipView } from "./interpolation.ts";
+import type { Frame, PackView, ShipView } from "./interpolation.ts";
 import { blinkVisible } from "./matchText.ts";
 import { gunnerFromMouse, pilotFromKeys } from "./laptopInput.ts";
 import { mergeGunner, mergePilot, type TouchControls } from "./touchControls.ts";
@@ -24,10 +24,14 @@ const ISLAND_SAND = 0xd9c48a;
 const ISLAND_EDGE = 0x8a7a4a;
 const HULL_EDGE = 0x1b1b1b;
 const SHIELD = 0x9be7ff;
+const PACK_FILL = 0x0b2545;
+const PACK_LETTERS: Record<string, string> = { mine: "M", torpedo: "T", emp: "E", health: "H" };
 
 export class GameScene extends Phaser.Scene {
   private g!: Phaser.GameObjects.Graphics;
-  private keys!: Record<"W" | "A" | "S" | "D" | "SPACE", Phaser.Input.Keyboard.Key>;
+  private keys!: Record<"W" | "A" | "S" | "D" | "SPACE" | "E", Phaser.Input.Keyboard.Key>;
+  /** One letter label per pack on the map (Graphics can't draw text). */
+  private packLetters = new Map<string, Phaser.GameObjects.Text>();
   private mouseSeen = false;
   private readonly effects = new ShipEffects(TUNING.client.hitFlashMs, TUNING.client.sinkFadeMs);
 
@@ -40,7 +44,7 @@ export class GameScene extends Phaser.Scene {
 
   create(): void {
     this.g = this.add.graphics();
-    this.keys = this.input.keyboard!.addKeys("W,A,S,D,SPACE") as typeof this.keys;
+    this.keys = this.input.keyboard!.addKeys("W,A,S,D,SPACE,E") as typeof this.keys;
     this.input.mouse?.disableContextMenu();
     this.input.on("pointermove", (pointer: Phaser.Input.Pointer) => {
       if (pointer === this.input.mousePointer) this.mouseSeen = true;
@@ -60,17 +64,21 @@ export class GameScene extends Phaser.Scene {
   private readInput(frame: Frame | null, seat: { crew: number; role: Role } | null): unknown | null {
     if (!seat) return null;
     const touch = this.link.touch;
+    const ship = frame?.ships[seat.crew];
+    // A dim Pack button does nothing: only send it when this role can use what's loaded.
+    const lit = packButtonLit(ship?.held ?? null, seat.role);
     if (seat.role === "pilot") {
       const k = this.keys;
-      const keys = pilotFromKeys({ up: k.W.isDown, left: k.A.isDown, down: k.S.isDown, right: k.D.isDown, boost: k.SPACE.isDown });
-      return mergePilot(keys, touch.pilotInput());
+      const keys = pilotFromKeys({ up: k.W.isDown, left: k.A.isDown, down: k.S.isDown, right: k.D.isDown, boost: k.SPACE.isDown, pack: k.E.isDown });
+      const input = mergePilot(keys, touch.pilotInput());
+      return { ...input, pack: lit && !!input.pack };
     }
-    const ship = frame?.ships[seat.crew];
     // The mouse specifically: never a touch pointer, even if Phaser ever sees one.
     const pointer = this.input.mousePointer!;
     const mouse = this.mouseSeen ? { x: pointer.worldX, y: pointer.worldY } : null;
-    const fromMouse = gunnerFromMouse(ship ? mouse : null, ship ?? { x: 0, y: 0 }, pointer.leftButtonDown(), pointer.rightButtonDown());
-    return mergeGunner(fromMouse, touch.gunnerInput());
+    const fromMouse = gunnerFromMouse(ship ? mouse : null, ship ?? { x: 0, y: 0 }, pointer.leftButtonDown(), pointer.rightButtonDown(), this.keys.E.isDown);
+    const input = mergeGunner(fromMouse, touch.gunnerInput());
+    return { ...input, pack: lit && !!input.pack };
   }
 
   private draw(frame: Frame | null, ownCrew: number | null, effects: ShipEffect[]): void {
@@ -78,6 +86,7 @@ export class GameScene extends Phaser.Scene {
     g.clear();
 
     this.polygon(ISLAND, ISLAND_SAND, ISLAND_EDGE);
+    this.drawPacks(frame?.packs ?? new Map());
     if (!frame) return;
 
     if (ownCrew !== null) {
@@ -93,6 +102,48 @@ export class GameScene extends Phaser.Scene {
 
     g.fillStyle(0xffffff, 1);
     for (const shot of frame.shots.values()) g.fillCircle(shot.x, shot.y, 4);
+  }
+
+  /** Glowing spots pulse; packs on the water show their shape and letter (M circle, T capsule, E diamond, H square). */
+  private drawPacks(packs: Map<string, PackView>): void {
+    const g = this.g;
+    const r = TUNING.packs.radius;
+    const pulse = (Math.sin(performance.now() / 150) + 1) / 2;
+    for (const [id, pack] of packs) {
+      if (pack.signalled) {
+        g.lineStyle(3, 0xffffff, 0.35 + 0.5 * pulse);
+        g.strokeCircle(pack.x, pack.y, r + 4 + 8 * pulse);
+        continue;
+      }
+      g.fillStyle(PACK_FILL, 0.9);
+      g.lineStyle(2, 0xffffff, 1);
+      const { x, y } = pack;
+      if (pack.type === "mine") {
+        g.fillCircle(x, y, r);
+        g.strokeCircle(x, y, r);
+      } else if (pack.type === "torpedo") {
+        g.fillRoundedRect(x - r, y - r * 0.55, 2 * r, 1.1 * r, r * 0.55);
+        g.strokeRoundedRect(x - r, y - r * 0.55, 2 * r, 1.1 * r, r * 0.55);
+      } else if (pack.type === "emp") {
+        this.polygon([{ x, y: y - r }, { x: x + r, y }, { x, y: y + r }, { x: x - r, y }], PACK_FILL, 0xffffff, 0.9);
+      } else {
+        g.fillRect(x - r * 0.85, y - r * 0.85, 1.7 * r, 1.7 * r);
+        g.strokeRect(x - r * 0.85, y - r * 0.85, 1.7 * r, 1.7 * r);
+      }
+      let letter = this.packLetters.get(id);
+      if (!letter) {
+        letter = this.add.text(x, y, PACK_LETTERS[pack.type] ?? "?", { fontFamily: "sans-serif", fontSize: "18px", fontStyle: "bold", color: "#ffffff" }).setOrigin(0.5);
+        this.packLetters.set(id, letter);
+      }
+    }
+    // Remove letters for packs that are gone or only glowing.
+    for (const [id, letter] of this.packLetters) {
+      const pack = packs.get(id);
+      if (!pack || pack.signalled) {
+        letter.destroy();
+        this.packLetters.delete(id);
+      }
+    }
   }
 
   private drawAimGuide(ship: ShipView): void {

@@ -30,4 +30,14 @@ export const SPAWN_POINTS: readonly Vec[] = [
   { x: width - 200, y: height - 180 },
 ];
 
+/** Pack spawn spots in open water, mirror-symmetric so neither crew is favoured. */
+export const PACK_SPOTS: readonly Vec[] = [
+  { x: 800, y: 150 },
+  { x: 800, y: 750 },
+  { x: 450, y: 300 },
+  { x: 450, y: 600 },
+  { x: 1150, y: 300 },
+  { x: 1150, y: 600 },
+];
+
 export const SEA_CENTRE: Vec = { x: width / 2, y: height / 2 };

@@ -1,11 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { SnapshotBuffer, lerpAngle, type Snapshot } from "./interpolation.ts";
 
-const ship = (x: number, heading = 0, extra = {}) => ({ x, y: 0, heading, turret: heading, health: 100, energy: 100, boosting: false, shielding: false, protection: 0, sunk: false, respawnIn: 0, sinkings: 0, sunkBy: -1, hits: 0, ...extra });
+const ship = (x: number, heading = 0, extra = {}) => ({ x, y: 0, heading, turret: heading, health: 100, energy: 100, boosting: false, shielding: false, protection: 0, sunk: false, respawnIn: 0, sinkings: 0, sunkBy: -1, hits: 0, held: null, ...extra });
 const snap = (t: number, x: number, shots: Record<string, { x: number; y: number; angle: number }> = {}, heading = 0): Snapshot => ({
   t,
   ships: [ship(x, heading)],
   shots: new Map(Object.entries(shots)),
+  packs: new Map(),
 });
 
 describe("lerpAngle", () => {
@@ -56,8 +57,8 @@ describe("SnapshotBuffer", () => {
 
   it("takes on/off values from the newer snapshot", () => {
     const buffer = new SnapshotBuffer();
-    buffer.push({ t: 0, ships: [ship(0)], shots: new Map() });
-    buffer.push({ t: 100, ships: [ship(0, 0, { shielding: true })], shots: new Map() });
+    buffer.push({ t: 0, ships: [ship(0)], shots: new Map(), packs: new Map() });
+    buffer.push({ t: 100, ships: [ship(0, 0, { shielding: true })], shots: new Map(), packs: new Map() });
     expect(buffer.sample(10)!.ships[0]!.shielding).toBe(true);
   });
 

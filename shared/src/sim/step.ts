@@ -2,6 +2,7 @@ import { TUNING } from "../tuning.ts";
 import { bumpDamage, canBeDamaged, damageShip, traceShot } from "./combat.ts";
 import { updateEnergy } from "./energy.ts";
 import { ISLAND, SPAWN_POINTS } from "./map.ts";
+import { pickUpPacks, updatePacks } from "./packs.ts";
 import { matchResult } from "./match.ts";
 import { chooseSpawn, respawnShip } from "./respawn.ts";
 import { keepInSea, pushOutOfIsland, separateShips, steerShip } from "./ship.ts";
@@ -29,7 +30,12 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
   let nextShotId = world.nextShotId;
 
   const sink = (targetIndex: number, by: number | null) => {
-    events.push({ type: "sunk", ship: ships[targetIndex]!.id, by });
+    const sunk = ships[targetIndex]!;
+    events.push({ type: "sunk", ship: sunk.id, by });
+    if (sunk.held) {
+      events.push({ type: "packLost", ship: sunk.id, packType: sunk.held });
+      ships[targetIndex] = { ...sunk, held: null };
+    }
     if (by !== null) {
       const attacker = ships.findIndex((s) => s.id === by);
       if (attacker >= 0) ships[attacker] = { ...ships[attacker]!, sinkings: ships[attacker]!.sinkings + 1 };
@@ -127,6 +133,17 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
     if (!ships[i]!.sunk) ships[i] = keepInSea(pushOutOfIsland(ships[i]!, ISLAND));
   }
 
+  // Stage 1 packs: the spawn clock runs, then ships take packs they touch (so a clock restarted by a
+  // pickup counts from the next step, like one restarted by a pack appearing). Skipped with packs off.
+  let packWorld: World | null = null;
+  if (world.packsOn) {
+    const updated = updatePacks({ ...world, ships }, dt);
+    const picked = pickUpPacks(updated.world);
+    packWorld = picked.world;
+    ships.splice(0, ships.length, ...picked.world.ships);
+    events.push(...updated.events, ...picked.events);
+  }
+
   // Shots move along their path and stop at the first ship or the island in the way.
   const survivingShots: Shot[] = [];
   for (const shot of shots) {
@@ -150,7 +167,16 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
   }
 
   const time = world.time + dt;
-  const next: World = { time, ships, shots: survivingShots, nextShotId, contacts, over: false };
+  const next: World = {
+    ...world,
+    ...(packWorld && { rng: packWorld.rng, packs: packWorld.packs, nextPackId: packWorld.nextPackId, nextSignalIn: packWorld.nextSignalIn }),
+    time,
+    ships,
+    shots: survivingShots,
+    nextShotId,
+    contacts,
+    over: false,
+  };
   if (time >= TUNING.match.duration - EPSILON) {
     next.over = true;
     events.push({ type: "matchEnded", winner: matchResult(next).winner });

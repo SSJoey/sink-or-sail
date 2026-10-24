@@ -3,7 +3,15 @@ import { SEA_CENTRE, START_POINTS } from "./map.ts";
 import type { Ship, World } from "./types.ts";
 import { angleOf, sub } from "./vec.ts";
 
-export function createWorld(): World {
+export interface WorldOptions {
+  /** Stage 1 packs; off by default, which plays exactly as Stage 0. */
+  packs?: boolean;
+  /** Seed for the simulation's random generator. */
+  seed?: number;
+}
+
+export function createWorld(options: WorldOptions = {}): World {
+  const packsOn = options.packs ?? false;
   const ships: Ship[] = START_POINTS.map((pos, id) => {
     const heading = angleOf(sub(SEA_CENTRE, pos));
     return {
@@ -24,9 +32,22 @@ export function createWorld(): World {
       sinkings: 0,
       boostEnergy: 0,
       shieldEnergy: 0,
+      held: null,
     };
   });
-  return { time: 0, ships, shots: [], nextShotId: 0, contacts: [], over: false };
+  return {
+    time: 0,
+    ships,
+    shots: [],
+    nextShotId: 0,
+    contacts: [],
+    over: false,
+    packsOn,
+    rng: (options.seed ?? 1) >>> 0,
+    packs: [],
+    nextPackId: 0,
+    nextSignalIn: packsOn ? TUNING.packs.spawnInterval : null,
+  };
 }
 
 export function timeLeft(world: World): number {

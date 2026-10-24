@@ -30,6 +30,10 @@
       #btn-boost { width: 120px; height: 120px; right: 40px; bottom: 40px; }
       #btn-fire { width: 110px; height: 110px; right: 40px; bottom: 40px; }
       #btn-shield { width: 80px; height: 80px; right: 170px; bottom: 55px; }
+      /* Small Pack button above Boost / Fire; dim unless this role can use what's loaded. */
+      #btn-pack { width: 76px; height: 76px; right: 57px; bottom: 175px; font-size: 14px; border-radius: 12px; opacity: 0.4; }
+      #btn-pack.lit { opacity: 1; background: rgba(255,209,102,0.35); border-color: #ffd166; }
+      #hud-pack { white-space: nowrap; }
       .overlay-text { position: absolute; left: 50%; transform: translateX(-50%); pointer-events: none; text-shadow: 0 2px 6px rgba(0,0,0,0.6); text-align: center; }
       #countdown { top: 35%; font-size: 96px; font-weight: bold; }
       #banner { top: 64px; font-size: 22px; font-weight: bold; background: rgba(11,37,69,0.85); padding: 8px 16px; border-radius: 8px; }
@@ -58,6 +62,10 @@
       <div id="seats"></div>
       <p>Not seated: <span id="unseated"></span></p>
       <div id="last-result" hidden></div>
+      <p>
+        <label id="packs-host" hidden><input type="checkbox" id="packs-toggle" /> Packs on</label>
+        <span id="packs-status"></span>
+      </p>
       <p><button id="start">Start match</button> <span id="match"></span></p>
       <p><button id="leave">Leave room</button></p>
     </section>
@@ -69,6 +77,7 @@
         <span id="hud-role"></span>
         <span id="hud-crew"></span>
         <div id="hud-energy" title="Shared energy"><div id="hud-energy-fill"></div></div>
+        <span id="hud-pack"></span>
         <span id="hud-score"></span>
         <span id="hud-clock"></span>
         <button id="hud-pause" hidden>Pause</button>
@@ -81,6 +90,7 @@
         <button id="btn-boost" class="touch-btn" data-button="boost" hidden>Boost</button>
         <button id="btn-shield" class="touch-btn" data-button="shield" hidden>Shield</button>
         <button id="btn-fire" class="touch-btn" data-button="fire" hidden>Fire</button>
+        <button id="btn-pack" class="touch-btn" data-button="pack" hidden>Pack</button>
       </div>
       <div id="countdown" class="overlay-text" hidden></div>
       <div id="banner" class="overlay-text" hidden></div>

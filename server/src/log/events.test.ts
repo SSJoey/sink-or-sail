@@ -58,7 +58,7 @@ describe("simEventLines", () => {
 
 describe("match start and end", () => {
   it("records the room, crews and roles, and the tuning values in use", () => {
-    const line = matchStartLine("KWPZ", roster);
+    const line = matchStartLine("KWPZ", roster, { packsOn: false, seed: 7 });
     expectBasics(line);
     expect(line).toEqual({
       t: 0,
@@ -68,6 +68,8 @@ describe("match start and end", () => {
         { ship: 0, pilot: "Joey", gunner: "Sam" },
         { ship: 1, pilot: "Kim", gunner: null },
       ],
+      packsOn: false,
+      seed: 7,
       tuning: TUNING,
     });
   });
@@ -95,7 +97,7 @@ describe("positionLines", () => {
     world.time = 12.3456;
     const [first] = positionLines(world);
     expectBasics(first!);
-    expect(first).toMatchObject({ t: 12346, type: "position", ship: 0, x: 150, y: 450, heading: 0, health: 100, energy: 100, sunk: false, boostEnergy: 0, shieldEnergy: 0 });
+    expect(first).toMatchObject({ t: 12346, type: "position", ship: 0, x: 150, y: 450, heading: 0, health: 100, energy: 100, sunk: false, boostEnergy: 0, shieldEnergy: 0, held: null });
     expect(positionLines(world)).toHaveLength(2);
   });
 });
@@ -115,5 +117,31 @@ describe("player and control lines", () => {
   it("records pause, resume and an early end, with who did it", () => {
     expect(controlLine(800, "paused", "Sam", { crew: 0, role: "gunner" })).toEqual({ t: 800, type: "paused", player: "Sam", ship: 0, role: "gunner" });
     expect(controlLine(900, "endedEarly", "Joey", null)).toEqual({ t: 900, type: "endedEarly", player: "Joey", ship: null, role: null });
+  });
+});
+
+describe("Stage 1 pack lines", () => {
+  const lines = (e: SimEvent) => simEventLines(4000, [e], roster);
+  const crew = { pilot: "Joey", gunner: "Sam" };
+
+  it("records signalled and spawned packs with their spot and type", () => {
+    expect(lines({ type: "packSignalled", pack: 2, spot: 4, packType: "emp" })).toEqual([{ t: 4000, type: "packSignalled", pack: 2, spot: 4, packType: "emp" }]);
+    expect(lines({ type: "packSpawned", pack: 2, spot: 4, packType: "emp" })).toEqual([{ t: 4000, type: "packSpawned", pack: 2, spot: 4, packType: "emp" }]);
+  });
+
+  it("records pickups, lost packs and health restored, with the crew", () => {
+    expect(lines({ type: "packPickedUp", ship: 0, pack: 2, packType: "mine" })).toEqual([{ t: 4000, type: "packPickedUp", ship: 0, crew, pack: 2, packType: "mine" }]);
+    expect(lines({ type: "packLost", ship: 0, packType: "mine" })).toEqual([{ t: 4000, type: "packLost", ship: 0, crew, packType: "mine" }]);
+    expect(lines({ type: "healthRestored", ship: 0, amount: 33.333 })).toEqual([{ t: 4000, type: "healthRestored", ship: 0, crew, amount: 33.3 }]);
+  });
+
+  it("records whether packs were on and the seed at match start", () => {
+    expect(matchStartLine("KWPZ", roster, { packsOn: true, seed: 99 })).toMatchObject({ packsOn: true, seed: 99 });
+  });
+
+  it("includes each ship's held pack in the position lines", () => {
+    const world = createWorld({ packs: true, seed: 1 });
+    world.ships[0] = { ...world.ships[0]!, held: "torpedo" };
+    expect(positionLines(world).map((l) => l.held)).toEqual(["torpedo", null]);
   });
 });
