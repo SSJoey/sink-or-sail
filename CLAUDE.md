@@ -6,7 +6,7 @@ Full design: `docs/design.md` (exported from the "Sink or Sail — Game Design" 
 
 ## Progress (updated 2026-10-24)
 
-**Stage 0 is built: all 10 slices in the build order below are done and committed.** Next: the 5-round playtest (`docs/playtest.md`), then Stage 1 planning. Stage 1 isn't started; plans for it will come from the user. Every decision, with its date, is in `NOTES.md`.
+**Stage 0 is built: all 10 slices are done and committed.** Its 5-round playtest has been moved: Stage 0 and Stage 1 will be playtested together once Stage 1 is built (see "Definition of done for Stage 1"). **Current work: Stage 1, slice 1.** Every decision, with its date, is in `NOTES.md`.
 
 **Changes to the plan agreed during Stage 0** (details in `NOTES.md`):
 - Added after the first game: **Pause** (any seated player) / **Resume** (host only, with a 3-2-1 countdown) and **Exit game** (host only, ends the match with the current score).
@@ -14,7 +14,7 @@ Full design: `docs/design.md` (exported from the "Sink or Sail — Game Design" 
 - Pages left open across a rebuild reload themselves and rejoin their seat.
 - Energy refill slowed twice after games: now 7.5 per second.
 
-**Still to verify in the next testing session** (also in `NOTES.md`, slice 10): log file names still showed UTC after setting `TZ` in `compose.yaml`; reload each phone by hand once; run a full 4-player match to time-up and check its log and summary.
+**Still to verify from Stage 0** (also in `NOTES.md`, slice 10) — fold these into Stage 1 slice 6: log file names still showed UTC after setting `TZ` in `compose.yaml`; reload each phone by hand once; run a full 4-player match to time-up and check its log and summary.
 
 **Where things are:**
 - `shared/src/`: `tuning.ts` (every gameplay and client number; CLAUDE.md's "`shared/tuning.ts`"), `rooms.ts` (room rules, message names), `input.ts` (input validation), `sim/` (pure, deterministic simulation; `step()` returns the new world plus events).
@@ -31,27 +31,47 @@ Full design: `docs/design.md` (exported from the "Sink or Sail — Game Design" 
 - Server test files run one at a time (they share a port). Tests log to a temporary folder via `LOG_DIR`, never to the real `logs/`.
 - Phaser's own touch input is off (`input: { touch: false }`). Our touch layer handles all touch; Phaser's window-wide touch listener made aiming fire the gun.
 
-## Current goal: Stage 0 — core crew test
+## Current goal: Stage 1 — packs
 
-Answer one question: **is two people sharing one ship fun?** Build the smallest thing that tests it, then stop and playtest. Do not build later-stage features early.
+Answer one question: **do packs create "line it up… now!" moments for the crew?** Build on Stage 0 without changing how it plays when packs are off.
 
-### Stage 0 scope (in)
+### Stage 1 scope (in)
 
-- 2 ships, 4 players, **Sink Count** mode only (4-minute match, most sinkings wins).
-- Join by a 4-character room code; enter a name; pick pilot or gunner. Two crews, no lobby polish.
-- Pilot: steer (with slight drift) + **Boost**.
-- Gunner: aim a 360° turret independent of the ship's heading + **Fire** (separate button) + **Shield**.
-- Boost and shield draw on **one shared energy bar** per ship, refilling over time.
-- Hits damage the ship; at zero health it sinks, then respawns after **3 s** at a safe spot with **2 s** of protection.
-- One island that blocks movement and shots.
-- Laptop controls and phone controls (below).
-- Placeholder art: simple shapes in crew colours on a blue background.
-- Runs on a laptop in Docker; players connect over the home Wi-Fi.
-- A match event log for later analysis (see "Match event log").
+Everything in Stage 0 stays as it is (same mode, ships, island, controls, match flow). Stage 1 adds:
 
-### Stage 0 scope (out — do not build yet)
+- **Pack spawning:** packs appear at fixed spawn spots in open water; each spot glows before its pack appears; a ship picks a pack up by sailing over it.
+- **One pack slot per ship**, shared by the crew and shown on both crewmates' screens. A ship can't pick up a new pack while holding one. Each pack is used once. A held pack is lost when the ship sinks.
+- **Four packs:**
 
-Packs, mines, torpedoes, EMP, reefs, wrecks, whirlpools, kraken, storm, ghosts, Last Afloat, Fleet Battle, bots, spectator view, awards, results screen beyond a simple scoreboard, final art, sound, cloud hosting.
+| Pack | Effect | Aimed by | Used by | Notes |
+| --- | --- | --- | --- | --- |
+| Mine | Dropped behind the stern | Pilot (route) | Pilot | Arms after a delay, then hits **any** ship that touches it, including the one that dropped it; expires after a time |
+| Torpedo | Travels straight out from the bow, slower than a shot | Pilot (ship's heading is the only guide; no aiming line) | Gunner | Stopped by the island and the map edge; a raised shield halves its damage |
+| EMP | Ring centred on the firing ship | Pilot (ship position) | Gunner | For 3 s, enemy ships in range lose fire, boost and shield; steering still works; the firing ship is unaffected |
+| Health | Restores health | — | Applied on pickup | Doesn't use the slot, so it can be picked up while holding another pack; a ship at full health sails over it without taking it |
+
+- **Pack button:** lights up only on the controller of the role that can use what's loaded (pilot for a mine; gunner for a torpedo or EMP).
+- **Host toggle in the room screen: Packs on / off** (default on), so playtests can compare rounds with and without packs. With packs off the game plays exactly as Stage 0.
+- Pack events in the match event log and new figures in the summary script (see "Match event log").
+
+### Stage 1 starting values (all go in `shared/tuning.ts`)
+
+These are agreed starting points to tune during playtesting. Express damage and healing as a fraction of a ship's full health.
+
+- Packs on the map at once: 2. A replacement is signalled about 8 s after one is taken.
+- Spawn spots: about 6 fixed spots in open water, clear of the island and the respawn spots; the next spot is chosen by the seeded generator. A spot that already holds a pack, or has a ship on it, is not chosen.
+- Spawn signal (glow) before a pack appears: 3 s.
+- Pack type chances: equal (25% each).
+- Mine: arms after 1 s; lasts 30 s; damage 40% of full health.
+- Torpedo: speed below a normal shot's (propose a value relative to the current shot speed and ask); damage 50% of full health; halved by a raised shield.
+- EMP: radius about 3 ship lengths; effect lasts 3 s.
+- Health: restores 40% of full health, never above full.
+
+Anything not listed here (for example torpedo lifetime, whether protection after respawn blocks mines and torpedoes, how an EMP interacts with a shield already raised, what a mine or torpedo does to the island): **ask, don't assume.**
+
+### Stage 1 scope (out — do not build yet)
+
+Reefs, wrecks, whirlpools, kraken, storm, ghosts, Last Afloat, Fleet Battle, bots, spectator view, awards, results screen beyond a simple scoreboard, final art, sound, cloud hosting, more than 2 ships, any pack not in the table above.
 
 ## Stack
 
@@ -67,8 +87,9 @@ Check current versions and APIs in each library's docs before writing code again
 - **The server is authoritative.** Clients send only input (stick vector, button states). The server runs the simulation, resolves hits, and broadcasts state. Never trust client positions or hit claims.
 - Fixed server tick (start at 20 Hz; tune later). Clients send input at a steady 20–30 Hz, not on every touch event.
 - Clients interpolate between server snapshots for smooth rendering.
-- Simple custom physics: ships as capsules or circles, shots as points, the island as a polygon. No physics engine.
-- All tunable numbers (speeds, drift, energy costs, refill rate, damage, health, cooldowns) live in one `shared/tuning.ts` file. They are starting values to change during playtesting.
+- Simple custom physics: ships as capsules or circles, shots as points, the island as a polygon. No physics engine. Mines are circles; torpedoes are points (like shots); the EMP is a circle check at the moment it fires.
+- All tunable numbers (speeds, drift, energy costs, refill rate, damage, health, cooldowns, and every Stage 1 value) live in one `shared/tuning.ts` file. They are starting values to change during playtesting.
+- Pack spawning uses the simulation's seeded generator, so the same seed gives the same packs in the same places.
 
 ## Match event log
 
@@ -77,23 +98,26 @@ The server records each match for analysis and, later, for awards. Log events, n
 - One file per match in `logs/` (mounted as a Docker volume so files survive restarts), named by date, time and room code, one JSON object per line (JSON Lines).
 - Every event carries: match time in ms, event type, and where relevant ship id, player name and role.
 - Stage 0 events: match start (crews, roles, tuning values in use) and end (scores); shot fired; hit landed (attacker, target, damage); shield raised and shot blocked; boost used; energy bar hit empty; ship sunk (by whom); respawn; player joined, left or reconnected.
-- About once per second: each ship's position, heading, health and energy.
-- Later stages add their own events (packs, hazards, ghosts, awards) in the same format.
+- **Stage 1 events:** match start also records whether packs are on; pack signalled (spot, type); pack spawned; pack picked up (ship, type); pack used (ship, type, player, role); pack lost (ship sank while holding it); health restored (ship, amount); mine armed; mine triggered (owner, ship hit, damage, whether it was the owner's own ship); mine expired; torpedo hit (attacker, target, damage, whether the shield halved it); torpedo ended without a hit (island, edge or lifetime); EMP fired (firing ship, ships caught).
+- About once per second: each ship's position, heading, health and energy, plus the pack it holds (if any).
+- Later stages add their own events (hazards, ghosts, awards) in the same format.
 - Logging must never slow the simulation: buffer writes and flush asynchronously.
 - In-game names only; no other personal data. Files stay on the laptop.
-- Add a small script that summarises a log: per crew sinkings, shots, hit accuracy, energy spent on boost vs shield, time spent with an empty bar, average survival time.
+- **Summary script:** per crew sinkings, shots, hit accuracy, energy spent on boost vs shield, time spent with an empty bar, average survival time. **Stage 1 adds**, per crew: packs picked up, used and lost (by type); average time a pack was held before use; torpedoes fired and hit (accuracy); mine hits, with own-mine hits counted separately; ships caught per EMP; health restored. The summary states whether packs were on.
 
 ## Controls
 
 ### Laptop
-- Pilot: WASD to steer, Space to boost.
-- Gunner: mouse to aim, left-click to fire, right-click to shield.
+- Pilot: WASD to steer, Space to boost, **E to drop a mine**.
+- Gunner: mouse to aim, left-click to fire, right-click to shield, **E to fire a torpedo or EMP**.
 
 ### Phone (sideways only)
 - **Left thumb, both roles:** a hybrid stick — visible resting spot, but it jumps to wherever the thumb lands on the left half of the screen. Small dead zone in the centre.
-- **Right thumb, pilot:** large Boost button.
-- **Right thumb, gunner:** large Fire button with Shield right beside it. They can't be pressed together; that's intended.
-- Top of screen: role, crew, shared energy bar, score and timer.
+- **Right thumb, pilot:** large Boost button; small **Pack** button above it.
+- **Right thumb, gunner:** large Fire button with Shield right beside it, and a small **Pack** button above. Fire and Shield can't be pressed together; that's intended.
+- The Pack button shows the pack's name and is lit only when that role can use what's loaded; otherwise it is dim and does nothing.
+- When a torpedo or EMP is loaded, the gunner's phone vibrates briefly (Android only; iPhone browsers don't support vibration, so skip it there silently).
+- Top of screen: role, crew, shared energy bar, the pack slot, score and timer.
 - Support multi-touch (stick + button at once) with pointer events.
 - Block browser gestures on the game screen: pinch-zoom, double-tap zoom, pull-to-refresh, text selection.
 - Android: request fullscreen and lock to landscape. iPhone can't lock orientation from a browser: show a "rotate your phone" screen in portrait.
@@ -102,8 +126,10 @@ The server records each match for analysis and, later, for awards. Log events, n
 
 - Ships are top-down hull shapes (pointed bow), not circles, and point the way they are sailing.
 - Every ship shows its turret direction. Only your own ship shows the aiming guide (dashed line, cone, crosshair).
+- **No aiming guide for torpedoes:** the bow is the sight.
 - Crew colours must be clearly distinct; pair each with a symbol for colour-blind players.
 - Each player sees the same amount of sea whatever their device, so laptops get no advantage.
+- **Stage 1 placeholders:** a spawn spot glows (a pulsing ring) while signalled; each pack type has its own simple shape and letter (M, T, E, H) so it reads without colour; a mine is visible to everyone and looks different once armed; a torpedo is visibly larger and slower than a shot; the EMP shows an expanding ring, and ships caught by it look disabled for the 3 s.
 
 ## Rules of engagement (non-negotiable)
 
@@ -117,41 +143,51 @@ The server records each match for analysis and, later, for awards. Log events, n
 - Give a short explanation alongside each setup step (commands, config, Docker).
 - Prefer Ubuntu's official repositories for system packages. Ask before installing anything system-wide.
 - Commit at the end of each slice with a clear message, only after tests pass.
+- **Stage 0 must keep working:** every existing test keeps passing, and with packs off a match plays exactly as before.
 
 ## Testing (from the first slice)
 
 Tests are written alongside the code in every slice, not afterwards. A slice is not done until its tests exist and pass.
 
-- **Test runner:** Vitest for shared, server and client logic, unless current docs give a reason to ask about an alternative. One root command (`npm test`) runs everything; `npm run typecheck` runs the TypeScript compiler in check mode.
-- **Simulation is pure and deterministic.** Put game rules (movement, drift, boost, energy, aiming, shots, collisions, damage, sinking, respawn, protection, scoring, match timer) in plain functions that take state, input and a time step, and return new state. No randomness without a seeded generator. This makes them fully unit-testable without a network or browser.
+- **Test runner:** Vitest for shared, server and client logic. One root command (`npm test`) runs everything; `npm run typecheck` runs the TypeScript compiler in check mode. Playwright for browser smoke tests.
+- **Simulation is pure and deterministic.** Game rules live in plain functions that take state, input and a time step, and return new state plus events. No randomness without the seeded generator.
 - **Write the test first** for each game rule: describe the expected behaviour in the test, see it fail, then implement.
-- **What to test per area:**
-  - Rules: every rule above, including edge cases (energy at zero, shield and fire not together, respawn timing, protection window, shots blocked by the island, ship cannot enter the island).
-  - Room logic: code generation and uniqueness, joining by code, wrong code, full room, role selection conflicts, reconnection, leaving mid-match. Use Colyseus's own testing utilities if its current docs provide them; otherwise ask.
+- **What to test per area (Stage 0 tests stay as they are):**
+  - Rules: every Stage 0 rule, including its edge cases.
+  - Room logic: code generation and uniqueness, joining by code, wrong code, full room, role selection conflicts, reconnection, leaving mid-match, the host-only rules.
   - Input handling: stick dead zone and direction maths, input send rate, laptop key and mouse mapping.
   - Event log: each event type is written with the required fields; the summary script gives correct numbers on a small hand-made sample log.
-- **Browser smoke test** (from the slice that adds rendering): one automated check that the client loads, joins a room and shows a ship. Ask which tool to use before adding it.
+- **Stage 1 tests:**
+  - Spawning: the same seed gives the same spots and types; never more packs than the limit; the signal lasts the set time before the pack appears; occupied spots are skipped; a replacement is signalled after the set delay; packs off means no spawns at all.
+  - Slot: pickup by sailing over; no pickup while holding; pack used once; pack lost on sinking; health doesn't use the slot, isn't taken at full health and never heals above full.
+  - Pack button: only the right role can use each pack; input from the wrong role is ignored.
+  - Mine: drops behind the stern; no effect before arming; hits any ship after arming, including its owner; expires on time; damage correct.
+  - Torpedo: leaves along the ship's heading at the moment of firing; speed and damage correct; stopped by the island and the map edge; shield halves damage.
+  - EMP: catches enemy ships within the radius and no others; the firing ship is unaffected; caught ships can't fire, boost or shield for 3 s but can steer; the effect ends on time.
+  - Host toggle: only the host can change it; it applies from the next match; with packs off, a match is identical to Stage 0 for the same seed and inputs.
+  - Event log and summary: every Stage 1 event type with its fields; summary figures correct on a hand-made sample log with packs.
+  - Browser smoke tests: extend the existing Playwright tests so a pack can be picked up and used on the laptop and the emulated phone.
 - Tests and type-check must pass before every commit. Never delete or weaken a test to make it pass; ask instead.
 
-## Getting started: the build order for Stage 0
+## Build order for Stage 1
 
-Work through these slices in order. Each one follows the rules above: plan, go-ahead, build with tests, summary, stop.
+Work through these slices in order. Each one follows the rules above: plan, go-ahead, build with tests, summary, stop. Each pack slice is end-to-end (simulation, server, client, log and tests) so it can be tried on its own.
 
-1. **Environment check.** Report installed versions of Node.js, npm, Docker and Docker Compose. Check current stable versions of Phaser, Colyseus, Vite and Vitest in their docs. Propose versions and ask before installing anything.
-2. **Project skeleton.** `client/`, `server/` and `shared/` packages; TypeScript config; `npm test` and `npm run typecheck` working with one trivial passing test in each package; Docker Compose that runs the server and serves the client; empty `NOTES.md` with "Decisions" and "Later" headings; `.gitignore` (including `logs/`).
-3. **Rooms by code.** Create a room and get a 4-character code; join by code with a name; pick pilot or gunner; two crews of two. Tests for every rule in "Room logic".
-4. **Simulation core.** All Stage 0 game rules as pure functions in `shared/`, with every tunable number in `shared/tuning.ts`. Heavily tested. No rendering yet.
-5. **Server loop.** The room runs the simulation at a fixed tick, applies player input, and broadcasts state. Tests that input changes state and that the server rejects anything other than input.
-6. **Client rendering and laptop controls.** Draw the sea, island, ships (hull shapes, turrets, own aiming guide), shots and the shared energy bar; interpolate between snapshots; send laptop input at a steady rate. Add the browser smoke test.
-7. **Phone controls.** Sideways layout, hybrid stick, role buttons, multi-touch, blocked browser gestures, fullscreen and landscape lock on Android, "rotate your phone" screen on iPhone. Tests for stick maths and input mapping.
-8. **Match flow.** 4-minute timer, live score, sinking and respawn shown on screen, a simple end-of-match scoreboard, and starting a new match in the same room.
-9. **Match event log and summary script.** As described in "Match event log", with tests.
-10. **Home network play.** Run everything in Docker on the laptop, play from phones over the Wi-Fi, fix only what blocks a full match. Then hand over for the playtest.
+1. **Pack basics.** Spawn spots, the signal glow, spawning with the seeded generator, pickup, the shared slot shown on both crewmates' screens (top bar on phones and laptops), packs lost on sinking, the Pack button on both controllers and the E key (lit or dim; nothing to use yet), the **health pack**, the host **Packs on / off** toggle, and their log events.
+2. **Mine.** Drop, arm, trigger on any ship including the owner, expire; pilot's Pack button and E key; log events.
+3. **Torpedo.** Fire along the heading, travel, hit, shield halving, stopped by island and edge; gunner's Pack button and E key; the vibration on Android; log events.
+4. **EMP.** Fire, catch enemies in range, disable fire, boost and shield for 3 s; the ring and the disabled look; log events.
+5. **Summary script additions** as listed in "Match event log", with tests on a hand-made sample log.
+6. **Home network play.** Run everything in Docker on the laptop; play from phones over the Wi-Fi; clear the three "still to verify" items from Stage 0; fix only what blocks a full match. Then hand over for the combined playtest.
 
-## Definition of done for Stage 0
+## Stage 0 (done)
 
-1. Four people on the home Wi-Fi can join one room by code, pick roles, and play a full 4-minute Sink Count match on phones and laptops.
-2. Steering, boost, aiming, firing, shield, shared energy, damage, sinking and respawn all work and feel responsive.
-3. Every match writes an event log, and the summary script runs on it.
-4. Every slice's tests pass, type-check is clean, and every decision made along the way is recorded in `NOTES.md`.
-5. Then playtest 5 rounds and record: did crews talk to each other, laugh, and ask for another round? Compare those notes with the log summaries.
+Stage 0 built the core crew game (Sink Count, 2 ships, 4 players, pilot and gunner, shared energy, one island, laptop and phone controls, match flow, event log, Docker on the home network) in 10 slices: environment check, project skeleton, rooms by code, simulation core, server loop, client rendering and laptop controls, phone controls, match flow, match event log and summary script, home network play. Its rules and controls above still apply.
+
+## Definition of done for Stage 1
+
+1. Four people on the home Wi-Fi can play full 4-minute Sink Count matches with packs on and with packs off, on phones and laptops.
+2. All four packs spawn, can be picked up and used by the right role, and behave as described; the pack slot and Pack button are clear on every device.
+3. Every match writes an event log including pack events, and the summary script reports the Stage 1 figures.
+4. Every slice's tests pass (including all Stage 0 tests), type-check is clean, and every decision made along the way is recorded in `NOTES.md`.
+5. **Combined playtest (Stage 0 + Stage 1),** recorded in `docs/playtest.md`: at least 3 rounds with packs off, then at least 3 rounds with packs on, with the same players. For each round note: did crews talk to each other, laugh, and ask for another round? With packs on, also note whether there were "line it up… now!" moments, and which packs people chased or ignored. Compare the notes with the log summaries for both sets of rounds.
