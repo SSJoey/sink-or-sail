@@ -172,4 +172,11 @@
 - Log `mineTriggered` lines carry `setOffBy` ("ship" or "shot"), `shooter`, and per ship hit `damage` and `ownMine`; drops are logged as `mineDropped` (mine, ship, x, y) after the `packUsed` line.
 - Housekeeping: committed the user's Stage 1 edits to `CLAUDE.md` and `docs/design.md`; deleted `CLAUDE.md0` and `docs/design.md0` (identical to the committed versions, i.e. backups).
 
+### 2026-10-24 — After two packs-on games (Stage 1 slice 2 build)
+
+- **Energy refill slowed again:** `energy.refillPerSecond` 7.5 → 5 (empty to full in 20 s).
+- **Stage 0 reference re-recorded (approved):** the refill change alters play, so the recorded Stage 0 fight was re-recorded at refill 5 (still 47 hits, 9 sinkings). The recording now stores the tuning it was made with; a test fails with a clear message if `tuning.ts` changes, and the recording must then be re-recorded with approval.
+- **Time zone verified:** the container's log files now have local-time names (e.g. `2026-10-24_13-41-25_ZYDS.jsonl`), clearing that Stage 0 "still to verify" item.
+- **Packs felt inactive:** in both games the crew picked up a torpedo or an EMP, which only become usable in slices 3–4, and was then stuck holding it (a mine that appeared later couldn't be taken). Decision: no temporary change; build the torpedo and EMP slices next.
+
 ## Later

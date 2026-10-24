@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { TUNING } from "../tuning.ts";
 import { createWorld } from "./match.ts";
 import { STAGE0_SCRIPT_DT, STAGE0_SCRIPT_SECONDS, stage0ScriptInputs } from "./stage0Script.ts";
 import { step } from "./step.ts";
@@ -6,8 +7,12 @@ import type { SimEvent, World } from "./types.ts";
 import recording from "./fixtures/stage0-run.json" with { type: "json" };
 
 
-/** Recorded from the Stage 0 simulation (2026-10-24), before packs existed. */
-const recorded = recording as unknown as { world: World; events: SimEvent[] };
+/**
+ * A scripted Stage 0 fight recorded with packs off. First recorded 2026-10-24 before packs existed;
+ * re-recorded (with approval) when the energy refill changed to 5 per second. It holds the tuning it was
+ * recorded with: any tuning change alters play, so the recording must then be re-recorded, with approval.
+ */
+const recorded = recording as unknown as { tuning: unknown; world: World; events: SimEvent[] };
 
 /** The Stage 0 fields of a world; later stages add fields that a Stage 0 recording can't contain. */
 function stage0View(world: World) {
@@ -22,6 +27,10 @@ function stage0View(world: World) {
 }
 
 describe("packs off plays exactly as Stage 0", () => {
+  it("was recorded with the current tuning (if not: tuning changed since; re-record with approval)", () => {
+    expect(JSON.parse(JSON.stringify(TUNING))).toEqual(recorded.tuning);
+  });
+
   it("replays the recorded 90-second fight identically", () => {
     let world = createWorld();
     const events: SimEvent[] = [];

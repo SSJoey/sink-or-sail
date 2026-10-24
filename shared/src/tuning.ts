@@ -24,7 +24,7 @@ export const TUNING = {
   },
   energy: {
     max: 100,
-    refillPerSecond: 7.5,
+    refillPerSecond: 5,
     /** After the bar runs empty, boost and shield need this much before they work again. */
     restartThreshold: 20,
   },

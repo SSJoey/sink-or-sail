@@ -12,7 +12,7 @@ Full design: `docs/design.md` (exported from the "Sink or Sail — Game Design" 
 - Added after the first game: **Pause** (any seated player) / **Resume** (host only, with a 3-2-1 countdown) and **Exit game** (host only, ends the match with the current score).
 - Slice 8 match flow: only the **host** (room creator, ★) starts matches; 3-2-1-Go countdown; seats locked for seated players during a match.
 - Pages left open across a rebuild reload themselves and rejoin their seat.
-- Energy refill slowed twice after games: now 7.5 per second.
+- Energy refill slowed three times after games: now 5 per second.
 
 **Still to verify from Stage 0** (also in `NOTES.md`, slice 10) — fold these into Stage 1 slice 6: log file names still showed UTC after setting `TZ` in `compose.yaml`; reload each phone by hand once; run a full 4-player match to time-up and check its log and summary.
 
