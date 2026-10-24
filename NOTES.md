@@ -209,4 +209,12 @@
 - Synced state: each ship's `disabled` seconds and an `empsFired` count (from the simulation's `empFired` events) so clients know when to draw the ring. Log: `empFired` (ship, gunner name/role, `caught` ship ids).
 - **Second browser-test server:** the EMP smoke test needs a different `MATCH_SEED` (8: an EMP first, at (800, 150)) from the other pack tests (367), so `playwright.config.ts` starts a second server on port 2578 serving the same build. The EMP test uses three players (Crew 1 pilot and gunner, Crew 2 pilot), steers level onto the pack, then closes in on the enemy and checks it is in range before firing (WASD steering with drift wasn't precise enough to rely on fixed spots). Shared helpers moved to `e2e/helpers.ts`.
 
+### 2026-10-25 — Stage 1 slice 5: summary script additions
+
+- The header says **Packs on** or **Packs off**. Logs from before packs existed (no `packsOn` in the match start) say **Packs off**, since that's how they played.
+- With packs on, a second **Packs** table follows, per crew: picked up (M T E H), used and lost (M T E; health is applied on pickup, so never used or lost), average held time, torpedo hits/fired (accuracy), mine hits (own hits apart), EMPs fired and ships caught per EMP, health restored. **With packs off the table is left out.**
+- **Mine hits go to whoever set the blast off:** the shooter when a shot set it off (matches the sinking credit), otherwise the mine's owner. A blast hitting that crew's own ship counts as an own hit.
+- Average held time is from pickup to use, for used packs only (packs lost on sinking aren't counted). A torpedo that ends on a mine counts as fired without a hit.
+- **Watch:** one full browser-test run during this slice had a single failed text check (which test wasn't captured); the next three full runs passed. This slice changed no game code, so it's load flakiness in a browser test. If it comes back, capture which test and fix its timing.
+
 ## Later

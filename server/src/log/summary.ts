@@ -23,6 +23,33 @@ export interface CrewSummary {
   lives: number;
 }
 
+type SlotPack = "mine" | "torpedo" | "emp";
+type AnyPack = SlotPack | "health";
+
+/** Stage 1 figures for one crew (only when packs were on). */
+export interface CrewPacks {
+  ship: number;
+  pickedUp: Record<AnyPack, number>;
+  /** Health is applied on pickup, so it is never used or lost. */
+  used: Record<SlotPack, number>;
+  lost: Record<SlotPack, number>;
+  /** Pickup to use, for packs that were used; null if none were. */
+  averageHeldSeconds: number | null;
+  torpedoesFired: number;
+  torpedoHits: number;
+  /** torpedoHits ÷ torpedoesFired; null if none were fired. */
+  torpedoAccuracy: number | null;
+  /** Ships hit by blasts this crew set off (its own mine touched, or any mine it shot), other than its own ship. */
+  mineHits: number;
+  /** This crew's own ship caught in a blast it set off. */
+  ownMineHits: number;
+  empsFired: number;
+  shipsCaught: number;
+  /** shipsCaught ÷ empsFired; null if none were fired. */
+  caughtPerEmp: number | null;
+  healthRestored: number;
+}
+
 export interface MatchSummary {
   room: string | null;
   durationSeconds: number;
@@ -30,7 +57,11 @@ export interface MatchSummary {
   endedEarly: boolean;
   /** False when the log has no matchEnd (e.g. everyone left mid-match). */
   complete: boolean;
+  /** Logs from before packs existed don't say; they played as packs off. */
+  packsOn: boolean;
   crews: CrewSummary[];
+  /** Per crew, in the same order as crews; null with packs off. */
+  packs: CrewPacks[] | null;
 }
 
 export function parseLog(text: string): Line[] {
@@ -105,13 +136,87 @@ export function summarise(lines: readonly Line[]): MatchSummary {
     };
   });
 
+  const packsOn = start?.packsOn === true;
   return {
     room: (start?.room as string | undefined) ?? null,
     durationSeconds: endT / 1000,
     winner: (end?.winner as number | null | undefined) ?? null,
     endedEarly: (end?.endedEarly as boolean | undefined) ?? false,
     complete: end !== undefined,
+    packsOn,
     crews: summaries,
+    packs: packsOn ? crews.map((c) => packFigures(lines, c.ship)) : null,
+  };
+}
+
+const slotCounts = (): Record<SlotPack, number> => ({ mine: 0, torpedo: 0, emp: 0 });
+
+function packFigures(lines: readonly Line[], ship: number): CrewPacks {
+  const pickedUp: Record<AnyPack, number> = { ...slotCounts(), health: 0 };
+  const used = slotCounts();
+  const lost = slotCounts();
+  const heldMs: number[] = [];
+  let pickedUpAt: number | null = null;
+  let torpedoesFired = 0;
+  let torpedoHits = 0;
+  let mineHits = 0;
+  let ownMineHits = 0;
+  let empsFired = 0;
+  let shipsCaught = 0;
+  let healthRestored = 0;
+
+  for (const l of lines) {
+    if (l.type === "mineTriggered") {
+      // Whoever set the blast off gets its hits: the shooter, or the owner when a ship touched it.
+      const by = (l.shooter as number | null) ?? (l.owner as number);
+      if (by !== ship) continue;
+      for (const h of l.hits as { ship: number }[]) {
+        if (h.ship === ship) ownMineHits++;
+        else mineHits++;
+      }
+      continue;
+    }
+    if (l.ship !== ship) continue;
+    const pack = l.packType as AnyPack;
+    switch (l.type) {
+      case "packPickedUp":
+        pickedUp[pack]++;
+        if (pack !== "health") pickedUpAt = l.t;
+        break;
+      case "packUsed":
+        used[pack as SlotPack]++;
+        if (pickedUpAt !== null) heldMs.push(l.t - pickedUpAt);
+        pickedUpAt = null;
+        break;
+      case "packLost":
+        lost[pack as SlotPack]++;
+        pickedUpAt = null;
+        break;
+      case "torpedoFired": torpedoesFired++; break;
+      case "torpedoHit": torpedoHits++; break;
+      case "empFired":
+        empsFired++;
+        shipsCaught += (l.caught as number[]).length;
+        break;
+      case "healthRestored": healthRestored += l.amount as number; break;
+    }
+  }
+
+  return {
+    ship,
+    pickedUp,
+    used,
+    lost,
+    averageHeldSeconds: heldMs.length ? heldMs.reduce((a, b) => a + b, 0) / heldMs.length / 1000 : null,
+    torpedoesFired,
+    torpedoHits,
+    torpedoAccuracy: torpedoesFired > 0 ? torpedoHits / torpedoesFired : null,
+    mineHits,
+    ownMineHits,
+    empsFired,
+    shipsCaught,
+    caughtPerEmp: empsFired > 0 ? shipsCaught / empsFired : null,
+    healthRestored: Math.round(healthRestored * 10) / 10,
   };
 }
 
@@ -125,7 +230,7 @@ const r1 = (n: number) => String(Math.round(n * 10) / 10);
 export function formatSummary(s: MatchSummary): string {
   // Players know the crews as Crew 1 and Crew 2; the log's ship ids start at 0.
   const result = !s.complete ? "Log ends before the match did" : s.winner === null ? "Draw" : `Crew ${s.winner + 1} wins`;
-  const header = `Room ${s.room ?? "?"} · ${clock(s.durationSeconds)} · ${result}${s.endedEarly ? " (ended early by the host)" : ""}`;
+  const header = `Room ${s.room ?? "?"} · ${clock(s.durationSeconds)} · ${result}${s.endedEarly ? " (ended early by the host)" : ""} · Packs ${s.packsOn ? "on" : "off"}`;
   const rows = s.crews.map((c) => [
     `Crew ${c.ship + 1}`,
     [c.pilot, c.gunner].map((n) => n ?? "—").join(" & "),
@@ -139,7 +244,32 @@ export function formatSummary(s: MatchSummary): string {
     `${r1(c.averageSurvivalSeconds)} s (${c.lives})`,
   ]);
   const head = ["Crew", "Pilot & Gunner", "Sinkings", "Shots", "Hits", "Blocked", "Accuracy", "Energy boost / shield", "Empty bar", "Avg survival (lives)"];
+  const out = [header, "", ...table(head, rows)];
+  if (s.packs) out.push("", "Packs", ...table(PACK_HEAD, s.packs.map(packRow)));
+  return out.join("\n");
+}
+
+function table(head: string[], rows: string[][]): string[] {
   const widths = head.map((h, i) => Math.max(h.length, ...rows.map((r) => r[i]!.length)));
   const fmt = (cells: string[]) => cells.map((c, i) => c.padEnd(widths[i]!)).join("  ").trimEnd();
-  return [header, "", fmt(head), fmt(widths.map((w) => "-".repeat(w))), ...rows.map(fmt)].join("\n");
+  return [fmt(head), fmt(widths.map((w) => "-".repeat(w))), ...rows.map(fmt)];
+}
+
+const PACK_HEAD = ["Crew", "Picked up", "Used", "Lost", "Avg held", "Torpedo hits", "Mine hits", "EMPs", "Health restored"];
+const LETTERS: Record<AnyPack, string> = { mine: "M", torpedo: "T", emp: "E", health: "H" };
+const byType = (counts: Partial<Record<AnyPack, number>>) =>
+  (Object.keys(counts) as AnyPack[]).map((p) => `${LETTERS[p]}${counts[p]}`).join(" ");
+
+function packRow(p: CrewPacks): string[] {
+  return [
+    `Crew ${p.ship + 1}`,
+    byType(p.pickedUp),
+    byType(p.used),
+    byType(p.lost),
+    p.averageHeldSeconds === null ? "—" : `${r1(p.averageHeldSeconds)} s`,
+    `${p.torpedoHits}/${p.torpedoesFired}${p.torpedoAccuracy === null ? "" : ` (${Math.round(p.torpedoAccuracy * 100)}%)`}`,
+    `${p.mineHits} (own ${p.ownMineHits})`,
+    p.caughtPerEmp === null ? String(p.empsFired) : `${p.empsFired} · ${r1(p.caughtPerEmp)} per EMP`,
+    r1(p.healthRestored),
+  ];
 }

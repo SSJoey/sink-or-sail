@@ -65,7 +65,7 @@ Each round wrote one file in `logs/`, named by date, time and room code. Summari
 npm run summary -- logs/*.jsonl
 ```
 
-Per crew it shows sinkings, shots, hits, shots blocked by a shield, accuracy, energy spent on boost vs shield, time with an empty bar, and average survival time. Put these next to your notes: for example, did the crew that talked most also share energy better (less empty-bar time)?
+Each match's header says whether packs were on. Per crew it shows sinkings, shots, hits, shots blocked by a shield, accuracy, energy spent on boost vs shield, time with an empty bar, and average survival time. With packs on, a second table shows per crew: packs picked up, used and lost by type (M T E H), average time a pack was held before use, torpedo hits out of torpedoes fired, mine hits (with hits on their own ship counted apart), EMPs fired and ships caught per EMP, and health restored. Put these next to your notes: for example, did the crew that talked most also share energy better (less empty-bar time)?
 
 ## If something goes wrong
 
