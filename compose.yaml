@@ -6,6 +6,8 @@ services:
     volumes:
       # Match event logs stay on the laptop.
       - ./logs:/app/logs
-      # The laptop's time zone, so log file names use local time.
-      - /etc/localtime:/etc/localtime:ro
+    environment:
+      # Local time for log file names. Node needs the zone by name (it has its own zone data);
+      # change this if the laptop moves to another time zone.
+      TZ: Asia/Kolkata
     restart: unless-stopped

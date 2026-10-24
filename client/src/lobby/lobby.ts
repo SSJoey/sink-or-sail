@@ -15,6 +15,7 @@ import {
 } from "@sink-or-sail/shared";
 import { renderResult, startGame, type GameHandle, type PlayerView, type RoomStateView } from "../game/game.ts";
 import { joinErrorText, rejectedText } from "./messages.ts";
+import { reloadIfNewBuild } from "./newBuild.ts";
 import { clearToken, loadToken, saveToken } from "./reconnectToken.ts";
 
 /** The parts of the server's room state the lobby reads. */
@@ -49,8 +50,15 @@ export function startLobby(): void {
     joinScreen.hidden = false;
   }
 
+  // After a server rebuild, a page left open would keep running old code; reload it instead.
+  // The reload rejoins the same seat through the saved reconnection token.
+  const thisScript = document.querySelector<HTMLScriptElement>('script[type="module"][src]')?.getAttribute("src") ?? null;
+  const checkForNewBuild = () =>
+    void reloadIfNewBuild(async () => (await fetch("/", { cache: "no-store" })).text(), thisScript, () => location.reload());
+
   function enterRoom(room: Room): void {
     saveToken(storage, room.reconnectionToken);
+    checkForNewBuild();
     joinScreen.hidden = true;
     roomScreen.hidden = false;
     byId("code").textContent = room.roomId;
@@ -62,6 +70,7 @@ export function startLobby(): void {
     room.onDrop(() => { byId("status").textContent = "Connection lost — reconnecting…"; });
     room.onReconnect(() => {
       saveToken(storage, room.reconnectionToken);
+      checkForNewBuild();
       byId("status").textContent = "";
     });
     room.onLeave((code) => {

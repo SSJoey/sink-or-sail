@@ -115,7 +115,11 @@ export function summarise(lines: readonly Line[]): MatchSummary {
   };
 }
 
-const clock = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Math.round(seconds % 60)).padStart(2, "0")}`;
+/** m:ss, rounding the whole time first so 179.5 s reads 3:00, never 2:60. */
+const clock = (seconds: number) => {
+  const whole = Math.round(seconds);
+  return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`;
+};
 const r1 = (n: number) => String(Math.round(n * 10) / 10);
 
 export function formatSummary(s: MatchSummary): string {

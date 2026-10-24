@@ -67,3 +67,30 @@ test("laptop: pause, host resumes with a countdown, host exits to the scoreboard
   await page.click("#back-to-room");
   await expect(page.locator("#last-result")).toBeVisible();
 });
+
+test("a page left open across a rebuild reloads itself and rejoins its seat", async ({ page }) => {
+  // The first version check sees a "newer build" (a different script name); later ones see the real page.
+  let faked = false;
+  await page.route("**/*", async (route) => {
+    const request = route.request();
+    if (!faked && request.resourceType() === "fetch" && new URL(request.url()).pathname === "/") {
+      faked = true;
+      const real = await (await route.fetch()).text();
+      await route.fulfill({ contentType: "text/html", body: real.replace(/src="\/assets\/[^"]+\.js"/, 'src="/assets/index-NEWER.js"') });
+      return;
+    }
+    await route.continue();
+  });
+
+  await page.goto("/");
+  await page.fill("#name", "Stale");
+  const reloaded = page.waitForEvent("load");
+  await page.click("#create");
+  await reloaded;
+  expect(faked).toBe(true);
+
+  // Back in the same room after the reload, via the saved reconnection token.
+  await expect(page.locator("#code")).toHaveText(/^[A-Z]{4}$/);
+  await expect(page.locator("#room-screen")).toBeVisible();
+  await expect(page.getByText(/Not seated: Stale/)).toBeVisible();
+});

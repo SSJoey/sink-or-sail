@@ -91,7 +91,7 @@
 - **3-2-1-Go countdown** (3 s, in `tuning.ts`) after Start: ships are visible but frozen and input is ignored.
 - **Seats during a match:** seated players can't switch; a free seat (someone left) can be taken by a seatless player.
 - **Scoreboard** appears over the frozen sea at time-up (winner or draw, each crew's sinkings and player names) with a "Back to room" button; the room screen keeps showing the last result next to Start. A new match resets scores.
-- **Not yet approved:** I added `sinkFadeMs: 1000` (a sunk ship fades out over 1 s) to `tuning.ts`; it wasn't in the approved list. Waiting for confirmation or a different value.
+- `sinkFadeMs: 1000` (a sunk ship fades out over 1 s) was added without approval in slice 8; **approved 2026-10-24**.
 - The browser smoke tests check the host's Start and the countdown but don't reach the scoreboard (that needs the full 4 minutes); room tests cover the end of the match. A test-only way to shorten the match was not added (would need approval).
 - **On screen:** the sunk ship fades out; both crewmates get a "Sunk by …" banner and a "Back in 3… 2… 1" countdown; a respawned ship blinks while protected; **hit flash** when a ship is hit; **phone vibration** for both crewmates when their ship sinks (Android only).
 
@@ -117,12 +117,27 @@
 - **Energy spent on boost vs shield** is counted in the simulation (per-ship counters, pure and tested) and written in the position lines and at match end.
 - **Average survival time** includes the last life: a ship afloat at match end counts its last life up to the end.
 - **Accuracy** = hits that did damage ÷ shots fired; shots blocked by a shield count as misses and are shown in their own column.
-- **Time zone:** `compose.yaml` mounts the laptop's `/etc/localtime` read-only, so file names use local time.
+- **Time zone:** `compose.yaml` sets `TZ: Asia/Kolkata` (the laptop's zone), so file names use local time. (Slice 10 found that mounting `/etc/localtime` didn't work: Node needs the zone by name, and the slim image can't work it out, so it fell back to UTC.) Change `TZ` if the laptop moves to another time zone.
 - Writes are buffered and flushed asynchronously about once a second and at match end; a write error is reported on the console and never stops the match.
 - Log lines use ship ids from 0 (ship 0 = Crew 1); the summary table says "Crew 1 / Crew 2" as players see it.
 - Extra line types beyond the list: `playerDropped`, `protectionEnded`, and `roomClosed` (everyone left mid-match; the log then has no `matchEnd`, and the summary says the log ends before the match did).
 - Tests (Vitest room tests and Playwright smoke tests) write their match logs to a temporary folder via the `LOG_DIR` environment variable, never to the real `logs/`.
 - Summary: `npm run summary -- logs/<file>.jsonl [more files]`.
 
+### 2026-10-24 — Slice 10: home network play
+
+- **Ship size stays** (radius 28 on the 1600 × 900 sea): fine on the phones in the first game.
+- **Playtest guide** goes in `docs/playtest.md`.
+- Network: the laptop is on 192.168.1.11. `ufw` is active, but Docker publishes port 2567 around it; Cloudflare WARP excludes local network addresses, so phones can reach the laptop.
+- Fix only what blocks a full match; everything else goes under "Later" or into a tuning list.
+- Docker is Canonical's snap package; its service (`snap.docker.dockerd`) starts at boot, so with `restart: unless-stopped` the game comes back after a laptop restart.
+- Docker commands must run in a normal terminal: the Claude prompt's `!` has no terminal, so `sudo` can't ask for the password. The first slice 10 rebuild silently didn't happen because of this.
+- **Phones on an old page:** after a rebuild, phones that kept the page open ran the old code while reconnecting to the new server (auto-fire bug and no Pause button again). Fix: on joining or reconnecting, the page fetches the server's current page and reloads itself if the main script's hashed name differs; the reload rejoins the seat via the saved token. Tested by unit tests and a smoke test that fakes a newer build.
+- **Energy refill slowed again:** `energy.refillPerSecond` 10.5 → 7.5 (empty to full in 13.3 s).
+- Summary fix: the match length rounded the seconds separately and could show "2:60"; it now rounds the whole time first (179.5 s → 3:00).
+- **Still to verify in the combined testing session (2026-10-24):**
+  1. Time zone: after `TZ: Asia/Kolkata` and a recreate, log names were still UTC. Run `sudo docker compose exec server printenv TZ` and `... date` to see whether the setting reaches the container.
+  2. Reload every phone by hand once (pages open before this build lack the self-reload check).
+  3. A full 4-player match (both crews) run to time-up; check the log ends with `matchEnd` at 240000 ms and the summary shows both crews.
+
 ## Later
-- Check ship size on phones: with the whole 1600 × 900 sea on screen, a hull is about 45 px long on a 1280 px laptop window and roughly 25–30 px on a landscape phone. If it's too small, consider a larger ship radius or a smaller sea (tuning, ask first).

@@ -76,6 +76,13 @@ describe("summarise", () => {
 });
 
 describe("formatSummary", () => {
+  it("never shows :60 for the match length (179.5 s is 3:00)", () => {
+    const lines = parseLog(sampleText).map((l) => (l.type === "matchEnd" ? { ...l, t: 179_500 } : l));
+    const text = formatSummary(summarise(lines));
+    expect(text).toContain("· 3:00 ·");
+    expect(text).not.toContain(":60");
+  });
+
   it("prints a readable per-crew table", () => {
     const text = formatSummary(summarise(parseLog(sampleText)));
     expect(text).toContain("Room KWPZ");
