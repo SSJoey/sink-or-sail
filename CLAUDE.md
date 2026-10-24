@@ -4,6 +4,33 @@ A standalone, browser-based 2D naval battle game. Up to 10 two-person ships (20 
 
 Full design: `docs/design.md` (exported from the "Sink or Sail — Game Design" doc). Visual mock-ups: the Sink or Sail look-options canvas on claude.ai (sea-chart look, lobby screens, phone controllers). This file covers what Claude Code needs to build now; `docs/design.md` describes the whole game, including later stages — use it for context, not as a to-do list. When the two disagree, ask.
 
+## Progress (updated 2026-10-24)
+
+**Stage 0 is built: all 10 slices in the build order below are done and committed.** Next: the 5-round playtest (`docs/playtest.md`), then Stage 1 planning. Stage 1 isn't started; plans for it will come from the user. Every decision, with its date, is in `NOTES.md`.
+
+**Changes to the plan agreed during Stage 0** (details in `NOTES.md`):
+- Added after the first game: **Pause** (any seated player) / **Resume** (host only, with a 3-2-1 countdown) and **Exit game** (host only, ends the match with the current score).
+- Slice 8 match flow: only the **host** (room creator, ★) starts matches; 3-2-1-Go countdown; seats locked for seated players during a match.
+- Pages left open across a rebuild reload themselves and rejoin their seat.
+- Energy refill slowed twice after games: now 7.5 per second.
+
+**Still to verify in the next testing session** (also in `NOTES.md`, slice 10): log file names still showed UTC after setting `TZ` in `compose.yaml`; reload each phone by hand once; run a full 4-player match to time-up and check its log and summary.
+
+**Where things are:**
+- `shared/src/`: `tuning.ts` (every gameplay and client number; CLAUDE.md's "`shared/tuning.ts`"), `rooms.ts` (room rules, message names), `input.ts` (input validation), `sim/` (pure, deterministic simulation; `step()` returns the new world plus events).
+- `server/src/`: `rooms/CrewRoom.ts` (room: codes, seats, host, match flow, 20 Hz loop), `rooms/matchFlow.ts`, `rooms/sync.ts`, `log/` (match event log, `summary.ts`).
+- `client/src/`: `lobby/` (plain HTML room screen), `game/` (Phaser scene, interpolation, laptop and touch controls, top bar, overlays).
+- `e2e/`: Playwright smoke tests (laptop, emulated phone, pause/exit, stale page).
+
+**Commands:** `npm test` (Vitest, then Playwright smoke tests with the installed Chrome), `npm run test:unit`, `npm run typecheck`, `npm run build`, `npm start` (port 2567), `npm run summary -- logs/<file>.jsonl`. Docker: `sudo docker compose up --build -d`, **in a normal terminal**; the `!` prompt has no terminal, so `sudo` can't ask for the password.
+
+**Conventions to keep:**
+- The server runs `.ts` directly through Node 22's type stripping: no enums, parameter properties or namespaces (`erasableSyntaxOnly`), and imports use `.ts` extensions.
+- Colyseus 0.18 with the `schema()` builder, no decorators. Only the needed Colyseus packages, not the all-in-one `colyseus` (security advisories).
+- Exact version pins; ask before adding any dependency.
+- Server test files run one at a time (they share a port). Tests log to a temporary folder via `LOG_DIR`, never to the real `logs/`.
+- Phaser's own touch input is off (`input: { touch: false }`). Our touch layer handles all touch; Phaser's window-wide touch listener made aiming fire the gun.
+
 ## Current goal: Stage 0 — core crew test
 
 Answer one question: **is two people sharing one ship fun?** Build the smallest thing that tests it, then stop and playtest. Do not build later-stage features early.
