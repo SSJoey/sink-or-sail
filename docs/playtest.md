@@ -74,19 +74,19 @@ Write these down during or right after each round. Short answers are fine.
 
 ### Packs off
 
-| Round | Crew 1 (pilot / gunner) | Crew 2 (pilot / gunner) | Score | Did crews talk to each other? | Did anyone laugh? | Did they ask for another round? | Anything else (confusing, annoying, broken) |
-|---|---|---|---|---|---|---|---|
-| 1 | | | | | | | |
-| 2 | | | | | | | |
-| 3 | | | | | | | |
+| Round | Crew 1 (pilot / gunner) | Crew 2 (pilot / gunner) | Score | Did crews talk to each other? | Did anyone laugh? | Did they ask for another round? | Kept checking the clock? | Anything else (confusing, annoying, broken) |
+|---|---|---|---|---|---|---|---|---|
+| 1 | | | | | | | | |
+| 2 | | | | | | | | |
+| 3 | | | | | | | | |
 
 ### Packs on
 
-| Round | Crew 1 (pilot / gunner) | Crew 2 (pilot / gunner) | Score | Did crews talk to each other? | Did anyone laugh? | Did they ask for another round? | "Line it up… now!" moments? | Packs chased / ignored | Anything else (confusing, annoying, broken) |
-|---|---|---|---|---|---|---|---|---|---|
-| 4 | | | | | | | | | |
-| 5 | | | | | | | | | |
-| 6 | | | | | | | | | |
+| Round | Crew 1 (pilot / gunner) | Crew 2 (pilot / gunner) | Score | Did crews talk to each other? | Did anyone laugh? | Did they ask for another round? | "Line it up… now!" moments? | Packs chased / ignored | Kept checking the clock? | Anything else (confusing, annoying, broken) |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 4 | | | | | | | | | | |
+| 5 | | | | | | | | | | |
+| 6 | | | | | | | | | | |
 
 ## After the playtest
 

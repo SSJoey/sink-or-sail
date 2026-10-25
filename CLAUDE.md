@@ -22,9 +22,10 @@ Full design: `docs/design.md` (exported from the "Sink or Sail — Game Design" 
 - Summary: mine hits go to whoever set the blast off; logs with no packs setting read as "Packs off"; no Packs table with packs off.
 - Slice 7 (after the check matches): packs nobody picks up disappear 45 s after appearing (blinking for the last 5 s); a player leaves a seat by tapping it again or with **Leave seat** (not during a match); **two pack slots per ship**, a pilot slot (mine) and a gunner slot (torpedo or EMP), shown as `Packs: M · T` in the top bar.
 
-**Discussed ahead of time (not to build yet)**, both recorded in `NOTES.md` under "Later" (2026-10-25) and reflected in the roadmap rows below:
+**Discussed ahead of time (not to build yet)**, all recorded in `NOTES.md` under "Later" (2026-10-25) and reflected in the roadmap rows below:
 - **Ship types** (Stage 5): five types with approved starting values. Whether types move earlier than Stage 5 is decided after the Stage 1 playtest.
 - **Island layouts** (Stages 2 and 5): hand-made, mirrored layouts of 1–4 islands, differing between matches and picked by the host or Random. Today's single-island map stays the default. Stage 2 gets a few fixed layouts; Stage 5 gets layouts that scale with the map.
+- **Countdown beeps** (Stage 4 unless moved earlier): a double beep at 1:00, beeps over the last 10 s, beeps for the 3-2-1-Go countdowns, and a per-device sound switch in the top bar. Whether to bring them earlier is decided after the Stage 1 playtest, depending on whether players kept checking the clock (a column on the playtest notes sheet).
 
 **Stage 0 verify items:** all done (time zone 2026-10-24; phone reload and a full 4-player match 2026-10-25).
 
@@ -61,7 +62,7 @@ Full design: `docs/design.md` (exported from the "Sink or Sail — Game Design" 
 | --- | --- | --- |
 | 2 · The sea fights back | Reefs, wrecks, whirlpool, kraken, moving and closing storm, ghosts, Last Afloat, a few hand-made, mirrored island layouts (1–4 islands), picked by the host or Random | Do hazards and ghosts keep sunk crews involved? |
 | 3 · Full lobby | All lobby screens, bots (including a bot partner for a solo player), results and awards, spectator view (also usable by a host who only hosts and doesn't play), a **simple** lifebar for each ship, changing your name in the lobby before a match | Can a group get playing within 30 seconds? |
-| 4 · Polish and online | Sea-chart art, sound, tuning, cloud hosting, a **styled** lifebar to match the art, flames, smoke or visible damage on a ship whose health drops below 25% of full | Is it ready for people outside the house? |
+| 4 · Polish and online | Sea-chart art, sound, countdown beeps (1:00 warning, last 10 s) unless moved earlier, tuning, cloud hosting, a **styled** lifebar to match the art, flames, smoke or visible damage on a ship whose health drops below 25% of full | Is it ready for people outside the house? |
 | 5 · More ships | Up to 10 ships (20 players), Fleet Battle, rooms and seats, 10 crew colours with symbols, map size scaling with the number of ships, a camera that follows your ship and a minimap on larger maps, more start, respawn and pack spots, respawn away from all enemies; **five ship types** (Frigate, Cutter, Ironclad, Gunboat, Long gun) differing in health, size (which sets speed and turning), rate of fire, damage, gun range and energy, picked by the pilot before each match (details and starting values in `NOTES.md`, "Later"); island layouts that scale with map size and the number of ships | Does the game hold up with up to 10 ships? |
 
 - The game stays at **2 ships** until Stage 5.
