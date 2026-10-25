@@ -37,7 +37,7 @@ test("phone: the gunner's aiming stick aims without firing; only Fire fires", as
   await page.getByRole("button", { name: /Crew 1 · Gunner — free/ }).click();
   await page.click("#start");
   await expect(page.locator("#btn-fire")).toBeVisible();
-  await expect(page.locator("#countdown")).toBeHidden({ timeout: 6000 });
+  await expect(page.locator("#countdown")).toBeHidden({ timeout: 10_000 });
 
   const shots = async () => Number(await page.locator("#game").getAttribute("data-shots"));
   const cdp = await page.context().newCDPSession(page);

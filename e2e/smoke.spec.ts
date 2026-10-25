@@ -16,7 +16,7 @@ test("loads, joins a room and shows a ship", async ({ page }) => {
   // The scene reports how many ships it drew (a canvas has no elements to inspect).
   await expect(page.locator("#game")).toHaveAttribute("data-ships", "2");
   await expect(page.locator("#hud-role")).toHaveText("Pilot");
-  await expect(page.locator("#countdown")).toBeHidden({ timeout: 6000 }); // 3-2-1, then "Go!" for a second
+  await expect(page.locator("#countdown")).toBeHidden({ timeout: 10_000 }); // 3-2-1, then "Go!" for a second
 });
 
 test("a player leaves their seat by tapping it again or with Leave seat, freeing it", async ({ page }) => {
@@ -48,7 +48,7 @@ test("laptop: the gunner aims with the mouse and fires only while the left butto
   await expect(page.locator("#code")).toHaveText(/^[A-Z]{4}$/);
   await page.getByRole("button", { name: /Crew 1 · Gunner — free/ }).click();
   await page.click("#start");
-  await expect(page.locator("#countdown")).toBeHidden({ timeout: 6000 });
+  await expect(page.locator("#countdown")).toBeHidden({ timeout: 10_000 });
 
   const shots = async () => Number(await page.locator("#game").getAttribute("data-shots"));
   const box = (await page.locator("#game canvas").boundingBox())!;
@@ -69,7 +69,7 @@ test("laptop: pause, host resumes with a countdown, host exits to the scoreboard
   await expect(page.locator("#code")).toHaveText(/^[A-Z]{4}$/);
   await page.getByRole("button", { name: /Crew 1 · Pilot — free/ }).click();
   await page.click("#start");
-  await expect(page.locator("#countdown")).toBeHidden({ timeout: 6000 });
+  await expect(page.locator("#countdown")).toBeHidden({ timeout: 10_000 });
 
   await page.click("#hud-pause");
   await expect(page.locator("#paused-text")).toHaveText("Paused by Host");
@@ -81,7 +81,7 @@ test("laptop: pause, host resumes with a countdown, host exits to the scoreboard
   await page.click("#resume");
   await expect(page.locator("#paused")).toBeHidden();
   await expect(page.locator("#countdown")).toHaveText(/^[123]$/);
-  await expect(page.locator("#countdown")).toBeHidden({ timeout: 6000 });
+  await expect(page.locator("#countdown")).toBeHidden({ timeout: 10_000 });
 
   page.once("dialog", (dialog) => void dialog.accept());
   await page.click("#hud-exit");

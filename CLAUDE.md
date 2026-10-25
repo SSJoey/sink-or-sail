@@ -6,7 +6,7 @@ Full design: `docs/design.md` (exported from the "Sink or Sail — Game Design" 
 
 ## Progress (updated 2026-10-25)
 
-**Stage 0 is built** (all 10 slices). **Stage 1 is built and committed** (8 slices: pack basics and health, mine, torpedo, EMP, summary script additions, home network play; slice 7, changes after the check matches: unpicked packs disappear, leaving a seat, two pack slots; slice 8, a third ship: up to 3 crews and 6 players, Frigates only). Slice 6 ran five packs-on check matches in Docker over the Wi-Fi, two of them with 4 players, all to time-up with correct logs and summaries. Tests at the end of slice 8: 551 unit tests and 13 browser tests passing, type-check clean (but see the watch item on load-related browser-test failures). **Next:** the user rebuilds Docker (`sudo docker compose up --build -d`) and runs the combined playtest. Every decision, with its date, is in `NOTES.md`.
+**Stage 0 is built** (all 10 slices). **Stage 1 is built and committed** (8 slices: pack basics and health, mine, torpedo, EMP, summary script additions, home network play; slice 7, changes after the check matches: unpicked packs disappear, leaving a seat, two pack slots; slice 8, a third ship: up to 3 crews and 6 players, Frigates only). Slice 6 ran five packs-on check matches in Docker over the Wi-Fi, two of them with 4 players, all to time-up with correct logs and summaries. Tests at the end of slice 8: 551 unit tests and 13 browser tests passing, type-check clean (the load-related browser-test failures were fixed on 2026-10-26). **Next:** the user rebuilds Docker (`sudo docker compose up --build -d`) and runs the combined playtest. Every decision, with its date, is in `NOTES.md`.
 
 **Changes to the plan agreed during Stage 0** (details in `NOTES.md`):
 - Added after the first game: **Pause** (any seated player) / **Resume** (host only, with a 3-2-1 countdown) and **Exit game** (host only, ends the match with the current score).
@@ -34,7 +34,7 @@ Full design: `docs/design.md` (exported from the "Sink or Sail — Game Design" 
 **Watch items:**
 - On 667 px phones, the top bar squeezes the energy bar.
 - No pack was used in any of the five slice 6 check matches; players didn't try. Is the Pack button being noticed? (For the playtest.)
-- Load-related browser-test failures (slice 8): with 13 browser tests, 2 of 4 runs had one failure (the EMP test's steering never reaching its pack; once the smoke test's countdown allowance). Not a game bug; a fix is to be agreed with the user.
+- Load-related browser-test failures (slice 8): fixed 2026-10-26. The steering helper read positions late on a busy machine, and a ship arriving side-on circled its target. It now eases off near the target and goes round again when off course; the countdown allowance is 10 s. If a steering test fails again, check the test server's log for a ship circling its target.
 - Flaky browser tests (slices 5–6): explained in slice 7. The steering helper gives up quietly after 40 s, so a slow test ship that never reached its pack made the next top-bar check fail. If a pack test fails again, check the test server's log (in the temp folder `sink-or-sail-test-logs`) for a `packExpired` before the pickup.
 
 **After slice 7:** the user runs the combined playtest (`docs/playtest.md`) and fills in its Findings. Stage 2 is then planned with the user, using those findings (and the ship-types timing question), and arrives as a new "Current goal" section in this file. Until then, nothing from the roadmap below is built.

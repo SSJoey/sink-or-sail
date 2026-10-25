@@ -261,6 +261,15 @@ Asked for by the user before the combined playtest: 3 ship slots now, Frigates o
 - **Watch: load-related browser-test failures.** With the 13th browser test (three browsers at once), 2 of 4 full browser runs had one failure each: the EMP test's steering never reached its pack (the log shows the EMP sat there its full 45 s), and once the smoke test's 3-2-1-Go took longer than its 6 s allowance. The other two runs passed fully. No game cause found.
 - `docs/playtest.md`: an extra "3-ship rounds" section for when 6 people are around; the 4-player rounds stay as planned (user's choice).
 
+### 2026-10-26 — Fix: load-related browser-test failures (after slice 8)
+
+- **Cause, from the test servers' logs:** on a busy machine, the key-steering helper (`sailWithKeys` in `e2e/helpers.ts`) read the ship's position late, so ships kept circling their target. A ship arriving side-on can only circle anyway: at full speed its turning circle (radius about 48) is wider than the targets (15–30). Not a game bug.
+- **First tries, user's choice (2 runs):** the EMP test's ship sailing to its line-up spot before the pack appears, and a 10 s countdown allowance. Four runs then had 2, 2, 1 and 1 failures: the early sailing made it worse (a circling ship crossed the EMP spot and took the pack before the test watched for it), so it was **reverted**. Running 4 tests at once, measured without changing files, also wasn't enough (1 failure in 2 runs).
+- **Fix (user's go-ahead):** the helper eases off within 120 of the target (a short tap, then a pause with keys released), and a ship within 100 but moving more than 60° off the target's direction sails out to 170 and comes back straight. Only the helper changed; what each test checks is the same.
+- **Kept:** the 3-2-1-Go countdown allowance is 10 s instead of 6 s, in every countdown check (`smoke.spec.ts` ×4, `phone.spec.ts` ×1). User approved.
+- **Result:** 5 full browser runs in a row, 13/13 each.
+- The user kept the extra "Two crews ganging up on one?" column in the 3-ship playtest table.
+
 ## Later
 
 - **(2026-10-25, Stage 5) Ship types**, discussed with the user ahead of Stage 5 (not to build before then):
