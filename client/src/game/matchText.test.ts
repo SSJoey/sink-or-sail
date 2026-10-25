@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Phase, TUNING } from "@sink-or-sail/shared";
-import { blinkVisible, countdownLabel, packBlinkVisible, pausedText, respawnText, resultTitle, scoreRows, sinkBanner } from "./matchText.ts";
+import { blinkVisible, countdownLabel, outBanner, packBlinkVisible, pausedText, resultLine, respawnText, resultTitle, scoreRows, sinkBanner } from "./matchText.ts";
 
 const D = TUNING.match.duration;
 
@@ -90,5 +90,38 @@ describe("pausedText", () => {
     expect(pausedText("Sam", true)).toBe("Paused by Sam");
     expect(pausedText("Sam", false)).toBe("Paused by Sam · Waiting for the host to resume");
     expect(pausedText("", false)).toBe("Paused · Waiting for the host to resume");
+  });
+});
+
+describe("Stage 2: Last Afloat texts", () => {
+  it("shows Go! for the first second of a Last Afloat match too", () => {
+    const LA = TUNING.lastAfloat.duration;
+    expect(countdownLabel(Phase.Running, 0, LA - 0.5, LA)).toBe("Go!");
+    expect(countdownLabel(Phase.Running, 0, LA - 1.5, LA)).toBeNull();
+  });
+
+  it("names the cause of a sinking", () => {
+    expect(sinkBanner(1, "shot")).toBe("Sunk by ■ Crew 2's guns");
+    expect(sinkBanner(1, "mine")).toBe("Sunk by ■ Crew 2's mine");
+    expect(sinkBanner(2, "torpedo")).toBe("Sunk by ▲ Crew 3's torpedo");
+    expect(sinkBanner(0, "bump")).toBe("Rammed by ● Crew 1");
+    expect(sinkBanner(-1, "ownMine")).toBe("Sunk by your own mine");
+    // Nobody credited (a ship's own blast from a mine it shot): as in Stage 1.
+    expect(sinkBanner(-1, "shot")).toBe("Sunk!");
+  });
+
+  it("tells a crew that is out what sank it", () => {
+    expect(outBanner(1, "torpedo")).toBe("Out: sunk by ■ Crew 2's torpedo");
+    expect(outBanner(0, "bump")).toBe("Out: rammed by ● Crew 1");
+    expect(outBanner(-1, "ownMine")).toBe("Out: sunk by your own mine");
+    expect(outBanner(-1, "shot")).toBe("Out");
+  });
+
+  it("scoreboard rows: Sink Count shows sinkings; Last Afloat lives left (or out) as well", () => {
+    const row = { label: "● Crew 1", names: "Joey & Sam", sinkings: 1 };
+    expect(resultLine(row)).toBe("● Crew 1: 1 sinking (Joey & Sam)");
+    expect(resultLine({ ...row, sinkings: 2 }, { livesLeft: 1, out: false })).toBe("● Crew 1: 1 life left · 2 sinkings (Joey & Sam)");
+    expect(resultLine(row, { livesLeft: 3, out: false })).toBe("● Crew 1: 3 lives left · 1 sinking (Joey & Sam)");
+    expect(resultLine({ ...row, sinkings: 0 }, { livesLeft: 0, out: true })).toBe("● Crew 1: out · 0 sinkings (Joey & Sam)");
   });
 });

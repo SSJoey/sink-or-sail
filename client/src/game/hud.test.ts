@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { empText, formatClock, packSlotText, scoreHtml } from "./hud.ts";
+import { empText, formatClock, livesHtml, packSlotText, scoreHtml } from "./hud.ts";
 
 describe("formatClock", () => {
   it("shows minutes and seconds, rounding up so 0:00 means time is up", () => {
@@ -34,5 +34,16 @@ describe("empText", () => {
     expect(empText(2.1)).toBe("EMP 3");
     expect(empText(0.2)).toBe("EMP 1");
     expect(empText(0)).toBe("");
+  });
+});
+
+describe("livesHtml (Stage 2, Last Afloat)", () => {
+  it("shows each crew's symbol and a heart per life left, or out, in its colour", () => {
+    expect(livesHtml([{ livesLeft: 2, out: false }, { livesLeft: 1, out: false }])).toBe(
+      '<span style="color:#F5A623">● ♥♥</span> – <span style="color:#E8559A">■ ♥</span>',
+    );
+    expect(livesHtml([{ livesLeft: 5, out: false }, { livesLeft: 0, out: true }, { livesLeft: 1, out: false }])).toBe(
+      '<span style="color:#F5A623">● ♥♥♥♥♥</span> – <span style="color:#E8559A">■ out</span> – <span style="color:#2BB3C0">▲ ♥</span>',
+    );
   });
 });

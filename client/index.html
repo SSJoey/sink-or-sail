@@ -34,6 +34,8 @@
       #btn-pack { width: 76px; height: 76px; right: 57px; bottom: 175px; font-size: 14px; border-radius: 12px; opacity: 0.4; }
       #btn-pack.lit { opacity: 1; background: rgba(255,209,102,0.35); border-color: #ffd166; }
       #hud-pack { white-space: nowrap; }
+      /* Host's mode buttons: the chosen one is highlighted. */
+      .mode-btn[aria-pressed="true"] { background: #ffd166; color: #0b2545; font-weight: bold; }
       #hud-emp { color: #7fd8ff; white-space: nowrap; }
       /* EMP'd crew: every button dim (the stick still steers). */
       #touch.emp .touch-btn { opacity: 0.25; }
@@ -70,6 +72,12 @@
         <label id="packs-host" hidden><input type="checkbox" id="packs-toggle" /> Packs on</label>
         <span id="packs-status"></span>
       </p>
+      <p id="mode-host" hidden>
+        <button id="mode-sinkCount" class="mode-btn" aria-pressed="true">Sink Count</button>
+        <button id="mode-lastAfloat" class="mode-btn" aria-pressed="false">Last Afloat</button>
+        <label id="lives-host" hidden>Lives <select id="lives-select"></select></label>
+      </p>
+      <p id="mode-status"></p>
       <p><button id="start">Start match</button> <span id="match"></span></p>
       <p><button id="leave">Leave room</button></p>
     </section>

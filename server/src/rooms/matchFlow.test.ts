@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { Phase } from "@sink-or-sail/shared";
-import { canChangeSeat, canEndMatch, canPause, canResume, canSetPacks, canStart, crewHasShip, nextHost } from "./matchFlow.ts";
+import { Phase, TUNING } from "@sink-or-sail/shared";
+import { canChangeSeat, canEndMatch, canPause, canResume, canSetPacks, canStart, crewHasShip, everyCrewManned, nextHost, readLives, readMode, shipCount } from "./matchFlow.ts";
 
 describe("canStart", () => {
   it("lets only the host start, and only when no match is on", () => {
@@ -97,5 +97,40 @@ describe("canSetPacks", () => {
     expect(canSetPacks("h", "h", Phase.Over)).toBe(true);
     expect(canSetPacks("x", "h", Phase.Waiting)).toBe(false);
     for (const phase of [Phase.Countdown, Phase.Running, Phase.Paused]) expect(canSetPacks("h", "h", phase)).toBe(false);
+  });
+});
+
+describe("shipCount (Stage 1 slice 8)", () => {
+  it("is 3 when someone sits in Crew 3, otherwise 2", () => {
+    expect(shipCount([0, 1])).toBe(2);
+    expect(shipCount([0, 2])).toBe(3);
+    expect(shipCount([])).toBe(2);
+  });
+});
+
+describe("everyCrewManned (Stage 2)", () => {
+  it("needs a player in each crew that has a ship", () => {
+    expect(everyCrewManned([0, 1])).toBe(true);
+    expect(everyCrewManned([0, 0, 1])).toBe(true);
+    expect(everyCrewManned([0])).toBe(false);
+    expect(everyCrewManned([1, 1])).toBe(false);
+    expect(everyCrewManned([0, 1, 2])).toBe(true);
+    // Crew 3 seated brings a third ship, so Crew 2 must have a player too.
+    expect(everyCrewManned([0, 2])).toBe(false);
+    expect(everyCrewManned([])).toBe(false);
+  });
+});
+
+describe("readMode and readLives (Stage 2)", () => {
+  it("accepts only { mode } with a known mode", () => {
+    expect(readMode({ mode: "lastAfloat" })).toBe("lastAfloat");
+    expect(readMode({ mode: "sinkCount" })).toBe("sinkCount");
+    for (const bad of [null, "lastAfloat", { mode: "fleet" }, { mode: 1 }, { mode: "sinkCount", extra: 1 }]) expect(readMode(bad)).toBeNull();
+  });
+
+  it(`accepts only { lives } with a whole number from ${TUNING.lastAfloat.minLives} to ${TUNING.lastAfloat.maxLives}`, () => {
+    expect(readLives({ lives: 1 })).toBe(1);
+    expect(readLives({ lives: 5 })).toBe(5);
+    for (const bad of [null, 3, { lives: 0 }, { lives: 6 }, { lives: 2.5 }, { lives: "3" }, { lives: Number.NaN }, { lives: 2, extra: 1 }]) expect(readLives(bad)).toBeNull();
   });
 });

@@ -24,6 +24,8 @@ export function testShip(overrides: Partial<Ship> = {}): Ship {
     pilotPack: null,
     gunnerPack: null,
     disabled: 0,
+    livesLeft: null,
+    out: false,
     ...overrides,
   };
 }

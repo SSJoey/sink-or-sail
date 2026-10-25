@@ -84,20 +84,34 @@ describe("applyEvents", () => {
     expect(state.ships[0]!.hits).toBe(1);
   });
 
-  it("records who sank a ship (-1 for nobody)", () => {
+  it("records who sank a ship (-1 for nobody), and with what", () => {
     const state = synced();
     expect(state.ships[1]!.sunkBy).toBe(-1);
-    applyEvents(state, [{ type: "sunk", ship: 1, by: 0 }]);
+    expect(state.ships[1]!.sunkCause).toBe("");
+    applyEvents(state, [{ type: "sunk", ship: 1, by: 0, cause: "torpedo" }]);
     expect(state.ships[1]!.sunkBy).toBe(0);
-    applyEvents(state, [{ type: "sunk", ship: 0, by: null }]);
+    expect(state.ships[1]!.sunkCause).toBe("torpedo");
+    applyEvents(state, [{ type: "sunk", ship: 0, by: null, cause: "ownMine" }]);
     expect(state.ships[0]!.sunkBy).toBe(-1);
+    expect(state.ships[0]!.sunkCause).toBe("ownMine");
+  });
+
+  it("copies Last Afloat lives and out (-1 lives in Sink Count)", () => {
+    const state = new CrewState();
+    syncWorld(state, createWorld());
+    expect(state.ships[0]!.livesLeft).toBe(-1);
+    const world = createWorld({ mode: "lastAfloat", lives: 3 });
+    world.ships[1] = { ...world.ships[1]!, livesLeft: 0, out: true, sunk: true };
+    syncWorld(state, world);
+    expect([state.ships[0]!.livesLeft, state.ships[0]!.out]).toEqual([3, false]);
+    expect([state.ships[1]!.livesLeft, state.ships[1]!.out]).toEqual([0, true]);
   });
 
   it("records the winner, or -1 for a draw", () => {
     const state = synced();
-    applyEvents(state, [{ type: "matchEnded", winner: 1 }]);
+    applyEvents(state, [{ type: "matchEnded", winner: 1, reason: "time" }]);
     expect(state.winner).toBe(1);
-    applyEvents(state, [{ type: "matchEnded", winner: null }]);
+    applyEvents(state, [{ type: "matchEnded", winner: null, reason: "lastAfloat" }]);
     expect(state.winner).toBe(-1);
   });
 });

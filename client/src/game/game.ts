@@ -4,12 +4,12 @@ import { ClientMessage, Phase, TUNING, rolePack, type PackType, type Role } from
 import { CREW_STYLES } from "./crews.ts";
 import { GameScene } from "./GameScene.ts";
 import type { ShipEffect } from "./effects.ts";
-import { empText, formatClock, packSlotText, scoreHtml } from "./hud.ts";
+import { empText, formatClock, livesHtml, packSlotText, scoreHtml } from "./hud.ts";
 import { startInputSender } from "./inputSender.ts";
 import { PackLatch } from "./packLatch.ts";
 import { gunnerPackBuzz } from "./packBuzz.ts";
 import { SnapshotBuffer, type Frame } from "./interpolation.ts";
-import { countdownLabel, pausedText, respawnText, resultTitle, scoreRows, sinkBanner } from "./matchText.ts";
+import { countdownLabel, outBanner, pausedText, resultLine, respawnText, resultTitle, scoreRows, sinkBanner } from "./matchText.ts";
 import { blockGestures, goFullscreenLandscape, isPortrait, isTouchFirst } from "./phone.ts";
 import { snapshotFromState, type GameStateView } from "./snapshot.ts";
 import { TouchControls } from "./touchControls.ts";
@@ -28,6 +28,11 @@ export interface RoomStateView extends GameStateView {
   };
   hostId: string;
   packsEnabled: boolean;
+  /** Room settings for the next match (Stage 2). */
+  mode: string;
+  lives: number;
+  /** The mode of the current (or last) match. */
+  matchMode: string;
   phase: string;
   pausedBy: string;
   countdown: number;
@@ -134,7 +139,7 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
       // Read by the EMP smoke test: is any ship disabled right now?
       canvasHost.dataset.disabled = (frame?.ships ?? []).map((s) => (s.disabled > 0 ? "1" : "0")).join("");
       rotate.hidden = !(touchLayer.active && isPortrait(window.innerWidth, window.innerHeight));
-      updateHud(frame, mine, state.timeLeft);
+      updateHud(frame, mine, state.timeLeft, state.matchMode === "lastAfloat");
     },
   });
 
@@ -186,12 +191,13 @@ const roleLabel: Record<Role, string> = { pilot: "Pilot", gunner: "Gunner" };
 export function renderResult(el: HTMLElement, state: RoomStateView): void {
   const players: PlayerView[] = [];
   state.players.forEach((p) => players.push(p));
-  const sinkings = [...state.ships].map((ship) => ship.sinkings);
+  const ships = [...state.ships];
+  const lastAfloat = state.matchMode === "lastAfloat";
   const title = document.createElement("h2");
   title.textContent = resultTitle(state.winner);
-  const rows = scoreRows(sinkings, players).map((row) => {
+  const rows = scoreRows(ships.map((ship) => ship.sinkings), players).map((row, i) => {
     const line = document.createElement("p");
-    line.textContent = `${row.label}: ${row.sinkings} sinking${row.sinkings === 1 ? "" : "s"} (${row.names})`;
+    line.textContent = resultLine(row, lastAfloat ? ships[i] : undefined);
     return line;
   });
   el.replaceChildren(title, ...rows);
@@ -218,7 +224,8 @@ function showMatchOverlays(
   ownCrew: number | null,
   els: { countdown: HTMLElement; banner: HTMLElement; scoreboard: HTMLElement },
 ): void {
-  const label = countdownLabel(state.phase, state.countdown, state.timeLeft);
+  const duration = state.matchMode === "lastAfloat" ? TUNING.lastAfloat.duration : TUNING.match.duration;
+  const label = countdownLabel(state.phase, state.countdown, state.timeLeft, duration);
   els.countdown.hidden = label === null;
   if (label !== null && els.countdown.textContent !== label) els.countdown.textContent = label;
 
@@ -226,7 +233,8 @@ function showMatchOverlays(
   const showBanner = own?.sunk === true && state.phase === Phase.Running;
   els.banner.hidden = !showBanner;
   if (showBanner && own) {
-    const text = `${sinkBanner(own.sunkBy)} · ${respawnText(own.respawnIn)}`;
+    // A crew that is out (Last Afloat) keeps its banner until the match ends.
+    const text = own.out ? outBanner(own.sunkBy, own.sunkCause) : `${sinkBanner(own.sunkBy, own.sunkCause)} · ${respawnText(own.respawnIn)}`;
     if (els.banner.textContent !== text) els.banner.textContent = text;
   }
   if (ownCrew !== null && effects[ownCrew]?.justSank) navigator.vibrate?.(TUNING.client.sinkVibrateMs);
@@ -236,7 +244,7 @@ function showMatchOverlays(
   els.scoreboard.hidden = !over;
 }
 
-function updateHud(frame: Frame | null, seat: { crew: number; role: Role } | null, timeLeft: number): void {
+function updateHud(frame: Frame | null, seat: { crew: number; role: Role } | null, timeLeft: number, lastAfloat: boolean): void {
   const role = byId("hud-role");
   const crew = byId("hud-crew");
   const bar = byId("hud-energy");
@@ -251,7 +259,8 @@ function updateHud(frame: Frame | null, seat: { crew: number; role: Role } | nul
   const slotText = seat ? packSlotText(crewShip?.pilotPack ?? null, crewShip?.gunnerPack ?? null) : "";
   if (packSlot.textContent !== slotText) packSlot.textContent = slotText;
   const score = byId("hud-score");
-  const html = scoreHtml((frame?.ships ?? []).map((ship) => ship.sinkings));
+  const ships = frame?.ships ?? [];
+  const html = lastAfloat ? livesHtml(ships) : scoreHtml(ships.map((ship) => ship.sinkings));
   if (score.innerHTML !== html) score.innerHTML = html;
 
   if (!seat) {

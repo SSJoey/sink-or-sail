@@ -6,7 +6,7 @@ Full design: `docs/design.md` (exported from the "Sink or Sail — Game Design" 
 
 ## Progress (updated 2026-10-26)
 
-**Stage 0 is built** (all 10 slices). **Stage 1 is built and committed** (8 slices: pack basics and health, mine, torpedo, EMP, summary script additions, home network play; slice 7, changes after the check matches: unpicked packs disappear, leaving a seat, two pack slots; slice 8, a third ship: up to 3 crews and 6 players, Frigates only). Slice 6 ran five packs-on check matches in Docker over the Wi-Fi, two of them with 4 players, all to time-up with correct logs and summaries. Tests at the end of slice 8: 551 unit tests and 13 browser tests passing, type-check clean. After slice 8 (2026-10-26), the load-related browser-test failures were fixed in the test steering helper (no game code changed), and 5 full browser runs in a row passed. **Next:** the user approves the Stage 2 plan; then slice 1 (mode choice and Last Afloat) starts with its own plan. Every decision, with its date, is in `NOTES.md`.
+**Stage 0 is built** (all 10 slices). **Stage 1 is built and committed** (8 slices: pack basics and health, mine, torpedo, EMP, summary script additions, home network play; slice 7, changes after the check matches: unpicked packs disappear, leaving a seat, two pack slots; slice 8, a third ship: up to 3 crews and 6 players, Frigates only). Slice 6 ran five packs-on check matches in Docker over the Wi-Fi, two of them with 4 players, all to time-up with correct logs and summaries. Tests at the end of slice 8: 551 unit tests and 13 browser tests passing, type-check clean. After slice 8 (2026-10-26), the load-related browser-test failures were fixed in the test steering helper (no game code changed), and 5 full browser runs in a row passed. **Stage 2 slice 1 is built and committed** (mode choice and Last Afloat: lives, out, last ship afloat, the 7:00 time limit and tie-break, the "Sunk by…" banner, hearts in the top bar). Tests at the end of slice 1: 590 unit tests and 14 browser tests, type-check clean; see the watch item on load-related browser-test failures. **Next:** slice 2 (island layouts), starting with its own plan. Every decision, with its date, is in `NOTES.md`.
 
 **Changes to the plan agreed during Stage 0** (details in `NOTES.md`):
 - Added after the first game: **Pause** (any seated player) / **Resume** (host only, with a 3-2-1 countdown) and **Exit game** (host only, ends the match with the current score).
@@ -34,7 +34,7 @@ Full design: `docs/design.md` (exported from the "Sink or Sail — Game Design" 
 **Watch items:**
 - On 667 px phones, the top bar squeezes the energy bar.
 - No pack was used in any of the five slice 6 check matches; players didn't try. Is the Pack button being noticed? (For the playtest.)
-- Load-related browser-test failures (slice 8): fixed 2026-10-26. The steering helper read positions late on a busy machine, and a ship arriving side-on circled its target. It now eases off near the target and goes round again when off course; the countdown allowance is 10 s. If a steering test fails again, check the test server's log for a ship circling its target.
+- Load-related browser-test failures (slice 8): fixed 2026-10-26. The steering helper read positions late on a busy machine, and a ship arriving side-on circled its target. It now eases off near the target and goes round again when off course; the countdown allowance is 10 s. If a steering test fails again, check the test server's log for a ship circling its target. **Back with Stage 2 slice 1** (14 browser tests): at the default 4 tests at a time, 3 of 6 full runs had a failure (steering lost to load again; also once the 3-ship test's game view taking over 5 s to appear). Running 2 at a time passed 2 of 2 runs in about the same time (2.7–3.1 min). The user chose to commit without changing it and keep watching. (The "4 at a time" measurement before the helper fix was the default, so fewer at once was never actually tried then.)
 - Flaky browser tests (slices 5–6): explained in slice 7. The steering helper gives up quietly after 40 s, so a slow test ship that never reached its pack made the next top-bar check fail. If a pack test fails again, check the test server's log (in the temp folder `sink-or-sail-test-logs`) for a `packExpired` before the pickup.
 
 **Stage 2 is planned** (2026-10-26, see "Current goal: Stage 2" below; answers in `NOTES.md`). The Stage 1 combined playtest (`docs/playtest.md`) is deferred, still owed; the decisions waiting on it stay as planned (ship types Stage 5, beeps Stage 4, the Pack-button watch item).
@@ -42,8 +42,8 @@ Full design: `docs/design.md` (exported from the "Sink or Sail — Game Design" 
 **Where things are:**
 - `shared/src/`: `tuning.ts` (every gameplay and client number; CLAUDE.md's "`shared/tuning.ts`"), `rooms.ts` (room rules, message names), `input.ts` (input validation), `packRules.ts` (who uses each pack, labels, when the Pack button is lit), `sim/` (pure, deterministic simulation; `step()` returns the new world plus events; `packs.ts`, `mines.ts`, `torpedoes.ts`, `random.ts` seeded generator, `map.ts` spawn spots; `fixtures/stage0-run.json` is the Stage 0 reference recording that packs-off play must match).
 - `server/src/`: `rooms/CrewRoom.ts` (room: codes, seats, host, match flow, 20 Hz loop), `rooms/matchFlow.ts`, `rooms/sync.ts`, `log/` (match event log, `summary.ts`).
-- `client/src/`: `lobby/` (plain HTML room screen, packs toggle, `seatButtons.ts` take/leave rules), `game/` (Phaser scene, interpolation, laptop and touch controls, top bar, overlays, pack latch, EMP ring, pickup buzz).
-- `e2e/`: Playwright smoke tests (laptop, emulated phone, pause/exit, stale page, leave seat, `packs.spec.ts` mine and torpedo, `emp.spec.ts`, `threeShips.spec.ts`; shared `helpers.ts`).
+- `client/src/`: `lobby/` (plain HTML room screen, packs toggle, `seatButtons.ts` take/leave rules, `settings.ts` mode and lives), `game/` (Phaser scene, interpolation, laptop and touch controls, top bar, overlays, pack latch, EMP ring, pickup buzz).
+- `e2e/`: Playwright smoke tests (laptop, emulated phone, pause/exit, stale page, leave seat, `packs.spec.ts` mine and torpedo, `emp.spec.ts`, `threeShips.spec.ts`, `lastAfloat.spec.ts`; shared `helpers.ts`).
 - `docs/playtest.md`: the combined playtest guide and notes sheets.
 
 **Commands:** `npm test` (Vitest, then Playwright smoke tests with the installed Chrome), `npm run test:unit`, `npm run typecheck`, `npm run build`, `npm start` (port 2567), `npm run summary -- logs/<file>.jsonl`. Docker: `sudo docker compose up --build -d`, **in a normal terminal**; the `!` prompt has no terminal, so `sudo` can't ask for the password.
@@ -128,11 +128,11 @@ Fleet Battle, bots, spectator view, awards, a results screen beyond the simple s
 
 Same rules as before: plan, go-ahead, build with tests, summary, stop. Each slice is end-to-end (simulation, server, client, log and tests).
 
-1. **Mode choice and Last Afloat:** the mode and lives settings, lives and respawn, out at zero (watching until slice 9), last ship afloat wins, the "Sunk by…" banner with the Stage 1 causes, log and summary.
+1. **Mode choice and Last Afloat:** the mode and lives settings, lives and respawn, out at zero (watching until slice 9), last ship afloat wins, the 7:00 time limit and tie-break (moved here from slice 5, 2026-10-26), the "Sunk by…" banner with the Stage 1 causes, log and summary.
 2. **Island layouts:** a few hand-made, mirrored layouts with their own checked spots; host picks or Random; the default stays today's map.
 3. **Hazards toggle and reefs.**
 4. **Shipwrecks.**
-5. **Closing storm and time limit** (Last Afloat), with the tie-break.
+5. **Closing storm** (Last Afloat), on top of slice 1's time limit and tie-break.
 6. **Moving storm** (both modes, seeded timer).
 7. **Whirlpool.**
 8. **Kraken.**

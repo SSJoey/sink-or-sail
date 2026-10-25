@@ -29,6 +29,13 @@ export const NO_INPUT: ShipInput = {
 
 export type PackType = "mine" | "torpedo" | "emp" | "health";
 
+/** Stage 2: Sink Count (4 minutes, most sinkings) or Last Afloat (lives; last ship in the match wins). */
+export const GAME_MODES = ["sinkCount", "lastAfloat"] as const;
+export type GameMode = (typeof GAME_MODES)[number];
+
+/** What sank a ship. A mine set off by a shot or a torpedo counts as that weapon; "ownMine" is a ship's own mine it sailed into. */
+export type SinkCause = "shot" | "mine" | "ownMine" | "torpedo" | "bump";
+
 /** A pack on the map. While `signalLeft` > 0 its spot is glowing and it can't be picked up yet. */
 export interface Pack {
   id: number;
@@ -89,6 +96,10 @@ export interface Ship {
   gunnerPack: PackType | null;
   /** Seconds left of an EMP: no fire, boost, shield or packs (steering still works). */
   disabled: number;
+  /** Last Afloat: sinkings this ship can still take, counting the one that puts it out (null in Sink Count). */
+  livesLeft: number | null;
+  /** Last Afloat: sunk on its last life; it stays sunk for the rest of the match. */
+  out: boolean;
 }
 
 export interface Shot {
@@ -108,6 +119,8 @@ export interface World {
   /** Ship pairs touching after the last step, as "a:b" with a < b; bumps hurt only when contact starts. */
   contacts: string[];
   over: boolean;
+  /** Stage 2: set for the whole match. */
+  mode: GameMode;
   /** Stage 1: packs spawn only when on (set for the whole match). */
   packsOn: boolean;
   /** Seeded generator state; the same seed gives the same packs. */
@@ -134,9 +147,13 @@ export type SimEvent =
   | { type: "energyEmpty"; ship: number }
   | { type: "energyRestored"; ship: number }
   | { type: "protectionEnded"; ship: number }
-  | { type: "sunk"; ship: number; by: number | null }
+  /** `livesLeft` only in Last Afloat. */
+  | { type: "sunk"; ship: number; by: number | null; cause: SinkCause; livesLeft?: number }
+  /** Last Afloat: sunk on its last life. */
+  | { type: "crewOut"; ship: number }
   | { type: "respawned"; ship: number; pos: Vec }
-  | { type: "matchEnded"; winner: number | null }
+  /** "lastAfloat": one ship (or none) left in a Last Afloat match; "time": the clock ran out. */
+  | { type: "matchEnded"; winner: number | null; reason: "time" | "lastAfloat" }
   | { type: "packSignalled"; pack: number; spot: number; packType: PackType }
   | { type: "packSpawned"; pack: number; spot: number; packType: PackType }
   /** A pack nobody picked up in time. */

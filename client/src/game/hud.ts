@@ -21,5 +21,15 @@ export function scoreHtml(sinkings: readonly number[]): string {
     .join(" – ");
 }
 
+/** Last Afloat's score in the top bar: each crew's symbol and a heart per life left, or "out", in its colour. */
+export function livesHtml(ships: readonly { livesLeft: number; out: boolean }[]): string {
+  return ships
+    .map((ship, i) => {
+      const style = CREW_STYLES[i] ?? CREW_STYLES[0];
+      return `<span style="color:${style.css}">${style.symbol} ${ship.out ? "out" : "♥".repeat(Math.max(0, ship.livesLeft))}</span>`;
+    })
+    .join(" – ");
+}
+
 /** "EMP 3…2…1" in the top bar while the crew's ship is disabled. */
 export const empText = (disabled: number) => (disabled > 0 ? `EMP ${Math.ceil(disabled)}` : "");

@@ -186,7 +186,7 @@ describe("sinking and respawn", () => {
   it("sinks a ship after enough hits and credits the attacker", () => {
     const { world, events } = sinkShip1();
     expect(ofType(events, "hit")).toHaveLength(TUNING.ship.maxHealth / shotDamage);
-    expect(ofType(events, "sunk")).toEqual([{ type: "sunk", ship: 1, by: 0 }]);
+    expect(ofType(events, "sunk")).toEqual([{ type: "sunk", ship: 1, by: 0, cause: "shot" }]);
     expect(world.ships[0]!.sinkings).toBe(1);
   });
 
@@ -266,7 +266,7 @@ describe("bumps", () => {
     const world = duel();
     world.ships[1] = { ...world.ships[1]!, health: 1 };
     const { world: after, events } = run(world, 1.5, [input({ steer: { x: 1, y: 0 }, boost: true }), input({ steer: { x: -1, y: 0 }, boost: true })]);
-    expect(ofType(events, "sunk")).toEqual([{ type: "sunk", ship: 1, by: 0 }]);
+    expect(ofType(events, "sunk")).toEqual([{ type: "sunk", ship: 1, by: 0, cause: "bump" }]);
     expect(after.ships[0]!.sinkings).toBe(1);
   });
 });
@@ -279,7 +279,7 @@ describe("match timer", () => {
     expect(first.world.over).toBe(false);
     const last = step(first.world, [], DT);
     expect(last.world.over).toBe(true);
-    expect(last.events).toContainEqual({ type: "matchEnded", winner: 0 });
+    expect(last.events).toContainEqual({ type: "matchEnded", winner: 0, reason: "time" });
 
     const afterEnd = step(last.world, [input({ steer: { x: 1, y: 0 }, fire: true })], DT);
     expect(afterEnd.world).toBe(last.world);
@@ -288,6 +288,6 @@ describe("match timer", () => {
 
   it("reports a draw when sinkings are equal", () => {
     const world = { ...createWorld(), time: TUNING.match.duration - DT };
-    expect(step(world, [], DT).events).toContainEqual({ type: "matchEnded", winner: null });
+    expect(step(world, [], DT).events).toContainEqual({ type: "matchEnded", winner: null, reason: "time" });
   });
 });

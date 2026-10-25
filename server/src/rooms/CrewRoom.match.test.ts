@@ -533,6 +533,86 @@ describe("packs on/off (Stage 1)", () => {
   });
 });
 
+describe("mode and lives (Stage 2)", () => {
+  /** Crew 1 seated (the host is its pilot) and the watcher seated as Crew 2's pilot. */
+  const twoCrews = async () => {
+    const crewed = await crewedRoom();
+    crewed.room.countdownSeconds = 0.1;
+    crewed.watcher.send(ClientMessage.TakeSeat, { crew: 1, role: "pilot" });
+    await waitFor(() => crewed.room.state.players.get(crewed.watcher.sessionId)?.crew === 1);
+    return crewed;
+  };
+
+  it(`is Sink Count with ${TUNING.lastAfloat.lives} lives by default; only the host changes them, between matches`, async () => {
+    const { room, pilot, gunner } = await crewedRoom();
+    expect([room.state.mode, room.state.lives]).toEqual(["sinkCount", TUNING.lastAfloat.lives]);
+    gunner.send(ClientMessage.SetMode, { mode: "lastAfloat" });
+    gunner.send(ClientMessage.SetLives, { lives: 4 });
+    await sleep(150);
+    expect([room.state.mode, room.state.lives]).toEqual(["sinkCount", TUNING.lastAfloat.lives]);
+    pilot.send(ClientMessage.SetMode, { mode: "lastAfloat" });
+    pilot.send(ClientMessage.SetLives, { lives: 4 });
+    await waitFor(() => room.state.mode === "lastAfloat" && room.state.lives === 4);
+  });
+
+  it("ignores a malformed mode or lives", async () => {
+    const { room, pilot } = await crewedRoom();
+    for (const bad of [null, "lastAfloat", { mode: "fleet" }, { mode: "lastAfloat", extra: 1 }]) pilot.send(ClientMessage.SetMode, bad);
+    for (const bad of [null, 3, { lives: 0 }, { lives: 6 }, { lives: 2.5 }, { lives: "3" }]) pilot.send(ClientMessage.SetLives, bad);
+    await sleep(150);
+    expect([room.state.mode, room.state.lives]).toEqual(["sinkCount", TUNING.lastAfloat.lives]);
+  });
+
+  it("refuses to start Last Afloat while a crew with a ship has no player", async () => {
+    const { room, pilot } = await crewedRoom();
+    pilot.send(ClientMessage.SetMode, { mode: "lastAfloat" });
+    await waitFor(() => room.state.mode === "lastAfloat");
+    const rejected = pilot.waitForMessage(ServerMessage.Rejected);
+    pilot.send(ClientMessage.Start);
+    expect(await rejected).toEqual({ reason: RejectReason.CrewsNeedPlayers });
+    expect(room.state.phase).toBe(Phase.Waiting);
+  });
+
+  it("starts Last Afloat with every crew manned, with the lives chosen, and keeps it for the match", async () => {
+    const { room, pilot } = await twoCrews();
+    pilot.send(ClientMessage.SetMode, { mode: "lastAfloat" });
+    pilot.send(ClientMessage.SetLives, { lives: 3 });
+    await waitFor(() => room.state.lives === 3);
+    pilot.send(ClientMessage.Start);
+    await waitFor(() => room.state.phase === Phase.Running);
+    expect(room.world!.mode).toBe("lastAfloat");
+    expect(room.state.matchMode).toBe("lastAfloat");
+    expect([...room.state.ships].map((s) => s.livesLeft)).toEqual([3, 3]);
+    expect(room.state.timeLeft).toBeGreaterThan(TUNING.match.duration);
+
+    // Changes wait for the next match.
+    pilot.send(ClientMessage.SetMode, { mode: "sinkCount" });
+    await sleep(150);
+    expect(room.state.mode).toBe("lastAfloat");
+  });
+
+  it("ends when one ship is left in the match, with that crew as the winner", async () => {
+    const { room, pilot, gunner } = await twoCrews();
+    pilot.send(ClientMessage.SetMode, { mode: "lastAfloat" });
+    pilot.send(ClientMessage.SetLives, { lives: 1 });
+    await waitFor(() => room.state.lives === 1);
+    pilot.send(ClientMessage.Start);
+    await waitFor(() => room.state.phase === Phase.Running);
+    const world = room.world!;
+    room.world = { ...world, ships: [{ ...world.ships[0]!, pos: { x: 400, y: 200 }, heading: 0, turret: 0 }, { ...world.ships[1]!, pos: { x: 600, y: 200 }, health: 1 }] };
+    gunner.send(ClientMessage.Input, gun(1, 0, true));
+    await waitFor(() => room.state.phase === Phase.Over);
+    expect(room.state.winner).toBe(0);
+    expect(room.state.ships[1]!).toMatchObject({ out: true, sunkCause: "shot", sunkBy: 0 });
+  });
+
+  it("Sink Count still starts with one crew, as before", async () => {
+    const { room } = await started();
+    expect(room.world!.mode).toBe("sinkCount");
+    expect(room.state.ships[0]!.livesLeft).toBe(-1);
+  });
+});
+
 describe("mines (Stage 1)", () => {
   /** Puts a mine in Crew 1's slot, in open water facing east. */
   const loadMine = (room: CrewRoom) => {

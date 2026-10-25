@@ -193,7 +193,7 @@ describe("sinking by mine", () => {
       w.ships[1] = { ...w.ships[1]!, pos: { x: 840, y: 700 }, health: 10 };
     });
     const { world: after, events } = run(w, DT);
-    expect(events).toContainEqual({ type: "sunk", ship: 1, by: 0 });
+    expect(events).toContainEqual({ type: "sunk", ship: 1, by: 0, cause: "mine" });
     expect(after.ships[0]!.sinkings).toBe(1);
   });
 
@@ -203,7 +203,7 @@ describe("sinking by mine", () => {
       w.ships[0] = { ...w.ships[0]!, health: 10 };
     });
     const { world: after, events } = run(w, DT);
-    expect(events).toContainEqual({ type: "sunk", ship: 0, by: null });
+    expect(events).toContainEqual({ type: "sunk", ship: 0, by: null, cause: "ownMine" });
     expect(after.ships.map((s) => s.sinkings)).toEqual([0, 0]);
   });
 });
@@ -229,7 +229,7 @@ describe("shots and mines", () => {
 
   it("credits the shooter if the blast sinks a ship", () => {
     const { world: after, events } = run(setUp(armedMine({ x: 600, y: 300 }, 1), 10), 0.6, () => [fireEast]);
-    expect(events).toContainEqual({ type: "sunk", ship: 1, by: 0 });
+    expect(events).toContainEqual({ type: "sunk", ship: 1, by: 0, cause: "shot" });
     expect(after.ships[0]!.sinkings).toBe(1);
   });
 
@@ -239,7 +239,7 @@ describe("shots and mines", () => {
       w.mines = [armedMine({ x: 400 + 70, y: 300 }, 1)]; // in the blast, not touching
     });
     const { events } = run(w, 0.2, () => [fireEast]);
-    expect(events).toContainEqual({ type: "sunk", ship: 0, by: null });
+    expect(events).toContainEqual({ type: "sunk", ship: 0, by: null, cause: "shot" });
   });
 
   it("an unarmed mine doesn't stop shots", () => {

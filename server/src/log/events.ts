@@ -1,4 +1,4 @@
-import { TUNING, type Role, type Seat, type SimEvent, type World } from "@sink-or-sail/shared";
+import { TUNING, type GameMode, type Role, type Seat, type SimEvent, type World } from "@sink-or-sail/shared";
 
 /** Who crews each ship (index = ship id); null for an empty seat. */
 export type Roster = { pilot: string | null; gunner: string | null }[];
@@ -30,7 +30,8 @@ export function simEventLines(t: number, events: readonly SimEvent[], roster: Ro
       case "energyEmpty": lines.push({ t, type: "energyEmpty", ...crew(e.ship) }); break;
       case "energyRestored": lines.push({ t, type: "energyRestored", ...crew(e.ship) }); break;
       case "protectionEnded": lines.push({ t, type: "protectionEnded", ...crew(e.ship) }); break;
-      case "sunk": lines.push({ t, type: "sunk", ...crew(e.ship), by: e.by }); break;
+      case "sunk": lines.push({ t, type: "sunk", ...crew(e.ship), by: e.by, cause: e.cause, ...(e.livesLeft !== undefined && { livesLeft: e.livesLeft }) }); break;
+      case "crewOut": lines.push({ t, type: "crewOut", ...crew(e.ship) }); break;
       case "respawned": lines.push({ t, type: "respawn", ...crew(e.ship), x: r1(e.pos.x), y: r1(e.pos.y) }); break;
       case "bump": lines.push({ t, type: "bump", ships: e.ships, damage: [r1(e.damage[0]), r1(e.damage[1])] }); break;
       case "packSignalled": lines.push({ t, type: "packSignalled", pack: e.pack, spot: e.spot, packType: e.packType }); break;
@@ -68,7 +69,7 @@ export function simEventLines(t: number, events: readonly SimEvent[], roster: Ro
   return lines;
 }
 
-export function matchStartLine(room: string, roster: Roster, match: { packsOn: boolean; seed: number }): LogLine {
+export function matchStartLine(room: string, roster: Roster, match: { packsOn: boolean; seed: number; mode: GameMode; lives: number | null }): LogLine {
   return {
     t: 0,
     type: "matchStart",
@@ -76,6 +77,8 @@ export function matchStartLine(room: string, roster: Roster, match: { packsOn: b
     crews: roster.map((c, ship) => ({ ship, pilot: c.pilot, gunner: c.gunner })),
     packsOn: match.packsOn,
     seed: match.seed,
+    mode: match.mode,
+    lives: match.lives,
     tuning: TUNING,
   };
 }
@@ -86,7 +89,14 @@ export function matchEndLine(world: World, winner: number | null, endedEarly: bo
     type: "matchEnd",
     winner,
     endedEarly,
-    scores: world.ships.map((s) => ({ ship: s.id, sinkings: s.sinkings, boostEnergy: r1(s.boostEnergy), shieldEnergy: r1(s.shieldEnergy) })),
+    reason: endedEarly ? "endedEarly" : world.mode === "lastAfloat" && world.ships.filter((s) => !s.out).length <= 1 ? "lastAfloat" : "time",
+    scores: world.ships.map((s) => ({
+      ship: s.id,
+      sinkings: s.sinkings,
+      ...(s.livesLeft !== null && { livesLeft: s.livesLeft }),
+      boostEnergy: r1(s.boostEnergy),
+      shieldEnergy: r1(s.shieldEnergy),
+    })),
   };
 }
 

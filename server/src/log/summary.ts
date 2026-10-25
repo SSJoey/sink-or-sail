@@ -21,6 +21,19 @@ export interface CrewSummary {
   /** Lives run from (re)spawn to sinking; the last life counts up to the match end. */
   averageSurvivalSeconds: number;
   lives: number;
+  /** Stage 2: times this crew was sunk, by cause (logs from before Stage 2 have none). */
+  sunkBy: Partial<Record<string, number>>;
+}
+
+/** Stage 2: Last Afloat figures for one crew. */
+export interface CrewLastAfloat {
+  ship: number;
+  /** 1 for the winner; crews out later place higher; equal finishes share a place. */
+  place: number;
+  /** Time on the water, not counting respawn waits, until the crew was out or the match ended. */
+  afloatSeconds: number;
+  /** Sinkings taken. */
+  livesUsed: number;
 }
 
 type SlotPack = "mine" | "torpedo" | "emp";
@@ -59,7 +72,15 @@ export interface MatchSummary {
   complete: boolean;
   /** Logs from before packs existed don't say; they played as packs off. */
   packsOn: boolean;
+  /** Stage 2; logs from before modes existed are Sink Count. */
+  mode: "sinkCount" | "lastAfloat";
+  /** Last Afloat's lives per ship; null in Sink Count. */
+  lives: number | null;
+  /** "time", "lastAfloat" or "endedEarly"; null if the log doesn't say. */
+  endReason: string | null;
   crews: CrewSummary[];
+  /** Per crew, in the same order as crews; null in Sink Count. */
+  lastAfloat: CrewLastAfloat[] | null;
   /** Per crew, in the same order as crews; null with packs off. */
   packs: CrewPacks[] | null;
 }
@@ -79,7 +100,7 @@ export function parseLog(text: string): Line[] {
 }
 
 type Crew = { ship: number; pilot: string | null; gunner: string | null };
-type Score = { ship: number; sinkings: number; boostEnergy: number; shieldEnergy: number };
+type Score = { ship: number; sinkings: number; livesLeft?: number; boostEnergy: number; shieldEnergy: number };
 
 export function summarise(lines: readonly Line[]): MatchSummary {
   const start = lines.find((l) => l.type === "matchStart");
@@ -88,6 +109,8 @@ export function summarise(lines: readonly Line[]): MatchSummary {
   const crews = (start?.crews as Crew[] | undefined) ?? [];
   const scores = end?.scores as Score[] | undefined;
 
+  // Time on the water per ship (all its lives, without respawn waits), for Last Afloat.
+  const afloat = new Map<number, number>();
   const summaries = crews.map((crew): CrewSummary => {
     const ship = crew.ship;
     const mine = (type: string, field = "ship") => lines.filter((l) => l.type === type && l[field] === ship);
@@ -118,6 +141,9 @@ export function summarise(lines: readonly Line[]): MatchSummary {
     }
     if (emptySince !== null) emptyMs += endT - emptySince;
     if (lifeStart !== null) lifeLengths.push(endT - lifeStart);
+    afloat.set(ship, lifeLengths.reduce((a, b) => a + b, 0) / 1000);
+    const sunkBy: Partial<Record<string, number>> = {};
+    for (const l of mine("sunk")) if (typeof l.cause === "string") sunkBy[l.cause] = (sunkBy[l.cause] ?? 0) + 1;
 
     return {
       ship,
@@ -133,20 +159,49 @@ export function summarise(lines: readonly Line[]): MatchSummary {
       emptySeconds: emptyMs / 1000,
       averageSurvivalSeconds: lifeLengths.length ? lifeLengths.reduce((a, b) => a + b, 0) / lifeLengths.length / 1000 : 0,
       lives: lifeLengths.length,
+      sunkBy,
     };
   });
 
   const packsOn = start?.packsOn === true;
+  const mode = start?.mode === "lastAfloat" ? "lastAfloat" : "sinkCount";
+  const winner = (end?.winner as number | null | undefined) ?? null;
   return {
     room: (start?.room as string | undefined) ?? null,
     durationSeconds: endT / 1000,
-    winner: (end?.winner as number | null | undefined) ?? null,
+    winner,
     endedEarly: (end?.endedEarly as boolean | undefined) ?? false,
     complete: end !== undefined,
     packsOn,
+    mode,
+    lives: mode === "lastAfloat" ? ((start?.lives as number | undefined) ?? null) : null,
+    endReason: (end?.reason as string | undefined) ?? null,
     crews: summaries,
+    lastAfloat: mode === "lastAfloat" ? lastAfloatFigures(lines, crews, scores, winner, endT, afloat) : null,
     packs: packsOn ? crews.map((c) => packFigures(lines, c.ship)) : null,
   };
+}
+
+function lastAfloatFigures(
+  lines: readonly Line[],
+  crews: readonly Crew[],
+  scores: readonly Score[] | undefined,
+  winner: number | null,
+  endT: number,
+  afloat: ReadonlyMap<number, number>,
+): CrewLastAfloat[] {
+  // Finishing order: the winner, then crews still in at the end (more lives left first), then crews out later.
+  const rank = (ship: number) => {
+    if (ship === winner) return Infinity;
+    const out = lines.find((l) => l.type === "crewOut" && l.ship === ship);
+    return out ? out.t : endT + 1 + (scores?.find((s) => s.ship === ship)?.livesLeft ?? 0);
+  };
+  return crews.map((c) => ({
+    ship: c.ship,
+    place: 1 + crews.filter((o) => rank(o.ship) > rank(c.ship)).length,
+    afloatSeconds: afloat.get(c.ship) ?? 0,
+    livesUsed: lines.filter((l) => l.type === "sunk" && l.ship === c.ship).length,
+  }));
 }
 
 const slotCounts = (): Record<SlotPack, number> => ({ mine: 0, torpedo: 0, emp: 0 });
@@ -234,7 +289,7 @@ const r1 = (n: number) => String(Math.round(n * 10) / 10);
 export function formatSummary(s: MatchSummary): string {
   // Players know the crews as Crew 1 and Crew 2; the log's ship ids start at 0.
   const result = !s.complete ? "Log ends before the match did" : s.winner === null ? "Draw" : `Crew ${s.winner + 1} wins`;
-  const header = `Room ${s.room ?? "?"} · ${clock(s.durationSeconds)} · ${result}${s.endedEarly ? " (ended early by the host)" : ""} · Packs ${s.packsOn ? "on" : "off"}`;
+  const header = `Room ${s.room ?? "?"} · ${clock(s.durationSeconds)} · ${result}${s.endedEarly ? " (ended early by the host)" : ""} · Packs ${s.packsOn ? "on" : "off"} · ${modeText(s)}`;
   const rows = s.crews.map((c) => [
     `Crew ${c.ship + 1}`,
     [c.pilot, c.gunner].map((n) => n ?? "—").join(" & "),
@@ -246,12 +301,20 @@ export function formatSummary(s: MatchSummary): string {
     `${r1(c.boostEnergy)} / ${r1(c.shieldEnergy)}`,
     `${r1(c.emptySeconds)} s`,
     `${r1(c.averageSurvivalSeconds)} s (${c.lives})`,
+    Object.entries(c.sunkBy).map(([cause, n]) => `${cause} ${n}`).join(" · ") || "—",
   ]);
-  const head = ["Crew", "Pilot & Gunner", "Sinkings", "Shots", "Hits", "Blocked", "Accuracy", "Energy boost / shield", "Empty bar", "Avg survival (lives)"];
+  const head = ["Crew", "Pilot & Gunner", "Sinkings", "Shots", "Hits", "Blocked", "Accuracy", "Energy boost / shield", "Empty bar", "Avg survival (lives)", "Sunk by"];
   const out = [header, "", ...table(head, rows)];
+  if (s.lastAfloat) {
+    const laRows = s.lastAfloat.map((c) => [`Crew ${c.ship + 1}`, ordinal(c.place), `${r1(c.afloatSeconds)} s`, String(c.livesUsed)]);
+    out.push("", "Last Afloat", ...table(["Crew", "Place", "Time afloat", "Lives used"], laRows));
+  }
   if (s.packs) out.push("", "Packs", ...table(PACK_HEAD, s.packs.map(packRow)));
   return out.join("\n");
 }
+
+const modeText = (s: MatchSummary) => (s.mode === "lastAfloat" ? `Last Afloat, ${s.lives ?? "?"} lives` : "Sink Count");
+const ordinal = (n: number) => `${n}${n === 1 ? "st" : n === 2 ? "nd" : n === 3 ? "rd" : "th"}`;
 
 function table(head: string[], rows: string[][]): string[] {
   const widths = head.map((h, i) => Math.max(h.length, ...rows.map((r) => r[i]!.length)));

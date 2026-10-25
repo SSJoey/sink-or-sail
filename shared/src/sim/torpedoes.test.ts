@@ -114,7 +114,7 @@ describe("torpedo hits", () => {
 
   it("sinks a ship and credits the firing crew", () => {
     const { world: after, events } = run(target({ health: 30 }), 1.5, fireOnce(gunnerPack));
-    expect(events).toContainEqual({ type: "sunk", ship: 1, by: 0 });
+    expect(events).toContainEqual({ type: "sunk", ship: 1, by: 0, cause: "torpedo" });
     expect(after.ships[0]!.sinkings).toBe(1);
   });
 
@@ -164,7 +164,7 @@ describe("what stops a torpedo", () => {
     expect(after.torpedoes).toEqual([]);
     expect(events).toContainEqual(expect.objectContaining({ type: "mineTriggered", mine: 0, shooter: 0 }));
     expect(events).toContainEqual({ type: "torpedoEnded", torpedo: 0, owner: 0, reason: "mine" });
-    expect(events).toContainEqual({ type: "sunk", ship: 1, by: 0 });
+    expect(events).toContainEqual({ type: "sunk", ship: 1, by: 0, cause: "torpedo" });
   });
 });
 

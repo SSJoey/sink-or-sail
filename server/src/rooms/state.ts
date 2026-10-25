@@ -36,6 +36,12 @@ export const ShipState = schema({
   disabled: t.float32().default(0),
   /** EMPs this ship has fired this match; clients draw the ring when it goes up. */
   empsFired: t.uint16().default(0),
+  /** Last Afloat: sinkings the ship can still take; -1 in Sink Count. */
+  livesLeft: t.int8().default(-1),
+  /** Last Afloat: sunk on its last life, gone for the rest of the match. */
+  out: t.boolean().default(false),
+  /** What sank this ship last (a SinkCause), "" for nothing yet. */
+  sunkCause: t.string().default(""),
 }, "ShipState");
 export type ShipState = SchemaType<typeof ShipState>;
 
@@ -85,6 +91,11 @@ export const CrewState = schema({
   shots: t.map(ShotState),
   /** Room setting for the next match (host toggle); a running match keeps the setting it started with. */
   packsEnabled: t.boolean().default(true),
+  /** Room settings for the next match (host only, Stage 2): the mode and Last Afloat's lives. */
+  mode: t.string().default("sinkCount"),
+  lives: t.uint8().default(TUNING.lastAfloat.lives),
+  /** The mode of the current (or last) match, which the game view draws by. */
+  matchMode: t.string().default("sinkCount"),
   /** Keyed by pack id. */
   packs: t.map(PackState),
   /** Keyed by mine id. */

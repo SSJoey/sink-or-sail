@@ -28,7 +28,7 @@ import {
 import { LOG_DIR, fixedSeed } from "../config.ts";
 import { controlLine, matchEndLine, matchMs, matchStartLine, playerLine, positionLines, seatLine, simEventLines, type LogLine, type Roster } from "../log/events.ts";
 import { MatchLog, fileSink, logFileName, type LogSink } from "../log/matchLog.ts";
-import { canChangeSeat, canEndMatch, canPause, canResume, canSetPacks, canStart, crewHasShip, nextHost } from "./matchFlow.ts";
+import { canChangeSeat, canEndMatch, canPause, canResume, canSetPacks, canStart, crewHasShip, everyCrewManned, nextHost, readLives, readMode, shipCount } from "./matchFlow.ts";
 import { generateUniqueCode } from "./roomCode.ts";
 import { isNameTaken, leaveSeat, takeSeat, type SeatMap } from "./seats.ts";
 import { CrewState, Player } from "./state.ts";
@@ -121,7 +121,12 @@ export class CrewRoom extends Room<{ state: CrewState }> {
     });
 
     this.onMessage(ClientMessage.Start, (client) => {
-      if (canStart(client.sessionId, this.state.hostId, this.state.phase)) this.startMatch();
+      if (!canStart(client.sessionId, this.state.hostId, this.state.phase)) return;
+      if (this.state.mode === "lastAfloat" && !everyCrewManned(this.seatedCrews())) {
+        client.send(ServerMessage.Rejected, { reason: RejectReason.CrewsNeedPlayers } satisfies RejectedMessage);
+        return;
+      }
+      this.startMatch();
     });
 
     this.onMessage(ClientMessage.Pause, (client) => {
@@ -144,6 +149,19 @@ export class CrewRoom extends Room<{ state: CrewState }> {
       if (!canSetPacks(client.sessionId, this.state.hostId, this.state.phase)) return;
       const valid = typeof message === "object" && message !== null && Object.keys(message).length === 1 && typeof (message as { on?: unknown }).on === "boolean";
       if (valid) this.state.packsEnabled = (message as { on: boolean }).on;
+    });
+
+    // Stage 2 room settings: the same host-only, between-matches rule as the Packs toggle.
+    this.onMessage(ClientMessage.SetMode, (client, message: unknown) => {
+      if (!canSetPacks(client.sessionId, this.state.hostId, this.state.phase)) return;
+      const mode = readMode(message);
+      if (mode) this.state.mode = mode;
+    });
+
+    this.onMessage(ClientMessage.SetLives, (client, message: unknown) => {
+      if (!canSetPacks(client.sessionId, this.state.hostId, this.state.phase)) return;
+      const lives = readLives(message);
+      if (lives !== null) this.state.lives = lives;
     });
 
     this.onMessage(ClientMessage.EndMatch, (client) => {
@@ -206,11 +224,14 @@ export class CrewRoom extends Room<{ state: CrewState }> {
     const seed = this.seedForMatch() >>> 0;
     const packsOn = this.state.packsEnabled;
     // A third ship only when someone sits in Crew 3 as the match starts.
-    const ships = [...this.state.players.values()].some((p) => p.crew === 2) ? 3 : 2;
-    this.world = createWorld({ packs: packsOn, seed, ships });
+    const ships = shipCount(this.seatedCrews());
+    const mode = this.state.mode === "lastAfloat" ? "lastAfloat" : "sinkCount";
+    const lives = mode === "lastAfloat" ? this.state.lives : null;
+    this.world = createWorld({ packs: packsOn, seed, ships, mode, lives: lives ?? undefined });
+    this.state.matchMode = mode;
     this.roster = this.buildRoster();
     this.log = new MatchLog(this.logSinkFor(logFileName(new Date(), this.roomId)), { onError: (error) => this.logErrors(error) });
-    this.logLine(matchStartLine(this.roomId, this.roster, { packsOn, seed }));
+    this.logLine(matchStartLine(this.roomId, this.roster, { packsOn, seed, mode, lives }));
     for (const line of positionLines(this.world)) this.logLine(line);
     this.nextPositionAt = 1;
     this.latestInput.clear();
@@ -218,6 +239,7 @@ export class CrewRoom extends Room<{ state: CrewState }> {
     for (const ship of this.state.ships) {
       ship.hits = 0;
       ship.sunkBy = -1;
+      ship.sunkCause = "";
       ship.empsFired = 0;
     }
     this.state.winner = -1;
@@ -277,6 +299,11 @@ export class CrewRoom extends Room<{ state: CrewState }> {
     const log = this.log;
     this.log = null;
     await log?.close();
+  }
+
+  /** One entry per seated player: their crew. */
+  private seatedCrews(): number[] {
+    return [...this.state.players.values()].flatMap((p) => (p.crew === undefined ? [] : [p.crew]));
   }
 
   private nameOf(sessionId: string): string {

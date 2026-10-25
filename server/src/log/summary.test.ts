@@ -44,8 +44,8 @@ describe("summarise", () => {
 
   it("gives the exact per-crew numbers", () => {
     expect(summary.crews).toEqual([
-      { ship: 0, pilot: "Ann", gunner: "Bob", sinkings: 0, shots: 3, hits: 1, blocked: 1, accuracy: 1 / 3, boostEnergy: 50.5, shieldEnergy: 0, emptySeconds: 2, averageSurvivalSeconds: 13.5, lives: 2 },
-      { ship: 1, pilot: "Cat", gunner: null, sinkings: 1, shots: 1, hits: 0, blocked: 0, accuracy: 0, boostEnergy: 0, shieldEnergy: 30, emptySeconds: 5, averageSurvivalSeconds: 30, lives: 1 },
+      { ship: 0, pilot: "Ann", gunner: "Bob", sinkings: 0, shots: 3, hits: 1, blocked: 1, accuracy: 1 / 3, boostEnergy: 50.5, shieldEnergy: 0, emptySeconds: 2, averageSurvivalSeconds: 13.5, lives: 2, sunkBy: {} },
+      { ship: 1, pilot: "Cat", gunner: null, sinkings: 1, shots: 1, hits: 0, blocked: 0, accuracy: 0, boostEnergy: 0, shieldEnergy: 30, emptySeconds: 5, averageSurvivalSeconds: 30, lives: 1, sunkBy: {} },
     ]);
   });
 
@@ -315,5 +315,60 @@ describe("summary command with packs", () => {
     } finally {
       await rm(dir, { recursive: true, force: true });
     }
+  });
+});
+
+/**
+ * A hand-made 3-crew Last Afloat match, 2 lives each, 90 seconds. Worked out by hand:
+ * Ship 1 sunk by ship 0's shot at 20 s (1 life left), by ship 2's mine at 50 s: out at 50 s → 3rd, afloat 50 − 3 = 47 s.
+ * Ship 2 sunk on its own mine at 60 s (1 left), rammed by ship 0 at 90 s: out → 2nd, afloat 90 − 3 = 87 s.
+ * Ship 0 never sunk: 1st, afloat the whole 90 s, no lives used.
+ */
+const LAST_AFLOAT = [
+  { t: 0, type: "matchStart", room: "LAST", crews: [{ ship: 0, pilot: "Ann", gunner: "Bob" }, { ship: 1, pilot: "Cat", gunner: "Dan" }, { ship: 2, pilot: "Eve", gunner: "Fay" }], packsOn: true, seed: 1, mode: "lastAfloat", lives: 2, tuning: {} },
+  { t: 20000, type: "sunk", ship: 1, crew: {}, by: 0, cause: "shot", livesLeft: 1 },
+  { t: 23000, type: "respawn", ship: 1, crew: {}, x: 0, y: 0 },
+  { t: 50000, type: "sunk", ship: 1, crew: {}, by: 2, cause: "mine", livesLeft: 0 },
+  { t: 50000, type: "crewOut", ship: 1, crew: {} },
+  { t: 60000, type: "sunk", ship: 2, crew: {}, by: null, cause: "ownMine", livesLeft: 1 },
+  { t: 63000, type: "respawn", ship: 2, crew: {}, x: 0, y: 0 },
+  { t: 90000, type: "sunk", ship: 2, crew: {}, by: 0, cause: "bump", livesLeft: 0 },
+  { t: 90000, type: "crewOut", ship: 2, crew: {} },
+  { t: 90000, type: "matchEnd", winner: 0, endedEarly: false, reason: "lastAfloat", scores: [
+    { ship: 0, sinkings: 2, livesLeft: 2, boostEnergy: 0, shieldEnergy: 0 },
+    { ship: 1, sinkings: 0, livesLeft: 0, boostEnergy: 0, shieldEnergy: 0 },
+    { ship: 2, sinkings: 1, livesLeft: 0, boostEnergy: 0, shieldEnergy: 0 },
+  ] },
+];
+
+describe("Stage 2: Last Afloat in the summary", () => {
+  const summary = summarise(LAST_AFLOAT);
+
+  it("reads the mode and lives (logs from before Stage 2 are Sink Count)", () => {
+    expect([summary.mode, summary.lives, summary.endReason]).toEqual(["lastAfloat", 2, "lastAfloat"]);
+    const old = summarise(parseLog(sampleText));
+    expect([old.mode, old.lives]).toEqual(["sinkCount", null]);
+    expect(old.lastAfloat).toBeNull();
+  });
+
+  it("gives each crew its finishing place, time afloat and lives used", () => {
+    expect(summary.lastAfloat).toEqual([
+      { ship: 0, place: 1, afloatSeconds: 90, livesUsed: 0 },
+      { ship: 1, place: 3, afloatSeconds: 47, livesUsed: 2 },
+      { ship: 2, place: 2, afloatSeconds: 87, livesUsed: 2 },
+    ]);
+  });
+
+  it("counts how each crew was sunk, by cause", () => {
+    expect(summary.crews.map((c) => c.sunkBy)).toEqual([{}, { shot: 1, mine: 1 }, { ownMine: 1, bump: 1 }]);
+  });
+
+  it("prints the mode in the header, a Last Afloat table and a Sunk by column", () => {
+    const text = formatSummary(summary);
+    expect(text).toContain("Room LAST · 1:30 · Crew 1 wins · Packs on · Last Afloat, 2 lives");
+    expect(text).toContain("Place");
+    expect(text).toMatch(/^Crew 2\s+3rd\s+47 s\s+2$/m);
+    expect(text).toContain("shot 1 · mine 1");
+    expect(formatSummary(summarise(parseLog(sampleText)))).toContain("· Sink Count");
   });
 });

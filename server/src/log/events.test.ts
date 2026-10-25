@@ -40,7 +40,7 @@ describe("simEventLines", () => {
     const crew = { pilot: "Joey", gunner: "Sam" };
     expect(lines({ type: "energyEmpty", ship: 0 })).toEqual([{ t: 1234, type: "energyEmpty", ship: 0, crew }]);
     expect(lines({ type: "energyRestored", ship: 0 })).toEqual([{ t: 1234, type: "energyRestored", ship: 0, crew }]);
-    expect(lines({ type: "sunk", ship: 0, by: 1 })).toEqual([{ t: 1234, type: "sunk", ship: 0, crew, by: 1 }]);
+    expect(lines({ type: "sunk", ship: 0, by: 1, cause: "shot" })).toEqual([{ t: 1234, type: "sunk", ship: 0, crew, by: 1, cause: "shot" }]);
     expect(lines({ type: "respawned", ship: 0, pos: { x: 200.04, y: 180 } })).toEqual([
       { t: 1234, type: "respawn", ship: 0, crew, x: 200, y: 180 },
     ]);
@@ -52,13 +52,13 @@ describe("simEventLines", () => {
   });
 
   it("leaves the match end to matchEndLine", () => {
-    expect(lines({ type: "matchEnded", winner: 0 })).toEqual([]);
+    expect(lines({ type: "matchEnded", winner: 0, reason: "time" })).toEqual([]);
   });
 });
 
 describe("match start and end", () => {
   it("records the room, crews and roles, and the tuning values in use", () => {
-    const line = matchStartLine("KWPZ", roster, { packsOn: false, seed: 7 });
+    const line = matchStartLine("KWPZ", roster, { packsOn: false, seed: 7, mode: "sinkCount", lives: null });
     expectBasics(line);
     expect(line).toEqual({
       t: 0,
@@ -70,6 +70,8 @@ describe("match start and end", () => {
       ],
       packsOn: false,
       seed: 7,
+      mode: "sinkCount",
+      lives: null,
       tuning: TUNING,
     });
   });
@@ -83,6 +85,7 @@ describe("match start and end", () => {
       type: "matchEnd",
       winner: 0,
       endedEarly: false,
+      reason: "time",
       scores: [
         { ship: 0, sinkings: 3, boostEnergy: 120.4, shieldEnergy: 80 },
         { ship: 1, sinkings: 0, boostEnergy: 0, shieldEnergy: 0 },
@@ -141,13 +144,13 @@ describe("Stage 1 pack lines", () => {
 
   it("lists all three crews at match start in a 3-ship match", () => {
     const three: Roster = [...roster, { pilot: "Eve", gunner: null }];
-    expect(matchStartLine("TRIO", three, { packsOn: true, seed: 1 })).toMatchObject({
+    expect(matchStartLine("TRIO", three, { packsOn: true, seed: 1, mode: "sinkCount", lives: null })).toMatchObject({
       crews: [{ ship: 0 }, { ship: 1 }, { ship: 2, pilot: "Eve", gunner: null }],
     });
   });
 
   it("records whether packs were on and the seed at match start", () => {
-    expect(matchStartLine("KWPZ", roster, { packsOn: true, seed: 99 })).toMatchObject({ packsOn: true, seed: 99 });
+    expect(matchStartLine("KWPZ", roster, { packsOn: true, seed: 99, mode: "sinkCount", lives: null })).toMatchObject({ packsOn: true, seed: 99 });
   });
 
   it("includes each ship's held packs in the position lines, as a list (pilot's first)", () => {
@@ -204,5 +207,34 @@ describe("Stage 1 EMP line", () => {
     expect(simEventLines(7000, [{ type: "empFired", ship: 0, caught: [1] }], roster)).toEqual([
       { t: 7000, type: "empFired", ship: 0, player: "Sam", role: "gunner", caught: [1] },
     ]);
+  });
+});
+
+describe("Stage 2: Last Afloat lines", () => {
+  const crew = { pilot: "Joey", gunner: "Sam" };
+  const lines = (e: SimEvent) => simEventLines(1234, [e], roster);
+
+  it("records the mode and lives at match start", () => {
+    expect(matchStartLine("KWPZ", roster, { packsOn: true, seed: 1, mode: "lastAfloat", lives: 3 })).toMatchObject({ mode: "lastAfloat", lives: 3 });
+  });
+
+  it("logs a sinking's cause, the lives left (Last Afloat only) and a crew going out", () => {
+    expect(lines({ type: "sunk", ship: 0, by: null, cause: "ownMine", livesLeft: 1 })).toEqual([
+      { t: 1234, type: "sunk", ship: 0, crew, by: null, cause: "ownMine", livesLeft: 1 },
+    ]);
+    expect(lines({ type: "crewOut", ship: 0 })).toEqual([{ t: 1234, type: "crewOut", ship: 0, crew }]);
+  });
+
+  it("records why the match ended, and each ship's lives left", () => {
+    const world = createWorld({ mode: "lastAfloat", lives: 2 });
+    world.time = 95.5;
+    world.ships[1] = { ...world.ships[1]!, livesLeft: 0, out: true };
+    expect(matchEndLine(world, 0, false)).toMatchObject({
+      t: 95500, winner: 0, endedEarly: false, reason: "lastAfloat",
+      scores: [{ ship: 0, sinkings: 0, livesLeft: 2 }, { ship: 1, livesLeft: 0 }],
+    });
+    world.ships[1] = { ...world.ships[1]!, livesLeft: 1, out: false };
+    expect(matchEndLine({ ...world, time: 420 }, 0, false)).toMatchObject({ reason: "time" });
+    expect(matchEndLine(world, null, true)).toMatchObject({ reason: "endedEarly" });
   });
 });

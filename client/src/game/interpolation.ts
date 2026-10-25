@@ -24,6 +24,11 @@ export interface ShipView {
   disabled: number;
   /** EMPs this ship fired (the client draws a ring when it goes up). */
   empsFired: number;
+  /** Last Afloat: sinkings the ship can still take (-1 in Sink Count), and whether it is out. */
+  livesLeft: number;
+  out: boolean;
+  /** What sank it last (a SinkCause), "" for nothing yet. */
+  sunkCause: string;
 }
 
 export interface PackView {

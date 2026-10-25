@@ -3,6 +3,7 @@ import {
   ClientMessage,
   JoinError,
   Phase,
+  GAME_MODES,
   CREWS,
   ROLES,
   ROOM_NAME,
@@ -17,6 +18,7 @@ import { renderResult, startGame, type GameHandle, type PlayerView, type RoomSta
 import { joinErrorText, rejectedText } from "./messages.ts";
 import { reloadIfNewBuild } from "./newBuild.ts";
 import { leaveSeatShown, seatAction } from "./seatButtons.ts";
+import { LIFE_CHOICES, livesShown, settingsText } from "./settings.ts";
 import { clearToken, loadToken, saveToken } from "./reconnectToken.ts";
 
 /** The parts of the server's room state the lobby reads. */
@@ -83,9 +85,14 @@ export function startLobby(): void {
     byId("leave").onclick = () => { void room.leave(); };
     byId("leave-seat").onclick = () => leaveSeat(room);
     // Only the host sees Start; the server checks it too.
-    byId("start").onclick = () => room.send(ClientMessage.Start);
+    byId("start").onclick = () => { showError(""); room.send(ClientMessage.Start); };
     byId<HTMLInputElement>("packs-toggle").onchange = (e) =>
       room.send(ClientMessage.SetPacks, { on: (e.target as HTMLInputElement).checked });
+    // Mode and lives (Stage 2): host only, between matches; the server checks both.
+    for (const mode of GAME_MODES) byId(`mode-${mode}`).onclick = () => room.send(ClientMessage.SetMode, { mode });
+    const lives = byId<HTMLSelectElement>("lives-select");
+    lives.replaceChildren(...LIFE_CHOICES.map((n) => new Option(String(n), String(n))));
+    lives.onchange = () => room.send(ClientMessage.SetLives, { lives: Number(lives.value) });
   }
 
   function renderRoom(room: Room, state: StateView): void {
@@ -141,6 +148,19 @@ export function startLobby(): void {
     toggle.checked = state.packsEnabled;
     toggle.disabled = matchOn;
     byId("packs-status").textContent = isHost ? "" : `Packs: ${state.packsEnabled ? "on" : "off"}`;
+
+    // Mode and lives: the host's buttons and dropdown (between matches); others see the settings.
+    byId("mode-host").hidden = !isHost;
+    for (const mode of GAME_MODES) {
+      const button = byId<HTMLButtonElement>(`mode-${mode}`);
+      button.setAttribute("aria-pressed", String(state.mode === mode));
+      button.disabled = matchOn;
+    }
+    byId("lives-host").hidden = !livesShown(state.mode);
+    const lives = byId<HTMLSelectElement>("lives-select");
+    lives.value = String(state.lives);
+    lives.disabled = matchOn;
+    byId("mode-status").textContent = isHost ? "" : settingsText(state.mode, state.lives);
     byId("match").textContent = matchOn
       ? "Match on"
       : isHost ? "" : "Waiting for the host to start";

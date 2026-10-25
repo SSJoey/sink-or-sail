@@ -50,6 +50,15 @@ export const TUNING = {
     /** 3-2-1-Go before a match: ships visible but frozen. */
     countdown: 3,
   },
+  /** Stage 2: Last Afloat (approved 2026-10-26). */
+  lastAfloat: {
+    /** Lives per ship unless the host picks another number; each sinking costs one, and at 0 the crew is out. */
+    lives: 2,
+    minLives: 1,
+    maxLives: 5,
+    /** Hard time limit (7:00); then most lives left wins, then most health, otherwise a draw. */
+    duration: 420,
+  },
   packs: {
     /** Packs on the map at once, glowing (signalled) ones included. */
     maxOnMap: 2,

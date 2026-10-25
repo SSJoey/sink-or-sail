@@ -1,4 +1,4 @@
-import { Phase } from "@sink-or-sail/shared";
+import { GAME_MODES, Phase, TUNING, type GameMode } from "@sink-or-sail/shared";
 
 /** Only the host starts a match, and only when none is on. */
 export function canStart(sessionId: string, hostId: string, phase: string): boolean {
@@ -48,4 +48,32 @@ export function canEndMatch(sessionId: string, hostId: string, phase: string): b
 /** Only the host switches packs on or off, and only between matches; it applies from the next match. */
 export function canSetPacks(sessionId: string, hostId: string, phase: string): boolean {
   return sessionId === hostId && (phase === Phase.Waiting || phase === Phase.Over);
+}
+
+/** A third ship only when someone sits in Crew 3 as the match starts. `crews` has one entry per seated player. */
+export function shipCount(crews: readonly number[]): 2 | 3 {
+  return crews.includes(2) ? 3 : 2;
+}
+
+/** Last Afloat needs a player in every crew that will have a ship, so no ship is left unmanned. */
+export function everyCrewManned(crews: readonly number[]): boolean {
+  const ships = shipCount(crews);
+  for (let crew = 0; crew < ships; crew++) if (!crews.includes(crew)) return false;
+  return true;
+}
+
+const onlyKey = (message: unknown, key: string): unknown =>
+  typeof message === "object" && message !== null && Object.keys(message).length === 1 ? (message as Record<string, unknown>)[key] : undefined;
+
+/** The mode from a SetMode message ({ mode }), or null if it isn't valid. */
+export function readMode(message: unknown): GameMode | null {
+  const mode = onlyKey(message, "mode");
+  return (GAME_MODES as readonly unknown[]).includes(mode) ? (mode as GameMode) : null;
+}
+
+/** The lives from a SetLives message ({ lives }), or null unless a whole number in the allowed range. */
+export function readLives(message: unknown): number | null {
+  const lives = onlyKey(message, "lives");
+  const { minLives, maxLives } = TUNING.lastAfloat;
+  return typeof lives === "number" && Number.isInteger(lives) && lives >= minLives && lives <= maxLives ? lives : null;
 }

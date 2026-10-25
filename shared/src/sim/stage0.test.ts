@@ -26,6 +26,15 @@ function stage0View(world: World) {
   return { time, ships, shots, nextShotId, contacts, over };
 }
 
+/** Events as Stage 0 recorded them: Stage 2's extra fields on a sinking (cause, lives left) are dropped. */
+function stage0Events(events: readonly SimEvent[]) {
+  return events.map((e) => {
+    if (e.type !== "sunk") return e;
+    const { cause: _cause, livesLeft: _livesLeft, ...stage0 } = e;
+    return stage0;
+  });
+}
+
 describe("packs off plays exactly as Stage 0", () => {
   it("was recorded with the current Stage 0 tuning (if not: it changed since; re-record with approval)", () => {
     // Only the sections that shape a packs-off match; pack and client values can't change it.
@@ -43,7 +52,7 @@ describe("packs off plays exactly as Stage 0", () => {
       world = result.world;
       events.push(...result.events);
     }
-    expect(events).toEqual(recorded.events);
+    expect(stage0Events(events)).toEqual(recorded.events);
     expect(stage0View(world)).toEqual(stage0View(recorded.world));
   });
 

@@ -42,6 +42,10 @@ export const ClientMessage = {
   EndMatch: "endMatch",
   /** Packs on or off for the next match: { on: boolean } (host only, between matches). */
   SetPacks: "setPacks",
+  /** Stage 2: the mode for the next match: { mode: "sinkCount" | "lastAfloat" } (host only, between matches). */
+  SetMode: "setMode",
+  /** Stage 2: Last Afloat lives for the next match: { lives: 1–5 } (host only, between matches). */
+  SetLives: "setLives",
 } as const;
 
 /** Match phase shown to clients. */
@@ -66,6 +70,8 @@ export const RejectReason = {
   SeatLocked: "seatLocked",
   /** That crew has no ship in this match (Crew 3, when nobody sat in it at the start). */
   CrewNotInMatch: "crewNotInMatch",
+  /** Last Afloat can't start while a crew with a ship has no player. */
+  CrewsNeedPlayers: "crewsNeedPlayers",
 } as const;
 export type RejectReason = (typeof RejectReason)[keyof typeof RejectReason];
 

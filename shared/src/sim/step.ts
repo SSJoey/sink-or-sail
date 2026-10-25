@@ -5,10 +5,10 @@ import { ISLAND, SPAWN_POINTS } from "./map.ts";
 import { blastMine, canDropAt, dropSpot, isArmed, updateMines } from "./mines.ts";
 import { pickUpPacks, updatePacks } from "./packs.ts";
 import { launchTorpedo, outsideSea, torpedoDamage } from "./torpedoes.ts";
-import { matchResult } from "./match.ts";
+import { matchDuration, matchResult } from "./match.ts";
 import { chooseSpawn, respawnShip } from "./respawn.ts";
 import { keepInSea, pushOutOfIsland, separateShips, steerShip } from "./ship.ts";
-import { NO_INPUT, type Mine, type Ship, type ShipInput, type Shot, type SimEvent, type Torpedo, type World } from "./types.ts";
+import { NO_INPUT, type Mine, type Ship, type ShipInput, type Shot, type SimEvent, type SinkCause, type Torpedo, type World } from "./types.ts";
 import { add, distance, scale } from "./vec.ts";
 import { aimTurret, fireGun, moveShot } from "./weapons.ts";
 
@@ -36,9 +36,18 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
   const torpedoes: Torpedo[] = [...world.torpedoes];
   let nextTorpedoId = world.nextTorpedoId;
 
-  const sink = (targetIndex: number, by: number | null) => {
+  const sink = (targetIndex: number, by: number | null, cause: SinkCause) => {
     const sunk = ships[targetIndex]!;
-    events.push({ type: "sunk", ship: sunk.id, by });
+    if (world.mode === "lastAfloat") {
+      // Each sinking costs a life; on the last one the ship is out and never respawns.
+      const livesLeft = Math.max(0, (sunk.livesLeft ?? 0) - 1);
+      const out = livesLeft === 0;
+      ships[targetIndex] = { ...sunk, livesLeft, out, respawnIn: out ? 0 : sunk.respawnIn };
+      events.push({ type: "sunk", ship: sunk.id, by, cause, livesLeft });
+      if (out) events.push({ type: "crewOut", ship: sunk.id });
+    } else {
+      events.push({ type: "sunk", ship: sunk.id, by, cause });
+    }
     for (const slot of ["pilotPack", "gunnerPack"] as const) {
       const lost = ships[targetIndex]![slot];
       if (lost) {
@@ -61,6 +70,7 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
   for (let i = 0; i < ships.length; i++) {
     let ship = ships[i]!;
     if (ship.sunk) {
+      if (ship.out) continue;
       const respawnIn = ship.respawnIn - dt;
       if (respawnIn > EPSILON) {
         ships[i] = { ...ship, respawnIn };
@@ -178,8 +188,8 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
       b = hurtB.ship;
       ships[i] = a;
       ships[j] = b;
-      if (damageA > 0 && hurtA.sank) sink(i, b.id);
-      if (damageB > 0 && hurtB.sank) sink(j, a.id);
+      if (damageA > 0 && hurtA.sank) sink(i, b.id, "bump");
+      if (damageB > 0 && hurtB.sank) sink(j, a.id, "bump");
     }
   }
 
@@ -200,14 +210,15 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
   }
 
   // A mine goes off: every ship touching it takes damage; sinkings are credited by blastMine's rules.
-  const blast = (mine: Mine, shooter: number | null) => {
+  // Set off by a shot or a torpedo, it counts as that weapon; sailed into, as a mine (or the ship's own).
+  const blast = (mine: Mine, shooter: number | null, weapon: "shot" | "torpedo" | null) => {
     const result = blastMine(ships, mine, shooter);
     events.push(result.event);
     for (const hit of result.hits) {
       if (hit.damage <= 0) continue;
       const hurt = damageShip(ships[hit.index]!, hit.damage);
       ships[hit.index] = hurt.ship;
-      if (hurt.sank) sink(hit.index, result.creditFor(hurt.ship.id));
+      if (hurt.sank) sink(hit.index, result.creditFor(hurt.ship.id), weapon ?? (hurt.ship.id === mine.owner ? "ownMine" : "mine"));
     }
   };
 
@@ -217,7 +228,7 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
   if (mines.length > 0) {
     const updated = updateMines(mines, ships, dt);
     events.push(...updated.events);
-    for (const mine of updated.touched) blast(mine, null);
+    for (const mine of updated.touched) blast(mine, null, null);
     mines = updated.mines;
   }
   mines = [...mines, ...droppedMines];
@@ -231,7 +242,7 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
     if (trace.kind === "mine") {
       const mine = mines.find((m) => m.id === trace.mine)!;
       mines = mines.filter((m) => m.id !== trace.mine);
-      blast(mine, shot.owner);
+      blast(mine, shot.owner, "shot");
       continue;
     }
     if (trace.kind === "ship") {
@@ -243,7 +254,7 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
         const hurt = damageShip(target, TUNING.gun.shotDamage);
         ships[index] = hurt.ship;
         events.push({ type: "hit", attacker: shot.owner, target: target.id, damage: TUNING.gun.shotDamage });
-        if (hurt.sank) sink(index, shot.owner);
+        if (hurt.sank) sink(index, shot.owner, "shot");
       }
       continue;
     }
@@ -264,7 +275,7 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
       if (damage > 0) {
         const hurt = damageShip(ships[index]!, damage);
         ships[index] = hurt.ship;
-        if (hurt.sank) sink(index, torpedo.owner);
+        if (hurt.sank) sink(index, torpedo.owner, "torpedo");
       }
       continue;
     }
@@ -272,7 +283,7 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
       const mine = mines.find((m) => m.id === trace.mine)!;
       mines = mines.filter((m) => m.id !== trace.mine);
       events.push({ type: "torpedoEnded", torpedo: torpedo.id, owner: torpedo.owner, reason: "mine" });
-      blast(mine, torpedo.owner);
+      blast(mine, torpedo.owner, "torpedo");
       continue;
     }
     if (trace.kind === "island" || outsideSea(to)) {
@@ -297,9 +308,11 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
     contacts,
     over: false,
   };
-  if (time >= TUNING.match.duration - EPSILON) {
+  // Last Afloat ends when one ship (or none) is left in the match; either mode ends when the clock runs out.
+  const lastAfloat = world.mode === "lastAfloat" && ships.filter((s) => !s.out).length <= 1;
+  if (lastAfloat || time >= matchDuration(world) - EPSILON) {
     next.over = true;
-    events.push({ type: "matchEnded", winner: matchResult(next).winner });
+    events.push({ type: "matchEnded", winner: matchResult(next).winner, reason: lastAfloat ? "lastAfloat" : "time" });
   }
   return { world: next, events };
 }
