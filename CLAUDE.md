@@ -6,7 +6,7 @@ Full design: `docs/design.md` (exported from the "Sink or Sail — Game Design" 
 
 ## Progress (updated 2026-10-25)
 
-**Stage 0 is built** (all 10 slices). **Stage 1 is built and committed** (7 slices: pack basics and health, mine, torpedo, EMP, summary script additions, home network play, and slice 7, changes after the check matches: unpicked packs disappear, leaving a seat, two pack slots). Slice 6 ran five packs-on check matches in Docker over the Wi-Fi, two of them with 4 players, all to time-up with correct logs and summaries. **Next:** the user rebuilds Docker and runs the combined playtest. Every decision, with its date, is in `NOTES.md`.
+**Stage 0 is built** (all 10 slices). **Stage 1 is built and committed** (7 slices: pack basics and health, mine, torpedo, EMP, summary script additions, home network play, and slice 7, changes after the check matches: unpicked packs disappear, leaving a seat, two pack slots). Slice 6 ran five packs-on check matches in Docker over the Wi-Fi, two of them with 4 players, all to time-up with correct logs and summaries. Tests at the end of slice 7: 529 unit tests and 12 browser tests passing, type-check clean. **Next:** the user rebuilds Docker (`sudo docker compose up --build -d`) and runs the combined playtest. Every decision, with its date, is in `NOTES.md`.
 
 **Changes to the plan agreed during Stage 0** (details in `NOTES.md`):
 - Added after the first game: **Pause** (any seated player) / **Resume** (host only, with a 3-2-1 countdown) and **Exit game** (host only, ends the match with the current score).
@@ -22,6 +22,8 @@ Full design: `docs/design.md` (exported from the "Sink or Sail — Game Design" 
 - Summary: mine hits go to whoever set the blast off; logs with no packs setting read as "Packs off"; no Packs table with packs off.
 - Slice 7 (after the check matches): packs nobody picks up disappear 45 s after appearing (blinking for the last 5 s); a player leaves a seat by tapping it again or with **Leave seat** (not during a match); **two pack slots per ship**, a pilot slot (mine) and a gunner slot (torpedo or EMP), shown as `Packs: M · T` in the top bar.
 
+**Discussed ahead of time (not to build yet):** ship types for Stage 5. There are five types with approved starting values, recorded in `NOTES.md` under "Later" (2026-10-25); the Stage 4 and 5 roadmap rows below reflect them. Whether types move earlier than Stage 5 is decided after the Stage 1 playtest.
+
 **Stage 0 verify items:** all done (time zone 2026-10-24; phone reload and a full 4-player match 2026-10-25).
 
 **Watch items:**
@@ -29,7 +31,7 @@ Full design: `docs/design.md` (exported from the "Sink or Sail — Game Design" 
 - No pack was used in any of the five slice 6 check matches; players didn't try. Is the Pack button being noticed? (For the playtest.)
 - Flaky browser tests (slices 5–6): explained in slice 7. The steering helper gives up quietly after 40 s, so a slow test ship that never reached its pack made the next top-bar check fail. If a pack test fails again, check the test server's log (in the temp folder `sink-or-sail-test-logs`) for a `packExpired` before the pickup.
 
-**After slice 6:** the user runs the combined playtest (`docs/playtest.md`) and fills in its Findings. Stage 2 is then planned with the user, using those findings, and arrives as a new "Current goal" section in this file. Until then, nothing from the roadmap below is built.
+**After slice 7:** the user runs the combined playtest (`docs/playtest.md`) and fills in its Findings. Stage 2 is then planned with the user, using those findings (and the ship-types timing question), and arrives as a new "Current goal" section in this file. Until then, nothing from the roadmap below is built.
 
 **Where things are:**
 - `shared/src/`: `tuning.ts` (every gameplay and client number; CLAUDE.md's "`shared/tuning.ts`"), `rooms.ts` (room rules, message names), `input.ts` (input validation), `packRules.ts` (who uses each pack, labels, when the Pack button is lit), `sim/` (pure, deterministic simulation; `step()` returns the new world plus events; `packs.ts`, `mines.ts`, `torpedoes.ts`, `random.ts` seeded generator, `map.ts` spawn spots; `fixtures/stage0-run.json` is the Stage 0 reference recording that packs-off play must match).
