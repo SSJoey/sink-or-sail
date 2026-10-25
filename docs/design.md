@@ -168,7 +168,7 @@ Each match shows 3–4 awards chosen at random from those earned, with at most o
 
 ## Build plan
 
-JCCJ builds it with Claude Code in TypeScript and Node.js, in five stages; each stage answers one question before the next starts. The first trial is at home on the local network.
+JCCJ builds it with Claude Code in TypeScript and Node.js, in six stages (0–5); each stage answers one question before the next starts. The first trial is at home on the local network.
 
 ### Tech approach
 
@@ -185,8 +185,9 @@ JCCJ builds it with Claude Code in TypeScript and Node.js, in five stages; each 
 | 0 · Core crew test | 2 ships (4 players), Sink Count only, pilot and gunner controls, shared energy, one island, join by room code, placeholder art | Is two people sharing one ship fun? |
 | 1 · Packs | Mine, torpedo, EMP, health; signalled spawns | Do packs create "line it up… now!" moments? |
 | 2 · The sea fights back | Reefs, wrecks, whirlpool, kraken, closing storm, ghosts, Last Afloat | Do hazards and ghosts keep sunk crews involved? |
-| 3 · Full lobby | All lobby screens, bots, Fleet Battle, results and awards, spectator view | Can a group get playing within 30 seconds? |
-| 4 · Polish and online | Sea-chart art, sound, tuning, cloud hosting | Is it ready for people outside the house? |
+| 3 · Full lobby | All lobby screens, bots, results and awards, spectator view (also usable by a host who only hosts and doesn't play), a simple lifebar for each ship, changing your name in the lobby before a match | Can a group get playing within 30 seconds? |
+| 4 · Polish and online | Sea-chart art, sound, tuning, cloud hosting, a styled lifebar to match the sea-chart art, flames, smoke or visible damage on a ship whose health is at or below one gun shot's damage | Is it ready for people outside the house? |
+| 5 · More ships | Up to 10 ships (20 players): Fleet Battle, rooms and seats, 10 crew colours with symbols, map size scaling with the number of ships, a camera that follows your ship and a minimap on larger maps, more start, respawn and pack spots, respawn away from all enemies; to discuss: different ship types based on health, size, rate of fire and damage dealt | Does the game hold up with up to 10 ships? |
 
 ### Stage 0 tasks
 

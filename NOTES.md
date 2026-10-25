@@ -136,9 +136,9 @@
 - **Energy refill slowed again:** `energy.refillPerSecond` 10.5 → 7.5 (empty to full in 13.3 s).
 - Summary fix: the match length rounded the seconds separately and could show "2:60"; it now rounds the whole time first (179.5 s → 3:00).
 - **Still to verify in the combined testing session (2026-10-24):**
-  1. Time zone: after `TZ: Asia/Kolkata` and a recreate, log names were still UTC. Run `sudo docker compose exec server printenv TZ` and `... date` to see whether the setting reaches the container.
-  2. Reload every phone by hand once (pages open before this build lack the self-reload check).
-  3. A full 4-player match (both crews) run to time-up; check the log ends with `matchEnd` at 240000 ms and the summary shows both crews.
+  1. Time zone: after `TZ: Asia/Kolkata` and a recreate, log names were still UTC. Run `sudo docker compose exec server printenv TZ` and `... date` to see whether the setting reaches the container. **Done 2026-10-24** (see "After two packs-on games").
+  2. Reload every phone by hand once (pages open before this build lack the self-reload check). **Done 2026-10-25** (Stage 1 slice 6).
+  3. A full 4-player match (both crews) run to time-up; check the log ends with `matchEnd` at 240000 ms and the summary shows both crews. **Done 2026-10-25** (Stage 1 slice 6, room FGBL).
 
 ### 2026-10-24 — Stage 1 slice 1: pack basics
 
@@ -217,4 +217,16 @@
 - Average held time is from pickup to use, for used packs only (packs lost on sinking aren't counted). A torpedo that ends on a mine counts as fired without a hit.
 - **Watch:** one full browser-test run during this slice had a single failed text check (which test wasn't captured); the next three full runs passed. This slice changed no game code, so it's load flakiness in a browser test. If it comes back, capture which test and fix its timing.
 
+### 2026-10-25 — Stage 1 slice 6: home network play
+
+- Production build checked locally; `docs/playtest.md` replaced by the combined Stage 0 + Stage 1 guide (user's choice). One packs-on check match agreed, played by real people on phones.
+- **Reload verified:** every phone was reloaded by hand once and showed the Pack slot, clearing that Stage 0 "still to verify" item.
+- **Two check matches played** in Docker over the Wi-Fi (room QHKJ, packs on, a mix of phones and laptops): both ran the full 4:00, ended with `matchEnd` at 240000 ms (not early), logged pack signals, spawns, pickups and health restored, and summarised correctly. But they had 2 and 3 players, so one more full packs-on match with 4 people was played (user's choice).
+- **4-player match verified:** two full packs-on matches in room FGBL (Joey & Ira vs Ian & Diana) both ran to 4:00 (`matchEnd` at 240000 ms, not early); the logs show both crews with names and roles, and the summary shows both crews and the Packs table. This clears the last Stage 0 "still to verify" item.
+- **No pack was used in either match:** each time a pilot picked up a mine early and held it to the end (which also blocked other pickups). The user confirmed nobody tried to drop it, so it isn't a bug. **No pack was used in any of the five check matches:** in FGBL both crews held a torpedo for minutes (Crew 1 from 0:14 to the end) and the user confirmed the gunners didn't try to fire it. A strong sign the Pack button and the held pack aren't being noticed; for the combined playtest to confirm (no change made now).
+- **Flaky browser tests again:** the first full run before the commit had two failed `toHaveText` checks (which tests wasn't captured); the rerun passed all 11. No code changed in this slice. Next time, save the full report to see which test fails.
+- **Roadmap addition (user, 2026-10-25):** Stage 5 now includes "to discuss: different ship types based on health, size, rate of fire and damage dealt" (in CLAUDE.md's roadmap and `docs/design.md`).
+
 ## Later
+
+- (2026-10-25, Stage 5) Discuss different ship types: health, size, rate of fire, damage dealt.

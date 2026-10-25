@@ -6,7 +6,7 @@ Full design: `docs/design.md` (exported from the "Sink or Sail — Game Design" 
 
 ## Progress (updated 2026-10-25)
 
-**Stage 0 is built** (all 10 slices). **Stage 1 slices 1–5 are built and committed** (pack basics and health, mine, torpedo, EMP, summary script additions). **Current work: Stage 1 slice 6 (home network play).** Done so far: a production build checked locally, and `docs/playtest.md` rewritten as the combined Stage 0 + Stage 1 playtest guide. **Next:** the user rebuilds Docker and plays one full 4-minute packs-on check match with 4 real people on phones; then check its log and summary, clear the verify items below, fix only what blocks a full match, update `NOTES.md`, commit, and hand over for the combined playtest. Every decision, with its date, is in `NOTES.md`.
+**Stage 0 is built** (all 10 slices). **Stage 1 is built and committed** (all 6 slices: pack basics and health, mine, torpedo, EMP, summary script additions, home network play). Slice 6 ran five packs-on check matches in Docker over the Wi-Fi, two of them with 4 players, all to time-up with correct logs and summaries. **Next:** the user runs the combined playtest. Every decision, with its date, is in `NOTES.md`.
 
 **Changes to the plan agreed during Stage 0** (details in `NOTES.md`):
 - Added after the first game: **Pause** (any seated player) / **Resume** (host only, with a 3-2-1 countdown) and **Exit game** (host only, ends the match with the current score).
@@ -21,14 +21,14 @@ Full design: `docs/design.md` (exported from the "Sink or Sail — Game Design" 
 - EMP: radius 200. Caught ships can't fire, boost, shield or use packs for 3 s, and their shield drops at once. No stacking (a new EMP restarts the 3 s). Protected ships aren't caught; only ships are affected.
 - Summary: mine hits go to whoever set the blast off; logs with no packs setting read as "Packs off"; no Packs table with packs off.
 
-**Still to verify from Stage 0** (also in `NOTES.md`, slice 10), part of Stage 1 slice 6:
-- Time zone: already verified (log names are local time).
-- Reload each phone by hand once.
-- Run a full 4-player match to time-up and check its log and summary.
+**Stage 0 verify items:** all done (time zone 2026-10-24; phone reload and a full 4-player match 2026-10-25).
 
 **Watch items:**
 - On 667 px phones, the top bar squeezes the energy bar.
-- One browser-test run in slice 5 had a single failing text check (which test wasn't captured); later runs passed.
+- No pack was used in any of the five slice 6 check matches; players didn't try. Is the Pack button being noticed? (For the playtest.)
+- Flaky browser tests: one run in slice 5 had a single failing text check, and one run in slice 6 had two (`toHaveText`); which tests wasn't captured either time, and reruns passed. Next time, save the full report to see which test fails.
+
+**After slice 6:** the user runs the combined playtest (`docs/playtest.md`) and fills in its Findings. Stage 2 is then planned with the user, using those findings, and arrives as a new "Current goal" section in this file. Until then, nothing from the roadmap below is built.
 
 **Where things are:**
 - `shared/src/`: `tuning.ts` (every gameplay and client number; CLAUDE.md's "`shared/tuning.ts`"), `rooms.ts` (room rules, message names), `input.ts` (input validation), `packRules.ts` (who uses each pack, labels, when the Pack button is lit), `sim/` (pure, deterministic simulation; `step()` returns the new world plus events; `packs.ts`, `mines.ts`, `torpedoes.ts`, `random.ts` seeded generator, `map.ts` spawn spots; `fixtures/stage0-run.json` is the Stage 0 reference recording that packs-off play must match).
@@ -47,6 +47,21 @@ Full design: `docs/design.md` (exported from the "Sink or Sail — Game Design" 
 - `MATCH_SEED` fixes every match's seed (used by the browser tests: port 2577 with seed 367 for mine and torpedo, port 2578 with seed 8 for the EMP).
 - Pack presses are latched on the client and server so quick taps aren't lost; the E key also uses a key-down listener.
 - Phaser's own touch input is off (`input: { touch: false }`). Our touch layer handles all touch; Phaser's window-wide touch listener made aiming fire the gun.
+
+## Roadmap (for context only — do not build ahead)
+
+`docs/design.md` was updated on 2026-10-25 and now has six stages (0–5). Stages 0 and 1 are below. The rest, as currently planned:
+
+| Stage | What's in it | Question it answers |
+| --- | --- | --- |
+| 2 · The sea fights back | Reefs, wrecks, whirlpool, kraken, moving and closing storm, ghosts, Last Afloat | Do hazards and ghosts keep sunk crews involved? |
+| 3 · Full lobby | All lobby screens, bots (including a bot partner for a solo player), results and awards, spectator view (also usable by a host who only hosts and doesn't play), a **simple** lifebar for each ship, changing your name in the lobby before a match | Can a group get playing within 30 seconds? |
+| 4 · Polish and online | Sea-chart art, sound, tuning, cloud hosting, a **styled** lifebar to match the art, flames, smoke or visible damage on a ship whose health is at or below one gun shot's damage | Is it ready for people outside the house? |
+| 5 · More ships | Up to 10 ships (20 players), Fleet Battle, rooms and seats, 10 crew colours with symbols, map size scaling with the number of ships, a camera that follows your ship and a minimap on larger maps, more start, respawn and pack spots, respawn away from all enemies; **to discuss:** different ship types based on health, size, rate of fire and damage dealt | Does the game hold up with up to 10 ships? |
+
+- The game stays at **2 ships** until Stage 5.
+- **Known open question for Stage 2:** with 2 ships, Last Afloat ends at the first sinking, so ghosts get no time. The approach (for example extra lives per ship before a crew becomes a ghost) will be decided when Stage 2 is planned. Don't solve it in code.
+- When work on the current stage suggests something for a later stage (for example a lifebar would help now), note it in `NOTES.md` under "Later" and say so; don't build it.
 
 ## Current goal: Stage 1 — packs
 
@@ -73,7 +88,7 @@ Everything in Stage 0 stays as it is (same mode, ships, island, controls, match 
 
 ### Stage 1 starting values (all go in `shared/tuning.ts`)
 
-These are agreed starting points to tune during playtesting. Express damage and healing as a fraction of a ship's full health.
+These were the agreed starting points. Several were refined while building (see "Main Stage 1 decisions" above); where this list and `NOTES.md` differ, `NOTES.md` and `tuning.ts` are current. Express damage and healing as a fraction of a ship's full health.
 
 - Packs on the map at once: 2. A replacement is signalled about 8 s after one is taken.
 - Spawn spots: about 6 fixed spots in open water, clear of the island and the respawn spots; the next spot is chosen by the seeded generator. A spot that already holds a pack, or has a ship on it, is not chosen.
@@ -84,7 +99,7 @@ These are agreed starting points to tune during playtesting. Express damage and 
 - EMP: radius about 3 ship lengths; effect lasts 3 s.
 - Health: restores 40% of full health, never above full.
 
-Anything not listed here (for example torpedo lifetime, whether protection after respawn blocks mines and torpedoes, how an EMP interacts with a shield already raised, what a mine or torpedo does to the island): **ask, don't assume.**
+The open points once listed here (torpedo lifetime, protection against mines and torpedoes, EMP against a raised shield) are now decided in `NOTES.md`. For anything else not covered: **ask, don't assume.**
 
 ### Stage 1 scope (out — do not build yet)
 
