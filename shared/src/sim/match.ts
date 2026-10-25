@@ -32,7 +32,8 @@ export function createWorld(options: WorldOptions = {}): World {
       sinkings: 0,
       boostEnergy: 0,
       shieldEnergy: 0,
-      held: null,
+      pilotPack: null,
+      gunnerPack: null,
       disabled: 0,
     };
   });

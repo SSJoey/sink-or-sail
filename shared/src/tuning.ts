@@ -57,6 +57,8 @@ export const TUNING = {
     spawnInterval: 8,
     /** Seconds a spot glows before its pack appears. */
     signalTime: 3,
+    /** Seconds a pack stays once it has appeared; nobody picking it up means it disappears (the glow doesn't count). */
+    lifetime: 45,
     /** Pack size for pickup: taken when it touches a ship's circle. */
     radius: 18,
     /** Relative chance of each pack type. */
@@ -117,5 +119,8 @@ export const TUNING = {
     /** EMP ring: grows from the firing ship to the full radius, then fades. */
     empRingGrowMs: 400,
     empRingFadeMs: 300,
+    /** A pack on the sea blinks for its last seconds before it disappears, this many times per second. */
+    packBlinkTime: 5,
+    packBlinkHz: 4,
   },
 } as const;

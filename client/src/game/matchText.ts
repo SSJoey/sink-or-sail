@@ -42,6 +42,13 @@ export function blinkVisible(protection: number, hz: number): boolean {
   return Math.floor((TUNING.respawn.protection - protection) * hz * 2 + 1e-9) % 2 === 0;
 }
 
+/** A pack on the sea blinks in its last seconds before it disappears; `lifeLeft` counts down. */
+export function packBlinkVisible(lifeLeft: number): boolean {
+  const { packBlinkTime, packBlinkHz } = TUNING.client;
+  if (lifeLeft > packBlinkTime) return true;
+  return Math.floor((packBlinkTime - lifeLeft) * packBlinkHz * 2 + 1e-9) % 2 === 0;
+}
+
 /** "Paused by Sam"; non-hosts also learn that only the host resumes. */
 export function pausedText(pausedBy: string, isHost: boolean): string {
   const who = pausedBy ? `Paused by ${pausedBy}` : "Paused";

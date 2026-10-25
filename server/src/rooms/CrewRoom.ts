@@ -30,7 +30,7 @@ import { controlLine, matchEndLine, matchMs, matchStartLine, playerLine, positio
 import { MatchLog, fileSink, logFileName, type LogSink } from "../log/matchLog.ts";
 import { canChangeSeat, canEndMatch, canPause, canResume, canSetPacks, canStart, nextHost } from "./matchFlow.ts";
 import { generateUniqueCode } from "./roomCode.ts";
-import { isNameTaken, takeSeat, type SeatMap } from "./seats.ts";
+import { isNameTaken, leaveSeat, takeSeat, type SeatMap } from "./seats.ts";
 import { CrewState, Player } from "./state.ts";
 import { applyEvents, syncWorld } from "./sync.ts";
 
@@ -99,6 +99,20 @@ export class CrewRoom extends Room<{ state: CrewState }> {
         this.roster = this.buildRoster();
         this.logLine(seatLine(this.logTime(), this.nameOf(client.sessionId), seat));
       }
+    });
+
+    this.onMessage(ClientMessage.LeaveSeat, (client) => {
+      if (!canChangeSeat(this.state.phase, this.seatOf(client.sessionId) !== null)) {
+        client.send(ServerMessage.Rejected, { reason: RejectReason.SeatLocked } satisfies RejectedMessage);
+        return;
+      }
+      const result = leaveSeat(this.seatMap(), client.sessionId);
+      if (!result.ok) {
+        client.send(ServerMessage.Rejected, { reason: result.reason } satisfies RejectedMessage);
+        return;
+      }
+      this.applySeat(client.sessionId, null);
+      if (this.log) this.roster = this.buildRoster();
     });
 
     this.onMessage(ClientMessage.Start, (client) => {

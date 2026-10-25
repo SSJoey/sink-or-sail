@@ -36,6 +36,8 @@ export interface Pack {
   spot: number;
   type: PackType;
   signalLeft: number;
+  /** Seconds left once it has appeared (it stays at the full lifetime while glowing); it disappears at 0. */
+  lifeLeft: number;
 }
 
 /** A dropped mine. Armed once `age` reaches the arm time; gone at its lifetime or when it goes off. */
@@ -82,8 +84,9 @@ export interface Ship {
   /** Energy spent on boost and on shield this match (for the match log). */
   boostEnergy: number;
   shieldEnergy: number;
-  /** The crew's pack slot (never a health pack, which is used on pickup). */
-  held: PackType | null;
+  /** The pilot's pack slot (a mine) and the gunner's (a torpedo or EMP); health is used on pickup and needs no slot. */
+  pilotPack: PackType | null;
+  gunnerPack: PackType | null;
   /** Seconds left of an EMP: no fire, boost, shield or packs (steering still works). */
   disabled: number;
 }
@@ -134,6 +137,8 @@ export type SimEvent =
   | { type: "matchEnded"; winner: number | null }
   | { type: "packSignalled"; pack: number; spot: number; packType: PackType }
   | { type: "packSpawned"; pack: number; spot: number; packType: PackType }
+  /** A pack nobody picked up in time. */
+  | { type: "packExpired"; pack: number; spot: number; packType: PackType }
   | { type: "packPickedUp"; ship: number; pack: number; packType: PackType }
   | { type: "packLost"; ship: number; packType: PackType }
   | { type: "healthRestored"; ship: number; amount: number }

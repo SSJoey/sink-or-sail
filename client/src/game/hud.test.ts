@@ -13,10 +13,11 @@ describe("formatClock", () => {
 });
 
 describe("packSlotText", () => {
-  it("names the loaded pack, or shows an empty slot", () => {
-    expect(packSlotText("torpedo")).toBe("Pack: Torpedo");
-    expect(packSlotText("emp")).toBe("Pack: EMP");
-    expect(packSlotText(null)).toBe("Pack: —");
+  it("shows both slots by letter, the pilot's first, with — for an empty one", () => {
+    expect(packSlotText("mine", "torpedo")).toBe("Packs: M · T");
+    expect(packSlotText(null, "emp")).toBe("Packs: — · E");
+    expect(packSlotText("mine", null)).toBe("Packs: M · —");
+    expect(packSlotText(null, null)).toBe("Packs: — · —");
   });
 });
 

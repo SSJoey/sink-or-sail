@@ -11,7 +11,8 @@ export interface TouchLayer {
   activate(): void;
   readonly active: boolean;
   /** Updates which controls show, the Pack button, and where the stick is drawn; call every frame. */
-  update(role: Role | null, held: PackType | null, disabled: boolean): void;
+  /** `ownPack` is the pack in this role's own slot. */
+  update(role: Role | null, ownPack: PackType | null, disabled: boolean): void;
   destroy(): void;
 }
 
@@ -75,7 +76,7 @@ export function createTouchLayer(controls: TouchControls): TouchLayer {
     get active() {
       return active;
     },
-    update(role, held, disabled) {
+    update(role, ownPack, disabled) {
       if (!active) return;
       // EMP'd: every button goes dim (the stick still steers).
       layer.classList.toggle("emp", disabled);
@@ -85,11 +86,11 @@ export function createTouchLayer(controls: TouchControls): TouchLayer {
       buttons.boost.hidden = role !== "pilot";
       buttons.fire.hidden = role !== "gunner";
       buttons.shield.hidden = role !== "gunner";
-      // Pack: shows what's loaded; lit only for the role that can use it, otherwise dim (and does nothing).
+      // Pack: shows what's in this role's own slot; lit when it can be used, otherwise dim (and does nothing).
       buttons.pack.hidden = !seated;
-      const label = held ? PACK_LABELS[held] : "Pack";
+      const label = ownPack ? PACK_LABELS[ownPack] : "Pack";
       if (buttons.pack.textContent !== label) buttons.pack.textContent = label;
-      buttons.pack.classList.toggle("lit", role !== null && !disabled && packButtonLit(held, role));
+      buttons.pack.classList.toggle("lit", role !== null && !disabled && packButtonLit(ownPack, role));
       if (!seated) {
         controls.releaseAll();
         return;

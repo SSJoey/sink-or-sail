@@ -171,14 +171,14 @@ describe("match event log: packs (Stage 1)", () => {
     const world = room.world!;
     room.world = {
       ...world,
-      packs: [{ id: 0, spot: 2, type: "emp", signalLeft: 0 }],
+      packs: [{ id: 0, spot: 2, type: "emp", signalLeft: 0, lifeLeft: 20 }],
       nextPackId: 1,
       nextSignalIn: null,
       ships: [{ ...world.ships[0]!, pos: { x: 450, y: 300 } }, world.ships[1]!],
     };
     await waitFor(() => ofType(lines(), "packPickedUp").length === 1, 3000);
     expect(ofType(lines(), "packPickedUp")[0]).toMatchObject({ ship: 0, crew: { pilot: "Pilot", gunner: "Gunner" }, pack: 0, packType: "emp" });
-    await waitFor(() => ofType(lines(), "position").some((l) => l.ship === 0 && l.held === "emp"), 3000);
+    await waitFor(() => ofType(lines(), "position").some((l) => l.ship === 0 && JSON.stringify(l.held) === '["emp"]'), 3000);
   });
 
   it("records packs off when the host switched them off", async () => {

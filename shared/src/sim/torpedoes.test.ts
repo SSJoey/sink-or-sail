@@ -17,7 +17,7 @@ const pilotPack: ShipInput = { ...idle, pilot: { ...idle.pilot, pack: true } };
 function world(changes: (w: World) => void = () => {}): World {
   const w = createWorld({ packs: true, seed: 1 });
   w.nextSignalIn = null;
-  w.ships[0] = { ...w.ships[0]!, pos: { x: 300, y: 200 }, heading: 0, turret: Math.PI, held: "torpedo" };
+  w.ships[0] = { ...w.ships[0]!, pos: { x: 300, y: 200 }, heading: 0, turret: Math.PI, gunnerPack: "torpedo" };
   w.ships[1] = { ...w.ships[1]!, pos: { x: 1300, y: 750 } };
   changes(w);
   return w;
@@ -40,7 +40,7 @@ const fireOnce = (input: ShipInput) => (w: World) => (w.time < DT / 2 ? [input] 
 describe("firing a torpedo", () => {
   it("the gunner fires it from just ahead of the bow, along the heading (not the turret); the slot empties", () => {
     const { world: after, events } = run(world(), DT, fireOnce(gunnerPack));
-    expect(after.ships[0]!.held).toBeNull();
+    expect(after.ships[0]!.gunnerPack).toBeNull();
     expect(events).toContainEqual({ type: "packUsed", ship: 0, packType: "torpedo", role: "gunner" });
     expect(events).toContainEqual({ type: "torpedoFired", torpedo: 0, owner: 0, pos: { x: 300 + AHEAD, y: 200 }, heading: 0 });
     // It has already moved one step east at torpedo speed.
@@ -66,7 +66,7 @@ describe("firing a torpedo", () => {
   it("only the gunner can fire it: the pilot's Pack button does nothing", () => {
     const { world: after } = run(world(), 0.5, () => [pilotPack]);
     expect(after.torpedoes).toEqual([]);
-    expect(after.ships[0]!.held).toBe("torpedo");
+    expect(after.ships[0]!.gunnerPack).toBe("torpedo");
   });
 
   it("is used once", () => {
@@ -171,7 +171,7 @@ describe("what stops a torpedo", () => {
 describe("packs off", () => {
   it("never has torpedoes", () => {
     const w = createWorld();
-    w.ships[0] = { ...w.ships[0]!, held: "torpedo" };
+    w.ships[0] = { ...w.ships[0]!, gunnerPack: "torpedo" };
     expect(run(w, 0.5, () => [gunnerPack]).world.torpedoes).toEqual([]);
   });
 });

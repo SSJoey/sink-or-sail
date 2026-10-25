@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Phase, TUNING } from "@sink-or-sail/shared";
-import { blinkVisible, countdownLabel, pausedText, respawnText, resultTitle, scoreRows, sinkBanner } from "./matchText.ts";
+import { blinkVisible, countdownLabel, packBlinkVisible, pausedText, respawnText, resultTitle, scoreRows, sinkBanner } from "./matchText.ts";
 
 const D = TUNING.match.duration;
 
@@ -52,6 +52,22 @@ describe("result", () => {
 
   it("shows a dash for a crew with nobody aboard", () => {
     expect(scoreRows([0, 0], [])[1]!.names).toBe("—");
+  });
+});
+
+describe("packBlinkVisible", () => {
+  const { packBlinkTime: last, packBlinkHz: hz } = TUNING.client;
+
+  it(`shows a pack steadily until its last ${TUNING.client.packBlinkTime} s`, () => {
+    expect(packBlinkVisible(TUNING.packs.lifetime)).toBe(true);
+    expect(packBlinkVisible(last + 0.01)).toBe(true);
+  });
+
+  it(`then blinks ${TUNING.client.packBlinkHz} times a second`, () => {
+    const half = 1 / (2 * hz);
+    expect(packBlinkVisible(last)).toBe(true);
+    expect(packBlinkVisible(last - half)).toBe(false);
+    expect(packBlinkVisible(last - 2 * half)).toBe(true);
   });
 });
 

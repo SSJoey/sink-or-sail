@@ -39,9 +39,12 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
   const sink = (targetIndex: number, by: number | null) => {
     const sunk = ships[targetIndex]!;
     events.push({ type: "sunk", ship: sunk.id, by });
-    if (sunk.held) {
-      events.push({ type: "packLost", ship: sunk.id, packType: sunk.held });
-      ships[targetIndex] = { ...sunk, held: null };
+    for (const slot of ["pilotPack", "gunnerPack"] as const) {
+      const lost = ships[targetIndex]![slot];
+      if (lost) {
+        events.push({ type: "packLost", ship: sunk.id, packType: lost });
+        ships[targetIndex] = { ...ships[targetIndex]!, [slot]: null };
+      }
     }
     if (by !== null) {
       const attacker = ships.findIndex((s) => s.id === by);
@@ -109,18 +112,18 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
     }
 
     // Stage 1: the pilot's Pack button drops a loaded mine behind the stern (if that spot is clear).
-    if (world.packsOn && !disabled && input.pilot.pack && ship.held === "mine") {
+    if (world.packsOn && !disabled && input.pilot.pack && ship.pilotPack === "mine") {
       const pos = dropSpot(ship);
       if (canDropAt(pos, ISLAND)) {
         const mine: Mine = { id: nextMineId++, owner: ship.id, pos, age: 0 };
         droppedMines.push(mine);
-        ship = { ...ship, held: null };
+        ship = { ...ship, pilotPack: null };
         events.push({ type: "packUsed", ship: ship.id, packType: "mine", role: "pilot" }, { type: "mineDropped", mine: mine.id, owner: ship.id, pos });
       }
     }
     // Stage 1: the gunner's Pack button fires a loaded torpedo along the heading (allowed with the shield up).
     // Like firing the gun, it ends respawn protection.
-    if (world.packsOn && !disabled && input.gunner.pack && ship.held === "torpedo") {
+    if (world.packsOn && !disabled && input.gunner.pack && ship.gunnerPack === "torpedo") {
       const torpedo = launchTorpedo(ship, nextTorpedoId++);
       torpedoes.push(torpedo);
       events.push(
@@ -128,11 +131,11 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
         { type: "torpedoFired", torpedo: torpedo.id, owner: ship.id, pos: torpedo.pos, heading: ship.heading },
       );
       if (ship.protection > 0) events.push({ type: "protectionEnded", ship: ship.id });
-      ship = { ...ship, held: null, protection: 0 };
+      ship = { ...ship, gunnerPack: null, protection: 0 };
     }
     // Stage 1: the gunner's Pack button fires a loaded EMP, centred on this ship. Enemy ships in range
     // (afloat, not protected) lose fire, boost, shield and packs for the EMP's duration; shields drop at once.
-    if (world.packsOn && !disabled && input.gunner.pack && ship.held === "emp") {
+    if (world.packsOn && !disabled && input.gunner.pack && ship.gunnerPack === "emp") {
       const caught: number[] = [];
       for (let j = 0; j < ships.length; j++) {
         const other = ships[j]!;
@@ -143,7 +146,7 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
       }
       events.push({ type: "packUsed", ship: ship.id, packType: "emp", role: "gunner" }, { type: "empFired", ship: ship.id, caught });
       if (ship.protection > 0) events.push({ type: "protectionEnded", ship: ship.id });
-      ship = { ...ship, held: null, protection: 0 };
+      ship = { ...ship, gunnerPack: null, protection: 0 };
     }
     ships[i] = ship;
   }

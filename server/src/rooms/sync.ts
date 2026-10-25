@@ -21,7 +21,8 @@ export function syncWorld(state: CrewState, world: World): void {
     synced.sunk = ship.sunk;
     synced.respawnIn = ship.respawnIn;
     synced.sinkings = ship.sinkings;
-    synced.held = ship.held ?? "";
+    synced.pilotPack = ship.pilotPack ?? "";
+    synced.gunnerPack = ship.gunnerPack ?? "";
     synced.disabled = ship.disabled;
   });
 
@@ -33,10 +34,12 @@ export function syncWorld(state: CrewState, world: World): void {
     const id = String(pack.id);
     const signalled = pack.signalLeft > 0;
     const synced = state.packs.get(id);
-    if (synced) synced.signalled = signalled;
-    else {
+    if (synced) {
+      synced.signalled = signalled;
+      synced.lifeLeft = pack.lifeLeft;
+    } else {
       const spot = PACK_SPOTS[pack.spot]!;
-      state.packs.set(id, new PackState({ x: spot.x, y: spot.y, type: pack.type, signalled }));
+      state.packs.set(id, new PackState({ x: spot.x, y: spot.y, type: pack.type, signalled, lifeLeft: pack.lifeLeft }));
     }
   }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PACK_LABELS, PACK_USER, packButtonLit } from "./packRules.ts";
+import { PACK_LABELS, PACK_LETTERS, PACK_USER, packButtonLit, rolePack } from "./packRules.ts";
 
 describe("pack rules", () => {
   it("knows who uses each pack: pilot drops mines, gunner fires torpedoes and EMPs, health is used on pickup", () => {
@@ -8,6 +8,17 @@ describe("pack rules", () => {
 
   it("names each pack for the slot and the Pack button", () => {
     expect(PACK_LABELS).toEqual({ mine: "Mine", torpedo: "Torpedo", emp: "EMP", health: "Health" });
+  });
+
+  it("gives each pack its letter (for the top bar and the packs on the sea)", () => {
+    expect(PACK_LETTERS).toEqual({ mine: "M", torpedo: "T", emp: "E", health: "H" });
+  });
+
+  it("finds each role's own slot", () => {
+    const ship = { pilotPack: "mine" as const, gunnerPack: "torpedo" as const };
+    expect(rolePack(ship, "pilot")).toBe("mine");
+    expect(rolePack(ship, "gunner")).toBe("torpedo");
+    expect(rolePack({ pilotPack: null, gunnerPack: null }, "gunner")).toBeNull();
   });
 
   it("lights the pilot's Pack button for a mine, never the gunner's", () => {

@@ -36,7 +36,7 @@ test("the gunner's EMP disables the enemy ship in range; its crew sees it and ca
     })(),
     sailWithKeys(enemy, { x: EMP.x + 200, y: EMP.y }),
   ]);
-  await expect(gunner.locator("#hud-pack")).toHaveText("Pack: EMP");
+  await expect(gunner.locator("#hud-pack")).toHaveText("Packs: — · E");
   await expect(gunner.locator("#game")).toHaveAttribute("data-disabled", "00");
 
   // Close in on the enemy until well inside the EMP's reach (28 + 200 = 228 between centres).
@@ -53,11 +53,11 @@ test("the gunner's EMP disables the enemy ship in range; its crew sees it and ca
   // The pilot's E does nothing for an EMP; the gunner's fires it.
   await pilot.keyboard.press("e");
   await pilot.waitForTimeout(300);
-  await expect(pilot.locator("#hud-pack")).toHaveText("Pack: EMP");
+  await expect(pilot.locator("#hud-pack")).toHaveText("Packs: — · E");
   await gunner.keyboard.press("e");
 
   await expect(gunner.locator("#game")).toHaveAttribute("data-disabled", "01");
-  await expect(gunner.locator("#hud-pack")).toHaveText("Pack: —");
+  await expect(gunner.locator("#hud-pack")).toHaveText("Packs: — · —");
   await expect(enemy.locator("#hud-emp")).toHaveText(/^EMP [1-3]$/);
 
   // Caught but still steering: the enemy ship moves when its pilot steers.

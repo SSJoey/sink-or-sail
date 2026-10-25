@@ -1,3 +1,4 @@
+import { PACK_USER } from "../packRules.ts";
 import { TUNING } from "../tuning.ts";
 import { PACK_SPOTS } from "./map.ts";
 import { randomIndex, weightedPick } from "./random.ts";
@@ -28,16 +29,22 @@ export function signalPack(world: World): { world: World; event: Extract<SimEven
   if (free.length === 0) return null;
   const spotPick = randomIndex(world.rng, free.length);
   const typePick = weightedPick(spotPick.state, PACK_CHANCES);
-  const pack: Pack = { id: world.nextPackId, spot: free[spotPick.value]!, type: typePick.value, signalLeft: TUNING.packs.signalTime };
+  const pack: Pack = {
+    id: world.nextPackId, spot: free[spotPick.value]!, type: typePick.value,
+    signalLeft: TUNING.packs.signalTime, lifeLeft: TUNING.packs.lifetime,
+  };
   return {
     world: { ...world, rng: typePick.state, packs: [...world.packs, pack], nextPackId: world.nextPackId + 1 },
     event: { type: "packSignalled", pack: pack.id, spot: pack.spot, packType: pack.type },
   };
 }
 
+/** The slot a pack goes in: the pilot's for a mine, the gunner's for a torpedo or EMP (health has none). */
+const slotFor = (type: PackType) => (PACK_USER[type] === "pilot" ? "pilotPack" : "gunnerPack");
+
 /**
- * Ships afloat take packs they touch, lowest ship id first. A slot pack needs an empty slot;
- * a health pack is used at once, skips the slot, and is left alone by a ship at full health.
+ * Ships afloat take packs they touch, lowest ship id first. A slot pack needs its role's slot empty;
+ * a health pack is used at once, needs no slot, and is left alone by a ship at full health.
  * A pickup from a full map restarts the spawn clock.
  */
 export function pickUpPacks(world: World): { world: World; events: SimEvent[] } {
@@ -49,7 +56,7 @@ export function pickUpPacks(world: World): { world: World; events: SimEvent[] } 
   for (const pack of world.packs) {
     const index = pack.signalLeft > EPSILON ? -1 : ships.findIndex((ship) => {
       if (ship.sunk || !touches(ship.pos, PACK_SPOTS[pack.spot]!)) return false;
-      return pack.type === "health" ? ship.health < TUNING.ship.maxHealth : ship.held === null;
+      return pack.type === "health" ? ship.health < TUNING.ship.maxHealth : ship[slotFor(pack.type)] === null;
     });
     if (index < 0) {
       remaining.push(pack);
@@ -62,7 +69,7 @@ export function pickUpPacks(world: World): { world: World; events: SimEvent[] } 
       ships[index] = { ...ship, health: ship.health + amount };
       events.push({ type: "healthRestored", ship: ship.id, amount });
     } else {
-      ships[index] = { ...ship, held: pack.type };
+      ships[index] = { ...ship, [slotFor(pack.type)]: pack.type };
     }
   }
 
@@ -73,8 +80,29 @@ export function pickUpPacks(world: World): { world: World; events: SimEvent[] } 
 }
 
 /**
+ * Packs that appeared before this step count down and disappear when nobody took them in time. Like a
+ * pickup, one disappearing from a full map restarts the spawn clock.
+ */
+function expirePacks(world: World, dt: number, justSpawned: ReadonlySet<number>): { world: World; events: SimEvent[] } {
+  const events: SimEvent[] = [];
+  const wasFull = world.packs.length >= TUNING.packs.maxOnMap;
+  const packs = world.packs.flatMap((pack) => {
+    if (pack.signalLeft > EPSILON || justSpawned.has(pack.id)) return [pack];
+    const lifeLeft = pack.lifeLeft - dt;
+    if (lifeLeft > EPSILON) return [{ ...pack, lifeLeft }];
+    events.push({ type: "packExpired", pack: pack.id, spot: pack.spot, packType: pack.type });
+    return [];
+  });
+  if (events.length === 0) return { world: { ...world, packs }, events };
+  const glowing = packs.some((p) => p.signalLeft > EPSILON);
+  const nextSignalIn = wasFull && world.nextSignalIn === null && !glowing ? TUNING.packs.spawnInterval : world.nextSignalIn;
+  return { world: { ...world, packs, nextSignalIn }, events };
+}
+
+/**
  * The spawn clock: one pack at a time. When the clock runs out a free spot is signalled (retrying each
  * step if none is free); after its glow the pack appears, and the clock restarts unless the map is full.
+ * Then packs nobody took disappear (see expirePacks).
  */
 export function updatePacks(world: World, dt: number): { world: World; events: SimEvent[] } {
   const events: SimEvent[] = [];
@@ -101,5 +129,7 @@ export function updatePacks(world: World, dt: number): { world: World; events: S
     nextSignalIn = packs.length < TUNING.packs.maxOnMap ? TUNING.packs.spawnInterval : null;
   }
 
-  return { world: { ...next, packs, nextSignalIn }, events };
+  const justSpawned = new Set(events.flatMap((e) => (e.type === "packSpawned" ? [e.pack] : [])));
+  const expired = expirePacks({ ...next, packs, nextSignalIn }, dt, justSpawned);
+  return { world: expired.world, events: [...events, ...expired.events] };
 }

@@ -156,7 +156,9 @@ function packFigures(lines: readonly Line[], ship: number): CrewPacks {
   const used = slotCounts();
   const lost = slotCounts();
   const heldMs: number[] = [];
-  let pickedUpAt: number | null = null;
+  // When each slot's pack was picked up: the pilot's (mine) and the gunner's (torpedo or EMP) are timed apart.
+  const pickedUpAt: Record<"pilot" | "gunner", number | null> = { pilot: null, gunner: null };
+  const slotOf = (p: SlotPack) => (p === "mine" ? "pilot" : "gunner");
   let torpedoesFired = 0;
   let torpedoHits = 0;
   let mineHits = 0;
@@ -181,16 +183,18 @@ function packFigures(lines: readonly Line[], ship: number): CrewPacks {
     switch (l.type) {
       case "packPickedUp":
         pickedUp[pack]++;
-        if (pack !== "health") pickedUpAt = l.t;
+        if (pack !== "health") pickedUpAt[slotOf(pack)] = l.t;
         break;
-      case "packUsed":
+      case "packUsed": {
         used[pack as SlotPack]++;
-        if (pickedUpAt !== null) heldMs.push(l.t - pickedUpAt);
-        pickedUpAt = null;
+        const since = pickedUpAt[slotOf(pack as SlotPack)];
+        if (since !== null) heldMs.push(l.t - since);
+        pickedUpAt[slotOf(pack as SlotPack)] = null;
         break;
+      }
       case "packLost":
         lost[pack as SlotPack]++;
-        pickedUpAt = null;
+        pickedUpAt[slotOf(pack as SlotPack)] = null;
         break;
       case "torpedoFired": torpedoesFired++; break;
       case "torpedoHit": torpedoHits++; break;

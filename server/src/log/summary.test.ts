@@ -219,6 +219,28 @@ describe("summarise with packs", () => {
     expect(summarise(lines).packs![1]).toMatchObject({ mineHits: 1, ownMineHits: 1 });
   });
 
+  it("times each slot on its own when a crew holds a pilot pack and a gunner pack at once", () => {
+    // Ship 0: mine at 1 s and torpedo at 2 s (both held), torpedo used at 4 s (2 s), mine used at 11 s (10 s) → 6 s.
+    // Then an EMP at 12 s and a mine at 13 s; the ship sinks at 20 s, losing both, so neither counts.
+    const start = { t: 0, type: "matchStart", room: "TWO", crews: [{ ship: 0, ...crew0 }, { ship: 1, ...crew1 }], packsOn: true, seed: 1, tuning: {} };
+    const lines = [
+      start,
+      { t: 1000, type: "packPickedUp", ship: 0, crew: crew0, pack: 1, packType: "mine" },
+      { t: 2000, type: "packPickedUp", ship: 0, crew: crew0, pack: 2, packType: "torpedo" },
+      { t: 4000, type: "packUsed", ship: 0, player: "Bob", role: "gunner", packType: "torpedo" },
+      { t: 11000, type: "packUsed", ship: 0, player: "Ann", role: "pilot", packType: "mine" },
+      { t: 12000, type: "packPickedUp", ship: 0, crew: crew0, pack: 3, packType: "emp" },
+      { t: 13000, type: "packPickedUp", ship: 0, crew: crew0, pack: 4, packType: "mine" },
+      { t: 20000, type: "packLost", ship: 0, crew: crew0, packType: "mine" },
+      { t: 20000, type: "packLost", ship: 0, crew: crew0, packType: "emp" },
+      { t: 30000, type: "matchEnd", winner: null, endedEarly: false, scores: [] },
+    ];
+    const packs = summarise(parseLog(lines.map((l) => JSON.stringify(l)).join("\n"))).packs![0]!;
+    expect(packs.averageHeldSeconds).toBe(6);
+    expect(packs.used).toEqual({ mine: 1, torpedo: 1, emp: 0 });
+    expect(packs.lost).toEqual({ mine: 1, torpedo: 0, emp: 1 });
+  });
+
   it("shows no average held time when no pack was used", () => {
     const lines = parseLog(packText).filter((l) => !(l.type === "packUsed" && l.ship === 0));
     expect(summarise(lines).packs![0]!.averageHeldSeconds).toBeNull();

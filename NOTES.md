@@ -227,6 +227,21 @@
 - **Flaky browser tests again:** the first full run before the commit had two failed `toHaveText` checks (which tests wasn't captured); the rerun passed all 11. No code changed in this slice. Next time, save the full report to see which test fails.
 - **Roadmap addition (user, 2026-10-25):** Stage 5 now includes "to discuss: different ship types based on health, size, rate of fire and damage dealt" (in CLAUDE.md's roadmap and `docs/design.md`).
 
+### 2026-10-25 — Stage 1 slice 7: changes after the check matches (plan change)
+
+Asked for by the user after the slice 6 check matches; added as an extra Stage 1 slice before the combined playtest.
+
+- **Packs nobody picks up disappear** (so new packs keep appearing across the map): `packs.lifetime` **45 s** from when a pack appears (the glow doesn't count). First set to 20 s; changed to 45 s by the user when the browser tests showed a pack could expire before a steered test ship reached it (the tests needed 15–20 s). It **blinks for its last 5 s** (`client.packBlinkTime` 5, `packBlinkHz` 4). Like a pickup, a pack disappearing from a full map starts the 8 s clock to the next signal. New sim event and log line `packExpired` (pack, spot, type). The time left is synced to clients (`PackState.lifeLeft`).
+- **Leaving a seat** (so seats can be switched once all 4 are taken): tap your own seat again, or the **Leave seat** button (shown only while seated and no match is on). Either sends the new `leaveSeat` message; the player stays in the room, unseated. Refused during a match (seated players are locked in, as before). The host stays host. No log line: seated players can't leave a seat while a match (and its log) runs.
+- **Two pack slots per ship** ("1 pack max for pilot and gunner"): a **pilot slot** (mine) and a **gunner slot** (torpedo or EMP). A pack is picked up when its role's slot is empty, so a ship can hold a mine and a torpedo at once, but not two mines, nor a torpedo and an EMP. Health still uses no slot. Each role's Pack button and E key use only that role's slot. Sinking loses both (one `packLost` each).
+  - Top bar (both crewmates): **`Packs: M · T`**, pilot slot first, `—` for an empty slot (letters as on the sea). The phone Pack button shows the name of the pack in that role's own slot.
+  - Log: the position line's `held` is now a **list**, e.g. `["mine","torpedo"]` (`[]` when empty). The summary times each slot separately (pickup to use); old logs read as before.
+  - Synced state: `pilotPack` and `gunnerPack` replace `held`. `PACK_LETTERS` moved from `GameScene.ts` to `packRules.ts` (the top bar uses it too), with a new `rolePack(ship, role)` helper.
+- Tests changed with the rules (not weakened): "can't pick up while holding one" became "can't pick up while its role's slot is full", plus "fills the other slot"; "loses the held pack" became "loses both"; the spawn-clock test runs 30 s instead of 60 s, since packs now disappear; one mine test empties the pilot slot explicitly.
+- Packs off is unchanged: the Stage 0 reference recording doesn't include packs or their tuning, so it needed no re-recording, and it still replays identically.
+- **Flaky browser tests explained:** the steering helper gives up quietly after 40 s, so a ship that never reached its pack made the next top-bar check fail. With a 20 s pack life this happened every run (the test logs showed the torpedo expiring at 0:42 with no pickup); with 45 s, the full suite passed twice in a row. Running fewer browser tests at once was tried first and didn't help, so it was undone.
+- `docs/design.md` updated (user's request): two slots per ship, unpicked packs disappear.
+
 ## Later
 
 - (2026-10-25, Stage 5) Discuss different ship types: health, size, rate of fire, damage dealt.

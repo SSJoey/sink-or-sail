@@ -26,7 +26,7 @@ Play **at least 3 rounds with packs off, then at least 3 rounds with packs on**,
 
    Use the first address (e.g. `192.168.1.11`). It changes if you switch Wi-Fi networks.
 
-3. **Check it from a phone** on the same Wi-Fi: open `http://<address>:2567`. You should see the Sink or Sail join screen. In a match, the top bar should show a **Pack** slot and a **Pause** button. If not, the old version is still running: repeat step 1 and check the build output for errors.
+3. **Check it from a phone** on the same Wi-Fi: open `http://<address>:2567`. You should see the Sink or Sail join screen. In a match, the top bar should show **Packs: — · —** and a **Pause** button. If not, the old version is still running: repeat step 1 and check the build output for errors.
 
 4. **Time zone:** log file names use `TZ` in `compose.yaml` (now `Asia/Kolkata`). Change it if the laptop is in another time zone.
 
@@ -34,7 +34,7 @@ Play **at least 3 rounds with packs off, then at least 3 rounds with packs on**,
 
 1. The **host** (whoever presses Create room) reads out the 4-letter room code.
 2. Everyone else opens `http://<address>:2567`, types their name and the code, and taps **Join**.
-3. Everyone taps a seat: Crew 1 or 2, Pilot or Gunner. The host's name has a ★.
+3. Everyone taps a seat: Crew 1 or 2, Pilot or Gunner. The host's name has a ★. To switch, tap your own seat again (or **Leave seat**) to free it, then tap another; this works between matches, not during one.
 4. **Packs:** the host ticks or unticks **Packs on** in the room screen. Everyone else sees "Packs: on" or "Packs: off". A change applies from the next match. Rounds 1–3: off. Rounds 4–6: on.
 5. Phones: turn sideways. Android goes fullscreen on the first tap; iPhone shows "Rotate your phone" in portrait.
 6. The host taps **Start match**: 3-2-1-Go, then 4 minutes.
@@ -53,16 +53,18 @@ Boost and shield share one energy bar per ship.
 
 ## Packs (rounds with packs on)
 
-Up to 2 packs float on the sea at once. A spot glows (a pulsing ring) for 3 s before its pack appears. Sail over a pack to pick it up. Each ship has **one pack slot**, shared by the crew and shown in both crewmates' top bars. A ship holding a pack can't pick up another (except health), and a held pack is lost if the ship sinks.
+Up to 2 packs float on the sea at once. A spot glows (a pulsing ring) for 3 s before its pack appears. Sail over a pack to pick it up. A pack nobody picks up disappears after 45 s; it blinks for its last 5 s.
 
-The **Pack** button lights up only for the crewmate who can use what's loaded. On a laptop that crewmate presses E.
+Each ship has **two pack slots**: one for the pilot's pack (mine) and one for the gunner's (torpedo or EMP). So a ship can carry a mine and a torpedo at once, but not two mines, or a torpedo and an EMP. Both crewmates' top bars show both slots by letter, pilot's first: `Packs: M · T`, with `—` for an empty slot. Held packs are lost if the ship sinks.
+
+Each crewmate's **Pack** button shows and uses only their own slot, and lights up when it holds a pack. On a laptop, that crewmate presses E.
 
 | Pack | Looks like | Who uses it | What it does |
 |---|---|---|---|
 | **Mine** | circle, **M** | Pilot | Dropped behind the stern. Arms after 1 s (looks different once armed), then blows up on **any** ship that touches it, the dropper's included. Shots set off armed mines too. Lasts 30 s. |
 | **Torpedo** | capsule, **T** | Gunner | Goes straight out from the bow, slower than a shot. No aiming line: the pilot lines up the ship. Big hit; a raised shield halves it. The island and the sea edge stop it. |
 | **EMP** | diamond, **E** | Gunner | A ring around the firing ship. Enemy ships in range turn grey for 3 s: no fire, boost, shield or packs, but they can still steer. |
-| **Health** | square, **H** | Nobody | Heals on pickup and doesn't take the slot. A ship at full health sails over it. |
+| **Health** | square, **H** | Nobody | Heals on pickup and doesn't take a slot. A ship at full health sails over it. |
 
 Android phones buzz briefly when a torpedo or EMP is loaded, so the gunner knows. iPhones don't buzz.
 
@@ -112,6 +114,6 @@ _(to fill in after the playtest)_
 
 - **A phone can't load the page:** check it's on the same Wi-Fi, check the address (`hostname -I`), and try with Cloudflare WARP turned off on the laptop.
 - **A phone dropped or the page reloaded:** reopen the page; it rejoins the same seat within 60 seconds.
-- **After a rebuild:** pages left open reload themselves when they next join or reconnect, and rejoin their seat. If a phone still acts strangely (e.g. no Pack slot), reload its page by hand.
+- **After a rebuild:** pages left open reload themselves when they next join or reconnect, and rejoin their seat. If a phone still acts strangely (e.g. the top bar still says "Pack:" instead of "Packs:"), reload its page by hand.
 - **Something looks old or broken after a code change:** rebuild (step 1) and check the build output.
 - **Server output:** `sudo docker compose logs --tail 100` (normal terminal).

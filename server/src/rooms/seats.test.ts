@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Seat } from "@sink-or-sail/shared";
-import { isNameTaken, seatHolder, takeSeat, type SeatMap } from "./seats.ts";
+import { isNameTaken, leaveSeat, seatHolder, takeSeat, type SeatMap } from "./seats.ts";
 
 const c0pilot: Seat = { crew: 0, role: "pilot" };
 const c0gunner: Seat = { crew: 0, role: "gunner" };
@@ -11,6 +11,33 @@ describe("seatHolder", () => {
     const seats: SeatMap = new Map([["a", c0pilot], ["b", null]]);
     expect(seatHolder(seats, c0pilot)).toBe("a");
     expect(seatHolder(seats, c0gunner)).toBeUndefined();
+  });
+});
+
+describe("leaveSeat", () => {
+  it("unseats the player and frees the seat for someone else", () => {
+    const seats: SeatMap = new Map([["a", c0pilot], ["b", c0gunner], ["c", c1pilot], ["d", { crew: 1, role: "gunner" }]]);
+    const result = leaveSeat(seats, "a");
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.seats.get("a")).toBeNull();
+    expect(seatHolder(result.seats, c0pilot)).toBeUndefined();
+    expect(takeSeat(result.seats, "b", c0pilot).ok).toBe(true);
+  });
+
+  it("does not change the map it was given", () => {
+    const seats: SeatMap = new Map([["a", c0pilot]]);
+    leaveSeat(seats, "a");
+    expect(seats.get("a")).toEqual(c0pilot);
+  });
+
+  it("is fine for a player with no seat (nothing changes)", () => {
+    const seats: SeatMap = new Map([["a", null]]);
+    expect(leaveSeat(seats, "a")).toEqual({ ok: true, seats });
+  });
+
+  it("rejects players who are not in the room", () => {
+    expect(leaveSeat(new Map(), "ghost")).toEqual({ ok: false, reason: "invalidSeat" });
   });
 });
 

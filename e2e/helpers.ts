@@ -19,7 +19,7 @@ export async function ownPosition(page: Page) {
   return { x, y };
 }
 
-export const slotEmpty = async (page: Page) => (await page.locator("#hud-pack").textContent()) === "Pack: —";
+export const slotEmpty = async (page: Page) => (await page.locator("#hud-pack").textContent()) === "Packs: — · —";
 
 /** Steering gives up after this long (a busy machine makes each correction slower, so time, not a count). */
 const SAIL_FOR_MS = 40_000;

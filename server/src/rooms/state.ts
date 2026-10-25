@@ -29,8 +29,9 @@ export const ShipState = schema({
   sunkBy: t.int8().default(-1),
   /** Hits taken this match; clients flash the ship when it goes up. */
   hits: t.uint16().default(0),
-  /** The crew's pack slot: a pack type, or "" when empty. */
-  held: t.string().default(""),
+  /** The crew's two pack slots, each a pack type or "" when empty: the pilot's (a mine) and the gunner's (a torpedo or EMP). */
+  pilotPack: t.string().default(""),
+  gunnerPack: t.string().default(""),
   /** Seconds left of an EMP (no fire, boost, shield or packs). */
   disabled: t.float32().default(0),
   /** EMPs this ship has fired this match; clients draw the ring when it goes up. */
@@ -52,6 +53,8 @@ export const PackState = schema({
   type: t.string(),
   /** True while the spot is only glowing (the pack can't be picked up yet). */
   signalled: t.boolean(),
+  /** Seconds before it disappears unpicked (clients blink it near the end). */
+  lifeLeft: t.float32(),
 }, "PackState");
 export type PackState = SchemaType<typeof PackState>;
 

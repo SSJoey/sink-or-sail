@@ -1,11 +1,11 @@
 import * as Phaser from "phaser";
-import { ISLAND, TUNING, packButtonLit, type Role, type Vec } from "@sink-or-sail/shared";
+import { ISLAND, PACK_LETTERS, TUNING, packButtonLit, rolePack, type PackType, type Role, type Vec } from "@sink-or-sail/shared";
 import { CREW_STYLES } from "./crews.ts";
 import { ShipEffects, type ShipEffect } from "./effects.ts";
 import { EmpRings } from "./empRing.ts";
 import { aimGuide, dashes, hullPoints, turretEnd } from "./hull.ts";
 import type { Frame, MineView, PackView, ShipView } from "./interpolation.ts";
-import { blinkVisible } from "./matchText.ts";
+import { blinkVisible, packBlinkVisible } from "./matchText.ts";
 import { gunnerFromMouse, pilotFromKeys } from "./laptopInput.ts";
 import { mergeGunner, mergePilot, type TouchControls } from "./touchControls.ts";
 
@@ -26,7 +26,6 @@ const ISLAND_EDGE = 0x8a7a4a;
 const HULL_EDGE = 0x1b1b1b;
 const SHIELD = 0x9be7ff;
 const PACK_FILL = 0x0b2545;
-const PACK_LETTERS: Record<string, string> = { mine: "M", torpedo: "T", emp: "E", health: "H" };
 
 export class GameScene extends Phaser.Scene {
   private g!: Phaser.GameObjects.Graphics;
@@ -73,7 +72,7 @@ export class GameScene extends Phaser.Scene {
     const touch = this.link.touch;
     const ship = frame?.ships[seat.crew];
     // A dim Pack button does nothing: only send it when this role can use what's loaded (and no EMP is on us).
-    const lit = packButtonLit(ship?.held ?? null, seat.role) && !(ship && ship.disabled > 0);
+    const lit = packButtonLit(ship ? rolePack(ship, seat.role) : null, seat.role) && !(ship && ship.disabled > 0);
     const ePressed = this.keys.E.isDown || this.eTapped;
     this.eTapped = false;
     if (seat.role === "pilot") {
@@ -123,7 +122,10 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  /** Glowing spots pulse; packs on the water show their shape and letter (M circle, T capsule, E diamond, H square). */
+  /**
+   * Glowing spots pulse; packs on the water show their shape and letter (M circle, T capsule, E diamond, H square),
+   * and blink in their last seconds before they disappear.
+   */
   private drawPacks(packs: Map<string, PackView>): void {
     const g = this.g;
     const r = TUNING.packs.radius;
@@ -134,6 +136,9 @@ export class GameScene extends Phaser.Scene {
         g.strokeCircle(pack.x, pack.y, r + 4 + 8 * pulse);
         continue;
       }
+      const visible = packBlinkVisible(pack.lifeLeft);
+      this.packLetters.get(id)?.setVisible(visible);
+      if (!visible) continue;
       g.fillStyle(PACK_FILL, 0.9);
       g.lineStyle(2, 0xffffff, 1);
       const { x, y } = pack;
@@ -151,7 +156,7 @@ export class GameScene extends Phaser.Scene {
       }
       let letter = this.packLetters.get(id);
       if (!letter) {
-        letter = this.add.text(x, y, PACK_LETTERS[pack.type] ?? "?", { fontFamily: "sans-serif", fontSize: "18px", fontStyle: "bold", color: "#ffffff" }).setOrigin(0.5);
+        letter = this.add.text(x, y, PACK_LETTERS[pack.type as PackType] ?? "?", { fontFamily: "sans-serif", fontSize: "18px", fontStyle: "bold", color: "#ffffff" }).setOrigin(0.5);
         this.packLetters.set(id, letter);
       }
     }

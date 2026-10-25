@@ -17,8 +17,9 @@ export interface ShipView {
   sunkBy: number;
   /** Hits taken this match (for the hit flash). */
   hits: number;
-  /** The crew's pack slot. */
-  held: PackType | null;
+  /** The crew's two pack slots: the pilot's (a mine) and the gunner's (a torpedo or EMP). */
+  pilotPack: PackType | null;
+  gunnerPack: PackType | null;
   /** Seconds left of an EMP. */
   disabled: number;
   /** EMPs this ship fired (the client draws a ring when it goes up). */
@@ -31,6 +32,8 @@ export interface PackView {
   type: string;
   /** Still only glowing: can't be picked up yet. */
   signalled: boolean;
+  /** Seconds before it disappears unpicked. */
+  lifeLeft: number;
 }
 
 export interface MineView {

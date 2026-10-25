@@ -16,6 +16,7 @@ import {
 import { renderResult, startGame, type GameHandle, type PlayerView, type RoomStateView } from "../game/game.ts";
 import { joinErrorText, rejectedText } from "./messages.ts";
 import { reloadIfNewBuild } from "./newBuild.ts";
+import { leaveSeatShown, seatAction } from "./seatButtons.ts";
 import { clearToken, loadToken, saveToken } from "./reconnectToken.ts";
 
 /** The parts of the server's room state the lobby reads. */
@@ -80,6 +81,7 @@ export function startLobby(): void {
       if (code !== CONSENTED) showError("You were disconnected from the room.");
     });
     byId("leave").onclick = () => { void room.leave(); };
+    byId("leave-seat").onclick = () => leaveSeat(room);
     // Only the host sees Start; the server checks it too.
     byId("start").onclick = () => room.send(ClientMessage.Start);
     byId<HTMLInputElement>("packs-toggle").onchange = (e) =>
@@ -111,13 +113,15 @@ export function startLobby(): void {
         else label += holder.player.name + host(holder.sessionId) + (holder.player.connected ? "" : " (reconnecting)");
         if (holder?.sessionId === room.sessionId) label += " ✓";
         button.textContent = label;
-        // Seated players can't switch during a match; a seatless player may still take a free seat.
-        button.disabled = holder !== undefined || (matchOn && iAmSeated);
-        button.onclick = () => takeSeat(room, crew, role);
+        // Tap a free seat to take it, or your own to leave it (seated players are locked in during a match).
+        const action = seatAction({ holder: !holder ? "none" : holder.sessionId === room.sessionId ? "me" : "other", matchOn, iAmSeated });
+        button.disabled = action === null;
+        button.onclick = () => (action === "leave" ? leaveSeat(room) : takeSeat(room, crew, role));
         seats.append(button);
       }
     }
     byId("unseated").textContent = unseated.join(", ") || "nobody";
+    byId("leave-seat").hidden = !leaveSeatShown({ matchOn, iAmSeated });
 
     // The game view runs from the countdown until the player leaves the scoreboard.
     // A countdown straight after "over" is a new match (a fresh game view); after a pause it's a resume.
@@ -149,6 +153,11 @@ export function startLobby(): void {
   function takeSeat(room: Room, crew: Crew, role: Role): void {
     showError("");
     room.send(ClientMessage.TakeSeat, { crew, role });
+  }
+
+  function leaveSeat(room: Room): void {
+    showError("");
+    room.send(ClientMessage.LeaveSeat);
   }
 
   function readName(): string | null {

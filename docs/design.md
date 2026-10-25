@@ -57,10 +57,11 @@ Packs spawn around the map from time to time; a ship sails over one to pick it u
 | EMP | Disables weapons, boost and shield of ships in a radius for 3 s; steering still works | Pilot (ship position) | Gunner |
 | Health | Repairs the ship | — | Applied instantly |
 
-- **One slot per ship:** a ship can't pick up a new pack while holding one. The slot shows what is loaded.
+- **Two slots per ship:** one for the pilot's pack (mine) and one for the gunner's (torpedo or EMP). A ship can't pick up a pack while that role's slot is full, so it can hold a mine and a torpedo at once, but not two mines. The slots show what is loaded.
 - **Signalled spawns:** a spot glows about 3 seconds before a pack appears, so crews race for it.
+- **Packs nobody picks up disappear** after about 45 s (blinking near the end), so new packs keep appearing across the map.
 - **More pack types** can be added later.
-- **Stage 1 starting values** (to tune in playtesting): 2 packs on the map at once from about 6 fixed spawn spots, a replacement signalled about 8 s after one is taken, equal chance of each type. Mine arms after 1 s, lasts 30 s, deals 40% of full health and hits any ship including its owner. Torpedo is slower than a shot, deals 50% of full health, is halved by a raised shield and stopped by islands. EMP reaches about 3 ship lengths and affects enemies only. Health restores 40%, doesn't use the slot, and isn't taken at full health. A held pack is lost when the ship sinks. Laptop: E uses the pack for both roles. The host can switch packs on or off for a match.
+- **Stage 1 starting values** (to tune in playtesting): 2 packs on the map at once from about 6 fixed spawn spots, a replacement signalled about 8 s after one is taken, equal chance of each type. Mine arms after 1 s, lasts 30 s, deals 40% of full health and hits any ship including its owner. Torpedo is slower than a shot, deals 50% of full health, is halved by a raised shield and stopped by islands. EMP reaches about 3 ship lengths and affects enemies only. Health restores 40%, doesn't use a slot, and isn't taken at full health. Held packs are lost when the ship sinks. Laptop: E uses the pack for both roles. The host can switch packs on or off for a match.
 
 ## Map
 

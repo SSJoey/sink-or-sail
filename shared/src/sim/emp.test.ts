@@ -16,7 +16,7 @@ const pilotPack: ShipInput = { ...idle, pilot: { ...idle.pilot, pack: true } };
 function world(enemyAt = { x: 400 + REACH - 10, y: 300 }, changes: (w: World) => void = () => {}): World {
   const w = createWorld({ packs: true, seed: 1 });
   w.nextSignalIn = null;
-  w.ships[0] = { ...w.ships[0]!, pos: { x: 400, y: 300 }, heading: 0, held: "emp" };
+  w.ships[0] = { ...w.ships[0]!, pos: { x: 400, y: 300 }, heading: 0, gunnerPack: "emp" };
   w.ships[1] = { ...w.ships[1]!, pos: enemyAt, heading: Math.PI, turret: Math.PI };
   changes(w);
   return w;
@@ -39,7 +39,7 @@ const empThen = (enemy: ShipInput) => (w: World) => [w.time < DT / 2 ? gunnerPac
 describe("firing an EMP", () => {
   it("the gunner fires it; enemies in range are caught for 3 s; the slot empties", () => {
     const { world: after, events } = run(world(), DT, empThen(idle));
-    expect(after.ships[0]!.held).toBeNull();
+    expect(after.ships[0]!.gunnerPack).toBeNull();
     expect(after.ships[1]!.disabled).toBeCloseTo(E.duration);
     expect(events).toContainEqual({ type: "packUsed", ship: 0, packType: "emp", role: "gunner" });
     expect(events).toContainEqual({ type: "empFired", ship: 0, caught: [1] });
@@ -59,7 +59,7 @@ describe("firing an EMP", () => {
 
   it("only the gunner can fire it: the pilot's Pack button does nothing", () => {
     const { world: after } = run(world(), 0.5, () => [pilotPack, idle]);
-    expect(after.ships[0]!.held).toBe("emp");
+    expect(after.ships[0]!.gunnerPack).toBe("emp");
     expect(after.ships[1]!.disabled).toBe(0);
   });
 
@@ -114,10 +114,10 @@ describe("a caught ship", () => {
   });
 
   it("can't use packs (the pack stays in the slot)", () => {
-    const w = world(undefined, (w) => { w.ships[1] = { ...w.ships[1]!, held: "torpedo" }; });
+    const w = world(undefined, (w) => { w.ships[1] = { ...w.ships[1]!, gunnerPack: "torpedo" }; });
     const { world: after } = run(w, 1, empThen({ ...idle, gunner: { ...idle.gunner, pack: true } }));
     expect(after.torpedoes).toEqual([]);
-    expect(after.ships[1]!.held).toBe("torpedo");
+    expect(after.ships[1]!.gunnerPack).toBe("torpedo");
   });
 
   it(`gets everything back after ${E.duration} s`, () => {
@@ -132,7 +132,7 @@ describe("a caught ship", () => {
   it("is disabled for 3 s from the latest EMP when caught again (no stacking)", () => {
     const caught = run(world(), 2, empThen(idle)).world;
     expect(caught.ships[1]!.disabled).toBeCloseTo(E.duration - 2 + DT);
-    const again = { ...caught, ships: [{ ...caught.ships[0]!, held: "emp" as const }, caught.ships[1]!] };
+    const again = { ...caught, ships: [{ ...caught.ships[0]!, gunnerPack: "emp" as const }, caught.ships[1]!] };
     const { world: after } = run(again, DT, () => [gunnerPack, idle]);
     expect(after.ships[1]!.disabled).toBeCloseTo(E.duration);
   });
@@ -146,7 +146,7 @@ describe("a caught ship", () => {
   it("is no longer disabled after respawning", () => {
     const sunkWhileDisabled = world(undefined, (w) => {
       w.ships[1] = { ...w.ships[1]!, sunk: true, respawnIn: DT / 2, disabled: 2 };
-      w.ships[0] = { ...w.ships[0]!, held: null };
+      w.ships[0] = { ...w.ships[0]!, gunnerPack: null };
     });
     expect(run(sunkWhileDisabled, DT).world.ships[1]!.disabled).toBe(0);
   });
@@ -155,7 +155,7 @@ describe("a caught ship", () => {
 describe("packs off", () => {
   it("never fires an EMP", () => {
     const w = createWorld();
-    w.ships[0] = { ...w.ships[0]!, held: "emp" };
+    w.ships[0] = { ...w.ships[0]!, gunnerPack: "emp" };
     expect(run(w, 0.2, () => [gunnerPack]).world.ships[1]!.disabled).toBe(0);
   });
 });

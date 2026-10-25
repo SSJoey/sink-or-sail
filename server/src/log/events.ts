@@ -35,6 +35,7 @@ export function simEventLines(t: number, events: readonly SimEvent[], roster: Ro
       case "bump": lines.push({ t, type: "bump", ships: e.ships, damage: [r1(e.damage[0]), r1(e.damage[1])] }); break;
       case "packSignalled": lines.push({ t, type: "packSignalled", pack: e.pack, spot: e.spot, packType: e.packType }); break;
       case "packSpawned": lines.push({ t, type: "packSpawned", pack: e.pack, spot: e.spot, packType: e.packType }); break;
+      case "packExpired": lines.push({ t, type: "packExpired", pack: e.pack, spot: e.spot, packType: e.packType }); break;
       case "packPickedUp": lines.push({ t, type: "packPickedUp", ...crew(e.ship), pack: e.pack, packType: e.packType }); break;
       case "packLost": lines.push({ t, type: "packLost", ...crew(e.ship), packType: e.packType }); break;
       case "healthRestored": lines.push({ t, type: "healthRestored", ...crew(e.ship), amount: r1(e.amount) }); break;
@@ -104,7 +105,7 @@ export function positionLines(world: World): LogLine[] {
     sunk: s.sunk,
     boostEnergy: r1(s.boostEnergy),
     shieldEnergy: r1(s.shieldEnergy),
-    held: s.held,
+    held: [s.pilotPack, s.gunnerPack].filter((p) => p !== null),
   }));
 }
 

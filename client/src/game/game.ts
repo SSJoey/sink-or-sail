@@ -1,6 +1,6 @@
 import * as Phaser from "phaser";
 import type { Room } from "@colyseus/sdk";
-import { ClientMessage, Phase, TUNING, type PackType, type Role } from "@sink-or-sail/shared";
+import { ClientMessage, Phase, TUNING, rolePack, type PackType, type Role } from "@sink-or-sail/shared";
 import { CREW_STYLES } from "./crews.ts";
 import { GameScene } from "./GameScene.ts";
 import type { ShipEffect } from "./effects.ts";
@@ -126,11 +126,11 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
         .join(";");
       canvasHost.dataset.mines = String(frame?.mines.size ?? 0);
       canvasHost.dataset.torpedoes = String(frame?.torpedoes.size ?? 0);
-      // A short buzz on the gunner's phone when the crew picks up a torpedo (Android only).
-      const heldNow = own?.held ?? null;
+      // A short buzz on the gunner's phone when the crew picks up a torpedo or EMP (Android only).
+      const heldNow = own?.gunnerPack ?? null;
       if (mine && gunnerPackBuzz(heldBefore, heldNow, mine.role)) navigator.vibrate?.(TUNING.client.gunnerPackVibrateMs);
       heldBefore = heldNow;
-      touchLayer.update(mine?.role ?? null, own?.held ?? null, (own?.disabled ?? 0) > 0);
+      touchLayer.update(mine?.role ?? null, own && mine ? rolePack(own, mine.role) : null, (own?.disabled ?? 0) > 0);
       // Read by the EMP smoke test: is any ship disabled right now?
       canvasHost.dataset.disabled = (frame?.ships ?? []).map((s) => (s.disabled > 0 ? "1" : "0")).join("");
       rotate.hidden = !(touchLayer.active && isPortrait(window.innerWidth, window.innerHeight));
@@ -247,7 +247,8 @@ function updateHud(frame: Frame | null, seat: { crew: number; role: Role } | nul
   const emp = seat ? empText(frame?.ships[seat.crew]?.disabled ?? 0) : "";
   if (empLine.textContent !== emp) empLine.textContent = emp;
   const packSlot = byId("hud-pack");
-  const slotText = seat ? packSlotText(frame?.ships[seat.crew]?.held ?? null) : "";
+  const crewShip = seat ? frame?.ships[seat.crew] : undefined;
+  const slotText = seat ? packSlotText(crewShip?.pilotPack ?? null, crewShip?.gunnerPack ?? null) : "";
   if (packSlot.textContent !== slotText) packSlot.textContent = slotText;
   const score = byId("hud-score");
   const parts = (frame?.ships ?? []).map((ship, i) => {

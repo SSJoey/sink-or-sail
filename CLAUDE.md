@@ -6,7 +6,7 @@ Full design: `docs/design.md` (exported from the "Sink or Sail — Game Design" 
 
 ## Progress (updated 2026-10-25)
 
-**Stage 0 is built** (all 10 slices). **Stage 1 is built and committed** (all 6 slices: pack basics and health, mine, torpedo, EMP, summary script additions, home network play). Slice 6 ran five packs-on check matches in Docker over the Wi-Fi, two of them with 4 players, all to time-up with correct logs and summaries. **Next:** the user runs the combined playtest. Every decision, with its date, is in `NOTES.md`.
+**Stage 0 is built** (all 10 slices). **Stage 1 is built and committed** (7 slices: pack basics and health, mine, torpedo, EMP, summary script additions, home network play, and slice 7, changes after the check matches: unpicked packs disappear, leaving a seat, two pack slots). Slice 6 ran five packs-on check matches in Docker over the Wi-Fi, two of them with 4 players, all to time-up with correct logs and summaries. **Next:** the user rebuilds Docker and runs the combined playtest. Every decision, with its date, is in `NOTES.md`.
 
 **Changes to the plan agreed during Stage 0** (details in `NOTES.md`):
 - Added after the first game: **Pause** (any seated player) / **Resume** (host only, with a 3-2-1 countdown) and **Exit game** (host only, ends the match with the current score).
@@ -20,20 +20,21 @@ Full design: `docs/design.md` (exported from the "Sink or Sail — Game Design" 
 - Torpedo: speed 300; no lifetime; launched from the bow tip; can be fired with the shield up; firing ends protection.
 - EMP: radius 200. Caught ships can't fire, boost, shield or use packs for 3 s, and their shield drops at once. No stacking (a new EMP restarts the 3 s). Protected ships aren't caught; only ships are affected.
 - Summary: mine hits go to whoever set the blast off; logs with no packs setting read as "Packs off"; no Packs table with packs off.
+- Slice 7 (after the check matches): packs nobody picks up disappear 45 s after appearing (blinking for the last 5 s); a player leaves a seat by tapping it again or with **Leave seat** (not during a match); **two pack slots per ship**, a pilot slot (mine) and a gunner slot (torpedo or EMP), shown as `Packs: M · T` in the top bar.
 
 **Stage 0 verify items:** all done (time zone 2026-10-24; phone reload and a full 4-player match 2026-10-25).
 
 **Watch items:**
 - On 667 px phones, the top bar squeezes the energy bar.
 - No pack was used in any of the five slice 6 check matches; players didn't try. Is the Pack button being noticed? (For the playtest.)
-- Flaky browser tests: one run in slice 5 had a single failing text check, and one run in slice 6 had two (`toHaveText`); which tests wasn't captured either time, and reruns passed. Next time, save the full report to see which test fails.
+- Flaky browser tests (slices 5–6): explained in slice 7. The steering helper gives up quietly after 40 s, so a slow test ship that never reached its pack made the next top-bar check fail. If a pack test fails again, check the test server's log (in the temp folder `sink-or-sail-test-logs`) for a `packExpired` before the pickup.
 
 **After slice 6:** the user runs the combined playtest (`docs/playtest.md`) and fills in its Findings. Stage 2 is then planned with the user, using those findings, and arrives as a new "Current goal" section in this file. Until then, nothing from the roadmap below is built.
 
 **Where things are:**
 - `shared/src/`: `tuning.ts` (every gameplay and client number; CLAUDE.md's "`shared/tuning.ts`"), `rooms.ts` (room rules, message names), `input.ts` (input validation), `packRules.ts` (who uses each pack, labels, when the Pack button is lit), `sim/` (pure, deterministic simulation; `step()` returns the new world plus events; `packs.ts`, `mines.ts`, `torpedoes.ts`, `random.ts` seeded generator, `map.ts` spawn spots; `fixtures/stage0-run.json` is the Stage 0 reference recording that packs-off play must match).
 - `server/src/`: `rooms/CrewRoom.ts` (room: codes, seats, host, match flow, 20 Hz loop), `rooms/matchFlow.ts`, `rooms/sync.ts`, `log/` (match event log, `summary.ts`).
-- `client/src/`: `lobby/` (plain HTML room screen, packs toggle), `game/` (Phaser scene, interpolation, laptop and touch controls, top bar, overlays, pack latch, EMP ring, pickup buzz).
+- `client/src/`: `lobby/` (plain HTML room screen, packs toggle, `seatButtons.ts` take/leave rules), `game/` (Phaser scene, interpolation, laptop and touch controls, top bar, overlays, pack latch, EMP ring, pickup buzz).
 - `e2e/`: Playwright smoke tests (laptop, emulated phone, pause/exit, stale page, `packs.spec.ts` mine and torpedo, `emp.spec.ts`; shared `helpers.ts`).
 - `docs/playtest.md`: the combined playtest guide and notes sheets.
 
@@ -72,7 +73,8 @@ Answer one question: **do packs create "line it up… now!" moments for the crew
 Everything in Stage 0 stays as it is (same mode, ships, island, controls, match flow). Stage 1 adds:
 
 - **Pack spawning:** packs appear at fixed spawn spots in open water; each spot glows before its pack appears; a ship picks a pack up by sailing over it.
-- **One pack slot per ship**, shared by the crew and shown on both crewmates' screens. A ship can't pick up a new pack while holding one. Each pack is used once. A held pack is lost when the ship sinks.
+- **Two pack slots per ship** (changed in slice 7 from one): a pilot slot (mine) and a gunner slot (torpedo or EMP), shown on both crewmates' screens. A ship can't pick up a pack while that role's slot is full. Each pack is used once. Held packs are lost when the ship sinks.
+- **Packs nobody picks up disappear** after `packs.lifetime` (45 s), blinking near the end (slice 7).
 - **Four packs:**
 
 | Pack | Effect | Aimed by | Used by | Notes |
@@ -80,7 +82,7 @@ Everything in Stage 0 stays as it is (same mode, ships, island, controls, match 
 | Mine | Dropped behind the stern | Pilot (route) | Pilot | Arms after a delay, then hits **any** ship that touches it, including the one that dropped it; expires after a time |
 | Torpedo | Travels straight out from the bow, slower than a shot | Pilot (ship's heading is the only guide; no aiming line) | Gunner | Stopped by the island and the map edge; a raised shield halves its damage |
 | EMP | Ring centred on the firing ship | Pilot (ship position) | Gunner | For 3 s, enemy ships in range lose fire, boost and shield; steering still works; the firing ship is unaffected |
-| Health | Restores health | — | Applied on pickup | Doesn't use the slot, so it can be picked up while holding another pack; a ship at full health sails over it without taking it |
+| Health | Restores health | — | Applied on pickup | Doesn't use a slot, so it can be picked up with both slots full; a ship at full health sails over it without taking it |
 
 - **Pack button:** lights up only on the controller of the role that can use what's loaded (pilot for a mine; gunner for a torpedo or EMP).
 - **Host toggle in the room screen: Packs on / off** (default on), so playtests can compare rounds with and without packs. With packs off the game plays exactly as Stage 0.
@@ -149,7 +151,7 @@ The server records each match for analysis and, later, for awards. Log events, n
 - **Right thumb, gunner:** large Fire button with Shield right beside it, and a small **Pack** button above. Fire and Shield can't be pressed together; that's intended.
 - The Pack button shows the pack's name and is lit only when that role can use what's loaded; otherwise it is dim and does nothing.
 - When a torpedo or EMP is loaded, the gunner's phone vibrates briefly (Android only; iPhone browsers don't support vibration, so skip it there silently).
-- Top of screen: role, crew, shared energy bar, the pack slot, score and timer.
+- Top of screen: role, crew, shared energy bar, the two pack slots (`Packs: M · T`), score and timer.
 - Support multi-touch (stick + button at once) with pointer events.
 - Block browser gestures on the game screen: pinch-zoom, double-tap zoom, pull-to-refresh, text selection.
 - Android: request fullscreen and lock to landscape. iPhone can't lock orientation from a browser: show a "rotate your phone" screen in portrait.
@@ -211,6 +213,7 @@ Work through these slices in order. Each one follows the rules above: plan, go-a
 4. **EMP.** Fire, catch enemies in range, disable fire, boost and shield for 3 s; the ring and the disabled look; log events.
 5. **Summary script additions** as listed in "Match event log", with tests on a hand-made sample log.
 6. **Home network play.** Run everything in Docker on the laptop; play from phones over the Wi-Fi; clear the three "still to verify" items from Stage 0; fix only what blocks a full match. Then hand over for the combined playtest.
+7. **Changes after the check matches** (added 2026-10-25 at the user's request): packs nobody picks up disappear, players can leave a seat, two pack slots per ship (pilot and gunner).
 
 ## Stage 0 (done)
 

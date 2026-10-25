@@ -26,6 +26,8 @@ export interface Seat {
 /** Messages a client may send to the room. */
 export const ClientMessage = {
   TakeSeat: "takeSeat",
+  /** Give up your seat and be unseated (locked for seated players during a match, like switching). */
+  LeaveSeat: "leaveSeat",
   /** Start the match (host only). */
   Start: "start",
   /** The sender's role input; see input.ts. */

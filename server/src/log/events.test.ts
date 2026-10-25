@@ -97,7 +97,7 @@ describe("positionLines", () => {
     world.time = 12.3456;
     const [first] = positionLines(world);
     expectBasics(first!);
-    expect(first).toMatchObject({ t: 12346, type: "position", ship: 0, x: 150, y: 450, heading: 0, health: 100, energy: 100, sunk: false, boostEnergy: 0, shieldEnergy: 0, held: null });
+    expect(first).toMatchObject({ t: 12346, type: "position", ship: 0, x: 150, y: 450, heading: 0, health: 100, energy: 100, sunk: false, boostEnergy: 0, shieldEnergy: 0, held: [] });
     expect(positionLines(world)).toHaveLength(2);
   });
 });
@@ -129,6 +129,10 @@ describe("Stage 1 pack lines", () => {
     expect(lines({ type: "packSpawned", pack: 2, spot: 4, packType: "emp" })).toEqual([{ t: 4000, type: "packSpawned", pack: 2, spot: 4, packType: "emp" }]);
   });
 
+  it("records a pack that disappeared unpicked, with its spot and type", () => {
+    expect(lines({ type: "packExpired", pack: 2, spot: 4, packType: "emp" })).toEqual([{ t: 4000, type: "packExpired", pack: 2, spot: 4, packType: "emp" }]);
+  });
+
   it("records pickups, lost packs and health restored, with the crew", () => {
     expect(lines({ type: "packPickedUp", ship: 0, pack: 2, packType: "mine" })).toEqual([{ t: 4000, type: "packPickedUp", ship: 0, crew, pack: 2, packType: "mine" }]);
     expect(lines({ type: "packLost", ship: 0, packType: "mine" })).toEqual([{ t: 4000, type: "packLost", ship: 0, crew, packType: "mine" }]);
@@ -139,10 +143,12 @@ describe("Stage 1 pack lines", () => {
     expect(matchStartLine("KWPZ", roster, { packsOn: true, seed: 99 })).toMatchObject({ packsOn: true, seed: 99 });
   });
 
-  it("includes each ship's held pack in the position lines", () => {
+  it("includes each ship's held packs in the position lines, as a list (pilot's first)", () => {
     const world = createWorld({ packs: true, seed: 1 });
-    world.ships[0] = { ...world.ships[0]!, held: "torpedo" };
-    expect(positionLines(world).map((l) => l.held)).toEqual(["torpedo", null]);
+    world.ships[0] = { ...world.ships[0]!, pilotPack: "mine", gunnerPack: "torpedo" };
+    world.ships[1] = { ...world.ships[1]!, gunnerPack: "emp" };
+    expect(positionLines(world).map((l) => l.held)).toEqual([["mine", "torpedo"], ["emp"]]);
+    expect(positionLines(createWorld()).map((l) => l.held)).toEqual([[], []]);
   });
 });
 

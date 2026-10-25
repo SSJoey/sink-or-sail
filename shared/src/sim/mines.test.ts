@@ -17,7 +17,7 @@ const gunnerPack: ShipInput = { ...idle, gunner: { ...idle.gunner, pack: true } 
 function world(changes: (w: World) => void = () => {}): World {
   const w = createWorld({ packs: true, seed: 1 });
   w.nextSignalIn = null;
-  w.ships[0] = { ...w.ships[0]!, pos: { x: 400, y: 300 }, heading: 0, held: "mine" };
+  w.ships[0] = { ...w.ships[0]!, pos: { x: 400, y: 300 }, heading: 0, pilotPack: "mine" };
   w.ships[1] = { ...w.ships[1]!, pos: { x: 1300, y: 700 } };
   changes(w);
   return w;
@@ -40,7 +40,7 @@ describe("dropping a mine", () => {
   it("the pilot drops it just behind the stern; the slot empties", () => {
     const { world: after, events } = run(world(), DT, () => [pilotPack]);
     expect(after.mines).toEqual([{ id: 0, owner: 0, pos: { x: 400 - DROP_BEHIND, y: 300 }, age: 0 }]);
-    expect(after.ships[0]!.held).toBeNull();
+    expect(after.ships[0]!.pilotPack).toBeNull();
     expect(events).toContainEqual({ type: "packUsed", ship: 0, packType: "mine", role: "pilot" });
     expect(events).toContainEqual({ type: "mineDropped", mine: 0, owner: 0, pos: { x: 400 - DROP_BEHIND, y: 300 } });
   });
@@ -59,14 +59,14 @@ describe("dropping a mine", () => {
   it("only the pilot can drop it: the gunner's Pack button does nothing", () => {
     const { world: after, events } = run(world(), 0.5, () => [gunnerPack]);
     expect(after.mines).toEqual([]);
-    expect(after.ships[0]!.held).toBe("mine");
+    expect(after.ships[0]!.pilotPack).toBe("mine");
     expect(events.filter((e) => e.type === "packUsed")).toEqual([]);
   });
 
   it("does nothing without a mine loaded", () => {
-    const { world: after } = run(world((w) => { w.ships[0] = { ...w.ships[0]!, held: "torpedo" }; }), DT, () => [pilotPack]);
+    const { world: after } = run(world((w) => { w.ships[0] = { ...w.ships[0]!, pilotPack: null, gunnerPack: "torpedo" }; }), DT, () => [pilotPack]);
     expect(after.mines).toEqual([]);
-    expect(after.ships[0]!.held).toBe("torpedo");
+    expect(after.ships[0]!.gunnerPack).toBe("torpedo");
   });
 
   it("keeps the mine when the spot behind the stern is in the island", () => {
@@ -74,18 +74,18 @@ describe("dropping a mine", () => {
     const w = world((w) => { w.ships[0] = { ...w.ships[0]!, pos: { x: 620, y: 420 }, heading: Math.PI }; });
     const { world: after } = run(w, DT, () => [pilotPack]);
     expect(after.mines).toEqual([]);
-    expect(after.ships[0]!.held).toBe("mine");
+    expect(after.ships[0]!.pilotPack).toBe("mine");
   });
 
   it("keeps the mine when the spot behind the stern is off the sea", () => {
     const w = world((w) => { w.ships[0] = { ...w.ships[0]!, pos: { x: 40, y: 300 }, heading: 0 }; });
     const { world: after } = run(w, DT, () => [pilotPack]);
     expect(after.mines).toEqual([]);
-    expect(after.ships[0]!.held).toBe("mine");
+    expect(after.ships[0]!.pilotPack).toBe("mine");
   });
 
   it("a sunk ship can't drop its mine (it was lost when the ship sank)", () => {
-    const w = world((w) => { w.ships[0] = { ...w.ships[0]!, sunk: true, respawnIn: 2, held: null }; });
+    const w = world((w) => { w.ships[0] = { ...w.ships[0]!, sunk: true, respawnIn: 2, pilotPack: null }; });
     expect(run(w, DT, () => [pilotPack]).world.mines).toEqual([]);
   });
 });
@@ -212,7 +212,7 @@ describe("shots and mines", () => {
   /** Ship 0 at (400, 300) firing east; a mine at (600, 300); ship 1 next to the mine (in its blast, not touching it), out of the line of fire. */
   const fireEast: ShipInput = { ...idle, gunner: { aim: { x: 1, y: 0 }, fire: true, shield: false } };
   const setUp = (mine: Mine, enemyHealth: number = FULL) => world((w) => {
-    w.ships[0] = { ...w.ships[0]!, held: null };
+    w.ships[0] = { ...w.ships[0]!, pilotPack: null };
     w.mines = [mine];
     w.ships[1] = { ...w.ships[1]!, pos: { x: 600, y: 300 + 70 }, health: enemyHealth };
   });
@@ -235,7 +235,7 @@ describe("shots and mines", () => {
 
   it("gives nobody the sinking if the shooter's blast sinks the shooter's own ship", () => {
     const w = world((w) => {
-      w.ships[0] = { ...w.ships[0]!, held: null, health: 10 };
+      w.ships[0] = { ...w.ships[0]!, pilotPack: null, health: 10 };
       w.mines = [armedMine({ x: 400 + 70, y: 300 }, 1)]; // in the blast, not touching
     });
     const { events } = run(w, 0.2, () => [fireEast]);
@@ -252,7 +252,7 @@ describe("shots and mines", () => {
 describe("packs off", () => {
   it("never has mines", () => {
     const w = createWorld();
-    w.ships[0] = { ...w.ships[0]!, held: "mine" }; // can't happen with packs off; even so nothing drops
+    w.ships[0] = { ...w.ships[0]!, pilotPack: "mine" }; // can't happen with packs off; even so nothing drops
     expect(run(w, 0.5, () => [pilotPack]).world.mines).toEqual([]);
   });
 });

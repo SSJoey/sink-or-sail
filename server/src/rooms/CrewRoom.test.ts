@@ -146,6 +146,27 @@ describe("picking a seat", () => {
     expect(playerOf(room, b)?.crew).toBe(0);
   });
 
+  it("lets a player leave their seat, so someone else can take it", async () => {
+    const { client: a, room, code } = await createRoom("A");
+    const b = await join(code, "B");
+    a.send(ClientMessage.TakeSeat, { crew: 0, role: "pilot" });
+    await waitFor(() => playerOf(room, a)?.role === "pilot");
+    a.send(ClientMessage.LeaveSeat);
+    await waitFor(() => playerOf(room, a)?.role === undefined);
+    expect(playerOf(room, a)?.crew).toBeUndefined();
+    b.send(ClientMessage.TakeSeat, { crew: 0, role: "pilot" });
+    await waitFor(() => playerOf(room, b)?.role === "pilot");
+  });
+
+  it("keeps the host as host after leaving their seat", async () => {
+    const { client, room } = await createRoom("Host");
+    client.send(ClientMessage.TakeSeat, { crew: 0, role: "pilot" });
+    await waitFor(() => playerOf(room, client)?.role === "pilot");
+    client.send(ClientMessage.LeaveSeat);
+    await waitFor(() => playerOf(room, client)?.role === undefined);
+    expect(room.state.hostId).toBe(client.sessionId);
+  });
+
   it("rejects a malformed seat", async () => {
     const { client, room } = await createRoom();
     const rejected = client.waitForMessage(ServerMessage.Rejected);

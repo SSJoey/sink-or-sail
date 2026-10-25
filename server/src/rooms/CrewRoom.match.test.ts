@@ -293,6 +293,14 @@ describe("sinking", () => {
 });
 
 describe("seats during a match", () => {
+  it("stops a seated player leaving their seat", async () => {
+    const { room, pilot } = await started();
+    const rejected = pilot.waitForMessage(ServerMessage.Rejected);
+    pilot.send(ClientMessage.LeaveSeat);
+    expect(await rejected).toEqual({ reason: RejectReason.SeatLocked });
+    expect(room.state.players.get(pilot.sessionId)?.crew).toBe(0);
+  });
+
   it("stops a seated player switching seats", async () => {
     const { room, pilot } = await started();
     const rejected = pilot.waitForMessage(ServerMessage.Rejected);
@@ -458,11 +466,11 @@ describe("packs on/off (Stage 1)", () => {
     expect(room.world!.rng).not.toBe(first);
   });
 
-  it("shows packs and the held pack to clients", async () => {
+  it("shows packs and the held packs to clients", async () => {
     const { room } = await started();
     const world = room.world!;
-    room.world = { ...world, packs: [{ id: 0, spot: 2, type: "torpedo", signalLeft: 0 }], nextPackId: 1, nextSignalIn: null, ships: [{ ...world.ships[0]!, pos: { x: 450, y: 300 } }, world.ships[1]!] };
-    await waitFor(() => room.state.ships[0]!.held === "torpedo");
+    room.world = { ...world, packs: [{ id: 0, spot: 2, type: "torpedo", signalLeft: 0, lifeLeft: 20 }], nextPackId: 1, nextSignalIn: null, ships: [{ ...world.ships[0]!, pos: { x: 450, y: 300 } }, world.ships[1]!] };
+    await waitFor(() => room.state.ships[0]!.gunnerPack === "torpedo");
     expect(room.state.packs.size).toBe(0);
   });
 });
@@ -471,7 +479,7 @@ describe("mines (Stage 1)", () => {
   /** Puts a mine in Crew 1's slot, in open water facing east. */
   const loadMine = (room: CrewRoom) => {
     const world = room.world!;
-    room.world = { ...world, nextSignalIn: null, ships: [{ ...world.ships[0]!, pos: { x: 400, y: 300 }, heading: 0, held: "mine" }, world.ships[1]!] };
+    room.world = { ...world, nextSignalIn: null, ships: [{ ...world.ships[0]!, pos: { x: 400, y: 300 }, heading: 0, pilotPack: "mine" }, world.ships[1]!] };
   };
 
   it("the pilot drops a loaded mine with the Pack button", async () => {
@@ -479,7 +487,7 @@ describe("mines (Stage 1)", () => {
     loadMine(room);
     pilot.send(ClientMessage.Input, { steer: { x: 0, y: 0 }, boost: false, pack: true });
     await waitFor(() => room.state.mines.size === 1);
-    expect(room.state.ships[0]!.held).toBe("");
+    expect(room.state.ships[0]!.pilotPack).toBe("");
     expect(room.state.mines.values().next().value?.armed).toBe(false);
   });
 
@@ -489,7 +497,7 @@ describe("mines (Stage 1)", () => {
     gunner.send(ClientMessage.Input, { aim: { x: 1, y: 0 }, fire: false, shield: false, pack: true });
     await sleep(300);
     expect(room.state.mines.size).toBe(0);
-    expect(room.state.ships[0]!.held).toBe("mine");
+    expect(room.state.ships[0]!.pilotPack).toBe("mine");
   });
 });
 
@@ -497,7 +505,7 @@ describe("Pack button presses aren't lost (Stage 1)", () => {
   it("uses a press even if the release arrives before the next tick", async () => {
     const { room, pilot } = await started();
     const world = room.world!;
-    room.world = { ...world, nextSignalIn: null, ships: [{ ...world.ships[0]!, pos: { x: 400, y: 300 }, heading: 0, held: "mine" }, world.ships[1]!] };
+    room.world = { ...world, nextSignalIn: null, ships: [{ ...world.ships[0]!, pos: { x: 400, y: 300 }, heading: 0, pilotPack: "mine" }, world.ships[1]!] };
     pilot.send(ClientMessage.Input, { steer: { x: 0, y: 0 }, boost: false, pack: true });
     pilot.send(ClientMessage.Input, { steer: { x: 0, y: 0 }, boost: false, pack: false });
     await waitFor(() => room.state.mines.size === 1);
@@ -507,7 +515,7 @@ describe("Pack button presses aren't lost (Stage 1)", () => {
 describe("torpedoes (Stage 1)", () => {
   const loadTorpedo = (room: CrewRoom) => {
     const world = room.world!;
-    room.world = { ...world, nextSignalIn: null, ships: [{ ...world.ships[0]!, pos: { x: 300, y: 200 }, heading: 0, held: "torpedo" }, world.ships[1]!] };
+    room.world = { ...world, nextSignalIn: null, ships: [{ ...world.ships[0]!, pos: { x: 300, y: 200 }, heading: 0, gunnerPack: "torpedo" }, world.ships[1]!] };
   };
 
   it("the gunner fires a loaded torpedo with the Pack button", async () => {
@@ -515,7 +523,7 @@ describe("torpedoes (Stage 1)", () => {
     loadTorpedo(room);
     gunner.send(ClientMessage.Input, { aim: { x: 0, y: 1 }, fire: false, shield: false, pack: true });
     await waitFor(() => room.state.torpedoes.size === 1);
-    expect(room.state.ships[0]!.held).toBe("");
+    expect(room.state.ships[0]!.gunnerPack).toBe("");
   });
 
   it("ignores the pilot's Pack button for a torpedo", async () => {
@@ -524,7 +532,7 @@ describe("torpedoes (Stage 1)", () => {
     pilot.send(ClientMessage.Input, { steer: { x: 0, y: 0 }, boost: false, pack: true });
     await sleep(300);
     expect(room.state.torpedoes.size).toBe(0);
-    expect(room.state.ships[0]!.held).toBe("torpedo");
+    expect(room.state.ships[0]!.gunnerPack).toBe("torpedo");
   });
 });
 
@@ -535,11 +543,11 @@ describe("EMP (Stage 1)", () => {
     room.world = {
       ...world,
       nextSignalIn: null,
-      ships: [{ ...world.ships[0]!, pos: { x: 400, y: 300 }, held: "emp" }, { ...world.ships[1]!, pos: { x: 550, y: 300 } }],
+      ships: [{ ...world.ships[0]!, pos: { x: 400, y: 300 }, gunnerPack: "emp" }, { ...world.ships[1]!, pos: { x: 550, y: 300 } }],
     };
     gunner.send(ClientMessage.Input, { aim: { x: 1, y: 0 }, fire: false, shield: false, pack: true });
     await waitFor(() => room.state.ships[1]!.disabled > 0);
-    expect(room.state.ships[0]!.held).toBe("");
+    expect(room.state.ships[0]!.gunnerPack).toBe("");
     expect(room.state.ships[0]!.empsFired).toBe(1);
   });
 });

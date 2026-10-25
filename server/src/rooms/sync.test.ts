@@ -103,24 +103,25 @@ describe("applyEvents", () => {
 });
 
 describe("packs in the synced state", () => {
-  it("shows each pack's place, type and whether it is still only glowing, and each ship's held pack", () => {
+  it("shows each pack's place, type, whether it is still only glowing and its time left, and each ship's two slots", () => {
     const state = new CrewState();
     const world = createWorld({ packs: true, seed: 1 });
     world.packs = [
-      { id: 3, spot: 0, type: "mine", signalLeft: 0 },
-      { id: 4, spot: 5, type: "health", signalLeft: 1.5 },
+      { id: 3, spot: 0, type: "mine", signalLeft: 0, lifeLeft: 12.5 },
+      { id: 4, spot: 5, type: "health", signalLeft: 1.5, lifeLeft: 20 },
     ];
-    world.ships[1] = { ...world.ships[1]!, held: "emp" };
+    world.ships[1] = { ...world.ships[1]!, pilotPack: "mine", gunnerPack: "emp" };
     syncWorld(state, world);
-    expect(state.packs.get("3")?.toJSON()).toEqual({ x: 800, y: 150, type: "mine", signalled: false });
-    expect(state.packs.get("4")?.toJSON()).toEqual({ x: 1150, y: 600, type: "health", signalled: true });
-    expect(state.ships[0]!.held).toBe("");
-    expect(state.ships[1]!.held).toBe("emp");
+    expect(state.packs.get("3")?.toJSON()).toEqual({ x: 800, y: 150, type: "mine", signalled: false, lifeLeft: 12.5 });
+    expect(state.packs.get("4")?.toJSON()).toEqual({ x: 1150, y: 600, type: "health", signalled: true, lifeLeft: 20 });
+    expect([state.ships[0]!.pilotPack, state.ships[0]!.gunnerPack]).toEqual(["", ""]);
+    expect([state.ships[1]!.pilotPack, state.ships[1]!.gunnerPack]).toEqual(["mine", "emp"]);
 
-    world.packs = [{ id: 4, spot: 5, type: "health", signalLeft: 0 }];
+    world.packs = [{ id: 4, spot: 5, type: "health", signalLeft: 0, lifeLeft: 19.5 }];
     syncWorld(state, world);
     expect(state.packs.has("3")).toBe(false);
     expect(state.packs.get("4")?.signalled).toBe(false);
+    expect(state.packs.get("4")?.lifeLeft).toBe(19.5);
   });
 });
 

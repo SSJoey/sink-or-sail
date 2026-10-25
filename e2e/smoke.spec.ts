@@ -19,6 +19,28 @@ test("loads, joins a room and shows a ship", async ({ page }) => {
   await expect(page.locator("#countdown")).toBeHidden({ timeout: 6000 }); // 3-2-1, then "Go!" for a second
 });
 
+test("a player leaves their seat by tapping it again or with Leave seat, freeing it", async ({ page }) => {
+  await page.goto("/");
+  await page.fill("#name", "Seats");
+  await page.click("#create");
+  await expect(page.locator("#code")).toHaveText(/^[A-Z]{4}$/);
+  await expect(page.locator("#leave-seat")).toBeHidden();
+
+  await page.getByRole("button", { name: /Crew 1 · Pilot — free/ }).click();
+  await expect(page.getByRole("button", { name: /Crew 1 · Pilot — Seats/ })).toBeVisible();
+  await expect(page.locator("#leave-seat")).toBeVisible();
+  await page.getByRole("button", { name: /Crew 1 · Pilot — Seats/ }).click(); // tap your own seat again
+  await expect(page.getByRole("button", { name: /Crew 1 · Pilot — free/ })).toBeVisible();
+  await expect(page.locator("#unseated")).toHaveText("Seats ★");
+  await expect(page.locator("#leave-seat")).toBeHidden();
+
+  await page.getByRole("button", { name: /Crew 2 · Gunner — free/ }).click();
+  await expect(page.getByRole("button", { name: /Crew 2 · Gunner — Seats/ })).toBeVisible();
+  await page.click("#leave-seat");
+  await expect(page.getByRole("button", { name: /Crew 2 · Gunner — free/ })).toBeVisible();
+  await expect(page.locator("#unseated")).toHaveText("Seats ★");
+});
+
 test("laptop: the gunner aims with the mouse and fires only while the left button is held", async ({ page }) => {
   await page.goto("/");
   await page.fill("#name", "Mouse");
