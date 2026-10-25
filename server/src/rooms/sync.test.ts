@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { Phase, TUNING, createWorld, step, type ShipInput, type World } from "@sink-or-sail/shared";
+import { PACK_SPOTS_3, Phase, TUNING, createWorld, step, type ShipInput, type World } from "@sink-or-sail/shared";
 import { CrewState } from "./state.ts";
 import { applyEvents, syncWorld } from "./sync.ts";
 
@@ -99,6 +99,25 @@ describe("applyEvents", () => {
     expect(state.winner).toBe(1);
     applyEvents(state, [{ type: "matchEnded", winner: null }]);
     expect(state.winner).toBe(-1);
+  });
+});
+
+describe("ship count in the synced state", () => {
+  it("drops the third ship when the next match has only 2", () => {
+    const state = new CrewState();
+    syncWorld(state, createWorld({ ships: 3 }));
+    expect(state.ships).toHaveLength(3);
+    syncWorld(state, createWorld());
+    expect(state.ships).toHaveLength(2);
+  });
+
+  it("places packs at the 3-ship spots in a 3-ship match", () => {
+    const state = new CrewState();
+    const world = createWorld({ packs: true, seed: 1, ships: 3 });
+    world.packs = [{ id: 0, spot: 1, type: "mine", signalLeft: 0, lifeLeft: 45 }];
+    syncWorld(state, world);
+    expect(state.packs.get("0")?.x).toBeCloseTo(PACK_SPOTS_3[1]!.x);
+    expect(state.packs.get("0")?.y).toBeCloseTo(PACK_SPOTS_3[1]!.y);
   });
 });
 

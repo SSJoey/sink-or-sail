@@ -152,6 +152,19 @@ describe("a caught ship", () => {
   });
 });
 
+describe("with 3 ships", () => {
+  it("catches both enemies in range, never the firing ship", () => {
+    const w = createWorld({ packs: true, seed: 1, ships: 3 });
+    w.nextSignalIn = null;
+    w.ships[0] = { ...w.ships[0]!, pos: { x: 400, y: 300 }, gunnerPack: "emp" };
+    w.ships[1] = { ...w.ships[1]!, pos: { x: 400 + REACH - 10, y: 300 } };
+    w.ships[2] = { ...w.ships[2]!, pos: { x: 400, y: 300 + REACH - 10 } };
+    const { world: after, events } = run(w, DT, () => [gunnerPack]);
+    expect(events).toContainEqual({ type: "empFired", ship: 0, caught: [1, 2] });
+    expect(after.ships.map((s) => s.disabled > 0)).toEqual([false, true, true]);
+  });
+});
+
 describe("packs off", () => {
   it("never fires an EMP", () => {
     const w = createWorld();

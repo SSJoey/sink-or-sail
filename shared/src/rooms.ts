@@ -1,18 +1,20 @@
-/** Colyseus room type name for a two-crew match. */
+/** Colyseus room type name for a crew match (2 or 3 crews). */
 export const ROOM_NAME = "crew";
 
 export const CODE_LENGTH = 4;
 /** A–Z without I and O, so codes can't be confused with 1 and 0. */
 export const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ";
 
-export const MAX_PLAYERS = 4;
+/** Three crews of two. */
+export const MAX_PLAYERS = 6;
 export const NAME_MAX_LENGTH = 12;
 /** How long a dropped player's seat is held for them. */
 export const RECONNECT_WINDOW_SECONDS = 60;
 /** A client sending more messages than this per second is disconnected (it can reconnect). */
 export const MAX_MESSAGES_PER_SECOND = 60;
 
-export const CREWS = [0, 1] as const;
+/** Crew 3 (index 2) has a ship only in matches it was seated for at the start. */
+export const CREWS = [0, 1, 2] as const;
 export type Crew = (typeof CREWS)[number];
 
 export const ROLES = ["pilot", "gunner"] as const;
@@ -62,6 +64,8 @@ export const RejectReason = {
   InvalidSeat: "invalidSeat",
   /** Seated players can't switch seats while a match is on. */
   SeatLocked: "seatLocked",
+  /** That crew has no ship in this match (Crew 3, when nobody sat in it at the start). */
+  CrewNotInMatch: "crewNotInMatch",
 } as const;
 export type RejectReason = (typeof RejectReason)[keyof typeof RejectReason];
 

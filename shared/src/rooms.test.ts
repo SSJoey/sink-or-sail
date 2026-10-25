@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   CODE_ALPHABET,
   CODE_LENGTH,
+  CREWS,
   MAX_PLAYERS,
   NAME_MAX_LENGTH,
   RECONNECT_WINDOW_SECONDS,
@@ -17,8 +18,9 @@ describe("room constants", () => {
     expect(CODE_ALPHABET).toHaveLength(24);
   });
 
-  it("allows 4 players, 12-character names and a 60 s reconnection window", () => {
-    expect(MAX_PLAYERS).toBe(4);
+  it("allows 6 players (3 crews), 12-character names and a 60 s reconnection window", () => {
+    expect(MAX_PLAYERS).toBe(6);
+    expect(CREWS).toEqual([0, 1, 2]);
     expect(NAME_MAX_LENGTH).toBe(12);
     expect(RECONNECT_WINDOW_SECONDS).toBe(60);
   });
@@ -77,13 +79,14 @@ describe("normaliseName", () => {
 });
 
 describe("isSeat", () => {
-  it("accepts crew 0 or 1 with role pilot or gunner", () => {
+  it("accepts crew 0, 1 or 2 with role pilot or gunner", () => {
     expect(isSeat({ crew: 0, role: "pilot" })).toBe(true);
     expect(isSeat({ crew: 1, role: "gunner" })).toBe(true);
+    expect(isSeat({ crew: 2, role: "pilot" })).toBe(true);
   });
 
   it("rejects anything else", () => {
-    expect(isSeat({ crew: 2, role: "pilot" })).toBe(false);
+    expect(isSeat({ crew: 3, role: "pilot" })).toBe(false);
     expect(isSeat({ crew: "0", role: "pilot" })).toBe(false);
     expect(isSeat({ crew: 0, role: "captain" })).toBe(false);
     expect(isSeat({ crew: 0 })).toBe(false);

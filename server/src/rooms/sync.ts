@@ -1,4 +1,4 @@
-import { PACK_SPOTS, Phase, TUNING, timeLeft, type SimEvent, type World } from "@sink-or-sail/shared";
+import { Phase, TUNING, timeLeft, type SimEvent, type World } from "@sink-or-sail/shared";
 import { MineState, PackState, ShipState, ShotState, type CrewState } from "./state.ts";
 
 /** Copies the simulation world into the synced room state. Colyseus sends only what changed. */
@@ -7,6 +7,8 @@ export function syncWorld(state: CrewState, world: World): void {
   state.timeLeft = timeLeft(world);
 
   while (state.ships.length < world.ships.length) state.ships.push(new ShipState());
+  // A 2-ship match after a 3-ship one drops the third ship.
+  while (state.ships.length > world.ships.length) state.ships.pop();
   world.ships.forEach((ship, i) => {
     const synced = state.ships[i]!;
     synced.x = ship.pos.x;
@@ -38,7 +40,7 @@ export function syncWorld(state: CrewState, world: World): void {
       synced.signalled = signalled;
       synced.lifeLeft = pack.lifeLeft;
     } else {
-      const spot = PACK_SPOTS[pack.spot]!;
+      const spot = world.packSpots[pack.spot]!;
       state.packs.set(id, new PackState({ x: spot.x, y: spot.y, type: pack.type, signalled, lifeLeft: pack.lifeLeft }));
     }
   }

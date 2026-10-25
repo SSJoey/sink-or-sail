@@ -1,6 +1,5 @@
 import { PACK_USER } from "../packRules.ts";
 import { TUNING } from "../tuning.ts";
-import { PACK_SPOTS } from "./map.ts";
 import { randomIndex, weightedPick } from "./random.ts";
 import type { Pack, PackType, SimEvent, World } from "./types.ts";
 import { distance } from "./vec.ts";
@@ -14,9 +13,9 @@ const PACK_CHANCES = Object.entries(TUNING.packs.chances) as [PackType, number][
 const touches = (a: { x: number; y: number }, b: { x: number; y: number }) =>
   distance(a, b) < TUNING.ship.radius + TUNING.packs.radius;
 
-/** Spots (indices into PACK_SPOTS) with no pack, glowing or not, and no ship afloat on them. */
+/** Spots (indices into the world's pack spots) with no pack, glowing or not, and no ship afloat on them. */
 export function freeSpots(world: World): number[] {
-  return PACK_SPOTS.flatMap((spot, i) => {
+  return world.packSpots.flatMap((spot, i) => {
     const used = world.packs.some((p) => p.spot === i);
     const shipOnIt = world.ships.some((s) => !s.sunk && touches(s.pos, spot));
     return used || shipOnIt ? [] : [i];
@@ -55,7 +54,7 @@ export function pickUpPacks(world: World): { world: World; events: SimEvent[] } 
 
   for (const pack of world.packs) {
     const index = pack.signalLeft > EPSILON ? -1 : ships.findIndex((ship) => {
-      if (ship.sunk || !touches(ship.pos, PACK_SPOTS[pack.spot]!)) return false;
+      if (ship.sunk || !touches(ship.pos, world.packSpots[pack.spot]!)) return false;
       return pack.type === "health" ? ship.health < TUNING.ship.maxHealth : ship[slotFor(pack.type)] === null;
     });
     if (index < 0) {

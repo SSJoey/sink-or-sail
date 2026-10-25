@@ -86,10 +86,8 @@ describe("joining by code", () => {
 
   it(`rejects a player when ${MAX_PLAYERS} are already in`, async () => {
     const { code } = await createRoom("P1");
-    await join(code, "P2");
-    await join(code, "P3");
-    await join(code, "P4");
-    await expect(join(code, "P5")).rejects.toThrow(/locked/);
+    for (let i = 2; i <= MAX_PLAYERS; i++) await join(code, `P${i}`);
+    await expect(join(code, `P${MAX_PLAYERS + 1}`)).rejects.toThrow(/locked/);
   });
 
   it("trims the name", async () => {
@@ -247,11 +245,10 @@ describe("leaving and reconnecting", () => {
 
   it("counts a dropped player toward the room limit while their seat is held", async () => {
     const { room, code } = await createRoom("P1");
-    await join(code, "P2");
-    await join(code, "P3");
-    const p4 = await join(code, "P4");
-    drop(p4);
-    await waitFor(() => playerOf(room, p4)?.connected === false);
-    await expect(join(code, "P5")).rejects.toThrow(/locked/);
+    for (let i = 2; i < MAX_PLAYERS; i++) await join(code, `P${i}`);
+    const last = await join(code, `P${MAX_PLAYERS}`);
+    drop(last);
+    await waitFor(() => playerOf(room, last)?.connected === false);
+    await expect(join(code, `P${MAX_PLAYERS + 1}`)).rejects.toThrow(/locked/);
   });
 });

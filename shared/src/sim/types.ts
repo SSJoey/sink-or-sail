@@ -32,7 +32,7 @@ export type PackType = "mine" | "torpedo" | "emp" | "health";
 /** A pack on the map. While `signalLeft` > 0 its spot is glowing and it can't be picked up yet. */
 export interface Pack {
   id: number;
-  /** Index into PACK_SPOTS. */
+  /** Index into the world's pack spots. */
   spot: number;
   type: PackType;
   signalLeft: number;
@@ -113,6 +113,8 @@ export interface World {
   /** Seeded generator state; the same seed gives the same packs. */
   rng: number;
   packs: Pack[];
+  /** Where packs can spawn: PACK_SPOTS with 2 ships, PACK_SPOTS_3 with 3. */
+  packSpots: readonly Vec[];
   nextPackId: number;
   /** Seconds until the next spot is signalled; null while waiting (a pack is glowing, or the map is full). */
   nextSignalIn: number | null;

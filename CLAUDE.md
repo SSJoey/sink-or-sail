@@ -6,7 +6,7 @@ Full design: `docs/design.md` (exported from the "Sink or Sail — Game Design" 
 
 ## Progress (updated 2026-10-25)
 
-**Stage 0 is built** (all 10 slices). **Stage 1 is built and committed** (7 slices: pack basics and health, mine, torpedo, EMP, summary script additions, home network play, and slice 7, changes after the check matches: unpicked packs disappear, leaving a seat, two pack slots). Slice 6 ran five packs-on check matches in Docker over the Wi-Fi, two of them with 4 players, all to time-up with correct logs and summaries. Tests at the end of slice 7: 529 unit tests and 12 browser tests passing, type-check clean. **Next:** the user rebuilds Docker (`sudo docker compose up --build -d`) and runs the combined playtest. Every decision, with its date, is in `NOTES.md`.
+**Stage 0 is built** (all 10 slices). **Stage 1 is built and committed** (8 slices: pack basics and health, mine, torpedo, EMP, summary script additions, home network play; slice 7, changes after the check matches: unpicked packs disappear, leaving a seat, two pack slots; slice 8, a third ship: up to 3 crews and 6 players, Frigates only). Slice 6 ran five packs-on check matches in Docker over the Wi-Fi, two of them with 4 players, all to time-up with correct logs and summaries. Tests at the end of slice 8: 551 unit tests and 13 browser tests passing, type-check clean (but see the watch item on load-related browser-test failures). **Next:** the user rebuilds Docker (`sudo docker compose up --build -d`) and runs the combined playtest. Every decision, with its date, is in `NOTES.md`.
 
 **Changes to the plan agreed during Stage 0** (details in `NOTES.md`):
 - Added after the first game: **Pause** (any seated player) / **Resume** (host only, with a 3-2-1 countdown) and **Exit game** (host only, ends the match with the current score).
@@ -20,6 +20,7 @@ Full design: `docs/design.md` (exported from the "Sink or Sail — Game Design" 
 - Torpedo: speed 300; no lifetime; launched from the bow tip; can be fired with the shield up; firing ends protection.
 - EMP: radius 200. Caught ships can't fire, boost, shield or use packs for 3 s, and their shield drops at once. No stacking (a new EMP restarts the 3 s). Protected ships aren't caught; only ships are affected.
 - Summary: mine hits go to whoever set the blast off; logs with no packs setting read as "Packs off"; no Packs table with packs off.
+- Slice 8 (a third ship): 3 ships when someone sits in Crew 3 as the match starts, otherwise 2 (so 4-player play is unchanged); up to 6 players; Crew 3 is teal ▲ and closed during a match that started without it; 3-ship starts on an equal-sided triangle centred on the island, with their own 6 pack spots repeating every 120°; still 2 packs on the map.
 - Slice 7 (after the check matches): packs nobody picks up disappear 45 s after appearing (blinking for the last 5 s); a player leaves a seat by tapping it again or with **Leave seat** (not during a match); **two pack slots per ship**, a pilot slot (mine) and a gunner slot (torpedo or EMP), shown as `Packs: M · T` in the top bar.
 
 **Discussed ahead of time (not to build yet)**, all recorded in `NOTES.md` under "Later" (2026-10-25); the first three are also reflected in the roadmap rows below:
@@ -33,6 +34,7 @@ Full design: `docs/design.md` (exported from the "Sink or Sail — Game Design" 
 **Watch items:**
 - On 667 px phones, the top bar squeezes the energy bar.
 - No pack was used in any of the five slice 6 check matches; players didn't try. Is the Pack button being noticed? (For the playtest.)
+- Load-related browser-test failures (slice 8): with 13 browser tests, 2 of 4 runs had one failure (the EMP test's steering never reaching its pack; once the smoke test's countdown allowance). Not a game bug; a fix is to be agreed with the user.
 - Flaky browser tests (slices 5–6): explained in slice 7. The steering helper gives up quietly after 40 s, so a slow test ship that never reached its pack made the next top-bar check fail. If a pack test fails again, check the test server's log (in the temp folder `sink-or-sail-test-logs`) for a `packExpired` before the pickup.
 
 **After slice 7:** the user runs the combined playtest (`docs/playtest.md`) and fills in its Findings. Stage 2 is then planned with the user, using those findings (and the ship-types timing question), and arrives as a new "Current goal" section in this file. Until then, nothing from the roadmap below is built.
@@ -41,7 +43,7 @@ Full design: `docs/design.md` (exported from the "Sink or Sail — Game Design" 
 - `shared/src/`: `tuning.ts` (every gameplay and client number; CLAUDE.md's "`shared/tuning.ts`"), `rooms.ts` (room rules, message names), `input.ts` (input validation), `packRules.ts` (who uses each pack, labels, when the Pack button is lit), `sim/` (pure, deterministic simulation; `step()` returns the new world plus events; `packs.ts`, `mines.ts`, `torpedoes.ts`, `random.ts` seeded generator, `map.ts` spawn spots; `fixtures/stage0-run.json` is the Stage 0 reference recording that packs-off play must match).
 - `server/src/`: `rooms/CrewRoom.ts` (room: codes, seats, host, match flow, 20 Hz loop), `rooms/matchFlow.ts`, `rooms/sync.ts`, `log/` (match event log, `summary.ts`).
 - `client/src/`: `lobby/` (plain HTML room screen, packs toggle, `seatButtons.ts` take/leave rules), `game/` (Phaser scene, interpolation, laptop and touch controls, top bar, overlays, pack latch, EMP ring, pickup buzz).
-- `e2e/`: Playwright smoke tests (laptop, emulated phone, pause/exit, stale page, `packs.spec.ts` mine and torpedo, `emp.spec.ts`; shared `helpers.ts`).
+- `e2e/`: Playwright smoke tests (laptop, emulated phone, pause/exit, stale page, leave seat, `packs.spec.ts` mine and torpedo, `emp.spec.ts`, `threeShips.spec.ts`; shared `helpers.ts`).
 - `docs/playtest.md`: the combined playtest guide and notes sheets.
 
 **Commands:** `npm test` (Vitest, then Playwright smoke tests with the installed Chrome), `npm run test:unit`, `npm run typecheck`, `npm run build`, `npm start` (port 2567), `npm run summary -- logs/<file>.jsonl`. Docker: `sudo docker compose up --build -d`, **in a normal terminal**; the `!` prompt has no terminal, so `sudo` can't ask for the password.
@@ -64,9 +66,9 @@ Full design: `docs/design.md` (exported from the "Sink or Sail — Game Design" 
 | 2 · The sea fights back | Reefs, wrecks, whirlpool, kraken, moving and closing storm, ghosts, Last Afloat, a few hand-made, mirrored island layouts (1–4 islands), picked by the host or Random | Do hazards and ghosts keep sunk crews involved? |
 | 3 · Full lobby | All lobby screens, bots (including a bot partner for a solo player), results and awards, spectator view (also usable by a host who only hosts and doesn't play), a **simple** lifebar for each ship, changing your name in the lobby before a match | Can a group get playing within 30 seconds? |
 | 4 · Polish and online | Sea-chart art, sound, countdown beeps (1:00 warning, last 10 s) unless moved earlier, tuning, cloud hosting, a **styled** lifebar to match the art, flames, smoke or visible damage on a ship whose health drops below 25% of full | Is it ready for people outside the house? |
-| 5 · More ships | Up to 10 ships (20 players), Fleet Battle, rooms and seats, 10 crew colours with symbols, map size scaling with the number of ships, a camera that follows your ship and a minimap on larger maps, more start, respawn and pack spots, respawn away from all enemies; **five ship types** (Frigate, Cutter, Ironclad, Gunboat, Long gun) differing in health, size (which sets speed and turning), rate of fire, damage, gun range and energy, picked by the pilot before each match (details and starting values in `NOTES.md`, "Later"); island layouts that scale with map size and the number of ships | Does the game hold up with up to 10 ships? |
+| 5 · More ships | Up to 10 ships (20 players; 3 ships already from Stage 1 slice 8), Fleet Battle, rooms and seats, 10 crew colours with symbols, map size scaling with the number of ships, a camera that follows your ship and a minimap on larger maps, more start, respawn and pack spots, respawn away from all enemies; **five ship types** (Frigate, Cutter, Ironclad, Gunboat, Long gun) differing in health, size (which sets speed and turning), rate of fire, damage, gun range and energy, picked by the pilot before each match (details and starting values in `NOTES.md`, "Later"); island layouts that scale with map size and the number of ships | Does the game hold up with up to 10 ships? |
 
-- The game stays at **2 ships** until Stage 5.
+- The game stays at **2 or 3 ships** (Frigates only) until Stage 5; the third ship came early, in Stage 1 slice 8.
 - **Known open question for Stage 2:** with 2 ships, Last Afloat ends at the first sinking, so ghosts get no time. The approach (for example extra lives per ship before a crew becomes a ghost) will be decided when Stage 2 is planned. Don't solve it in code.
 - When work on the current stage suggests something for a later stage (for example a lifebar would help now), note it in `NOTES.md` under "Later" and say so; don't build it.
 
@@ -111,7 +113,7 @@ The open points once listed here (torpedo lifetime, protection against mines and
 
 ### Stage 1 scope (out — do not build yet)
 
-Reefs, wrecks, whirlpools, kraken, storm, ghosts, Last Afloat, Fleet Battle, bots, spectator view, awards, results screen beyond a simple scoreboard, final art, sound, cloud hosting, more than 2 ships, any pack not in the table above.
+Reefs, wrecks, whirlpools, kraken, storm, ghosts, Last Afloat, Fleet Battle, bots, spectator view, awards, results screen beyond a simple scoreboard, final art, sound, cloud hosting, more than 3 ships (3 since slice 8), any pack not in the table above.
 
 ## Stack
 
@@ -220,6 +222,7 @@ Work through these slices in order. Each one follows the rules above: plan, go-a
 5. **Summary script additions** as listed in "Match event log", with tests on a hand-made sample log.
 6. **Home network play.** Run everything in Docker on the laptop; play from phones over the Wi-Fi; clear the three "still to verify" items from Stage 0; fix only what blocks a full match. Then hand over for the combined playtest.
 7. **Changes after the check matches** (added 2026-10-25 at the user's request): packs nobody picks up disappear, players can leave a seat, two pack slots per ship (pilot and gunner).
+8. **A third ship** (added 2026-10-25 at the user's request): up to 3 crews and 6 players, Frigates only, with fair 3-ship starts and pack spots; 2-ship play unchanged.
 
 ## Stage 0 (done)
 

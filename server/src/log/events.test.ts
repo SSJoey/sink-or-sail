@@ -139,6 +139,13 @@ describe("Stage 1 pack lines", () => {
     expect(lines({ type: "healthRestored", ship: 0, amount: 33.333 })).toEqual([{ t: 4000, type: "healthRestored", ship: 0, crew, amount: 33.3 }]);
   });
 
+  it("lists all three crews at match start in a 3-ship match", () => {
+    const three: Roster = [...roster, { pilot: "Eve", gunner: null }];
+    expect(matchStartLine("TRIO", three, { packsOn: true, seed: 1 })).toMatchObject({
+      crews: [{ ship: 0 }, { ship: 1 }, { ship: 2, pilot: "Eve", gunner: null }],
+    });
+  });
+
   it("records whether packs were on and the seed at match start", () => {
     expect(matchStartLine("KWPZ", roster, { packsOn: true, seed: 99 })).toMatchObject({ packsOn: true, seed: 99 });
   });

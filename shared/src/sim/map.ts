@@ -41,3 +41,21 @@ export const PACK_SPOTS: readonly Vec[] = [
 ];
 
 export const SEA_CENTRE: Vec = { x: width / 2, y: height / 2 };
+
+/** A point `r` from the middle of the sea, at `degrees` (0 = east, 90 = south, as on screen). */
+const aroundCentre = (degrees: number, r: number): Vec => ({
+  x: SEA_CENTRE.x + r * Math.cos((degrees * Math.PI) / 180),
+  y: SEA_CENTRE.y + r * Math.sin((degrees * Math.PI) / 180),
+});
+
+/**
+ * Starts for a 3-ship match, by ship id: an equal-sided triangle centred on the island (about 625 apart,
+ * just over gun range), so no crew is favoured. Crew 1 bottom left, Crew 2 bottom right, Crew 3 top.
+ */
+export const START_POINTS_3: readonly Vec[] = [150, 30, 270].map((degrees) => aroundCentre(degrees, 360));
+
+/**
+ * Pack spots for a 3-ship match: two in each gap between the starts (15° either side of it, 320 from the
+ * middle), so they repeat every 120° and no crew is favoured.
+ */
+export const PACK_SPOTS_3: readonly Vec[] = [90, 210, 330].flatMap((gap) => [aroundCentre(gap - 15, 320), aroundCentre(gap + 15, 320)]);

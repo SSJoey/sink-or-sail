@@ -323,6 +323,64 @@ describe("seats during a match", () => {
   });
 });
 
+describe("a third ship", () => {
+  it("has 2 ships when nobody sits in Crew 3", async () => {
+    const { room } = await started();
+    expect(room.world!.ships).toHaveLength(2);
+    expect(room.state.ships).toHaveLength(2);
+  });
+
+  it("has 3 ships when someone sits in Crew 3 at the start, with the 3-ship starts", async () => {
+    const crewed = await crewedRoom();
+    crewed.watcher.send(ClientMessage.TakeSeat, { crew: 2, role: "pilot" });
+    await waitFor(() => crewed.room.state.players.get(crewed.watcher.sessionId)?.crew === 2);
+    crewed.room.countdownSeconds = 0.1;
+    crewed.pilot.send(ClientMessage.Start);
+    await waitFor(() => crewed.room.state.phase === Phase.Running);
+    expect(crewed.room.world!.ships).toHaveLength(3);
+    await waitFor(() => crewed.room.state.ships.length === 3);
+  });
+
+  it("drives the third ship from Crew 3's input", async () => {
+    const crewed = await crewedRoom();
+    crewed.watcher.send(ClientMessage.TakeSeat, { crew: 2, role: "pilot" });
+    await waitFor(() => crewed.room.state.players.get(crewed.watcher.sessionId)?.crew === 2);
+    crewed.room.countdownSeconds = 0.1;
+    crewed.pilot.send(ClientMessage.Start);
+    await waitFor(() => crewed.room.state.phase === Phase.Running);
+    const startX = crewed.room.world!.ships[2]!.pos.x;
+    crewed.watcher.send(ClientMessage.Input, steer(1, 0));
+    await waitFor(() => crewed.room.world!.ships[2]!.pos.x > startX + 5);
+  });
+
+  it("keeps Crew 3 closed during a match that started without it, and opens it again afterwards", async () => {
+    const { room, watcher } = await started();
+    const rejected = watcher.waitForMessage(ServerMessage.Rejected);
+    watcher.send(ClientMessage.TakeSeat, { crew: 2, role: "gunner" });
+    expect(await rejected).toEqual({ reason: RejectReason.CrewNotInMatch });
+    expect(room.state.players.get(watcher.sessionId)?.crew).toBeUndefined();
+    await endMatch(room);
+    watcher.send(ClientMessage.TakeSeat, { crew: 2, role: "gunner" });
+    await waitFor(() => room.state.players.get(watcher.sessionId)?.crew === 2);
+  });
+
+  it("goes back to 2 ships for the next match once Crew 3 is empty", async () => {
+    const crewed = await crewedRoom();
+    crewed.watcher.send(ClientMessage.TakeSeat, { crew: 2, role: "pilot" });
+    await waitFor(() => crewed.room.state.players.get(crewed.watcher.sessionId)?.crew === 2);
+    crewed.room.countdownSeconds = 0.1;
+    crewed.pilot.send(ClientMessage.Start);
+    await waitFor(() => crewed.room.state.phase === Phase.Running);
+    await endMatch(crewed.room);
+    crewed.watcher.send(ClientMessage.LeaveSeat);
+    await waitFor(() => crewed.room.state.players.get(crewed.watcher.sessionId)?.crew === undefined);
+    crewed.pilot.send(ClientMessage.Start);
+    await waitFor(() => crewed.room.state.phase === Phase.Running);
+    expect(crewed.room.world!.ships).toHaveLength(2);
+    await waitFor(() => crewed.room.state.ships.length === 2);
+  });
+});
+
 describe("pause and resume", () => {
   it("lets any seated player pause; everything freezes", async () => {
     const { room, gunner, pilot } = await started();

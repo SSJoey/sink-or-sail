@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { TUNING } from "../tuning.ts";
-import { PACK_SPOTS, ISLAND, SPAWN_POINTS, START_POINTS } from "./map.ts";
+import { PACK_SPOTS, PACK_SPOTS_3, ISLAND, SEA_CENTRE, SPAWN_POINTS, START_POINTS, START_POINTS_3 } from "./map.ts";
 import { createWorld } from "./match.ts";
 import { freeSpots, signalPack } from "./packs.ts";
 import { step } from "./step.ts";
@@ -35,6 +35,50 @@ describe("spawn spots", () => {
       expect(circleOverlapsPolygon(spot, 150, ISLAND)).toBeNull();
       for (const p of [...SPAWN_POINTS, ...START_POINTS]) expect(distance(spot, p)).toBeGreaterThan(200);
     }
+  });
+});
+
+describe("3-ship spawn spots", () => {
+  it("are 6 spots in open water, well clear of the island, the respawn spots and the 3-ship starts", () => {
+    expect(PACK_SPOTS_3).toHaveLength(6);
+    for (const spot of PACK_SPOTS_3) {
+      expect(circleOverlapsPolygon(spot, 150, ISLAND)).toBeNull();
+      for (const p of [...SPAWN_POINTS, ...START_POINTS_3]) expect(distance(spot, p)).toBeGreaterThan(200);
+    }
+  });
+
+  it("repeat every 120° around the middle, so no crew is favoured", () => {
+    const turn = (p: { x: number; y: number }) => {
+      const a = (2 * Math.PI) / 3;
+      const dx = p.x - SEA_CENTRE.x;
+      const dy = p.y - SEA_CENTRE.y;
+      return { x: SEA_CENTRE.x + dx * Math.cos(a) - dy * Math.sin(a), y: SEA_CENTRE.y + dx * Math.sin(a) + dy * Math.cos(a) };
+    };
+    for (const spot of PACK_SPOTS_3) {
+      const turned = turn(spot);
+      expect(PACK_SPOTS_3.some((s) => distance(s, turned) < 1e-6)).toBe(true);
+    }
+  });
+
+  it("are where a 3-ship match spawns and picks up its packs, still at most 2 on the map", () => {
+    let w = createWorld({ packs: true, seed: 9, ships: 3 });
+    const spots = new Set<number>();
+    for (let i = 0; i < 2400; i++) {
+      const r = step(w, [], DT);
+      w = r.world;
+      expect(w.packs.length).toBeLessThanOrEqual(P.maxOnMap);
+      for (const e of r.events) if (e.type === "packSignalled") spots.add(e.spot);
+    }
+    expect([...spots].every((i) => i >= 0 && i < PACK_SPOTS_3.length)).toBe(true);
+
+    const world = createWorld({ packs: true, seed: 1, ships: 3 });
+    world.packs = [readyPack(0, 0, "torpedo")];
+    world.nextPackId = 1;
+    world.nextSignalIn = null;
+    world.ships[2] = { ...world.ships[2]!, pos: PACK_SPOTS_3[0]! };
+    const after = run(world, DT);
+    expect(after.world.ships[2]!.gunnerPack).toBe("torpedo");
+    expect(after.events).toContainEqual({ type: "packPickedUp", ship: 2, pack: 0, packType: "torpedo" });
   });
 });
 

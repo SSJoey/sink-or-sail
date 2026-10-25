@@ -95,6 +95,32 @@ describe("formatSummary", () => {
   });
 });
 
+describe("a 3-crew match", () => {
+  const lines = [
+    { t: 0, type: "matchStart", room: "TRIO", crews: [{ ship: 0, pilot: "Ann", gunner: "Bob" }, { ship: 1, pilot: "Cat", gunner: "Dan" }, { ship: 2, pilot: "Eve", gunner: "Fay" }], packsOn: true, seed: 1, tuning: {} },
+    { t: 1000, type: "shotFired", ship: 2, player: "Fay", role: "gunner" },
+    { t: 1500, type: "hit", ship: 2, player: "Fay", role: "gunner", target: 0, damage: 20 },
+    { t: 10000, type: "sunk", ship: 0, crew: { pilot: "Ann", gunner: "Bob" }, by: 2 },
+    { t: 30000, type: "matchEnd", winner: 2, endedEarly: false, scores: [
+      { ship: 0, sinkings: 0, boostEnergy: 0, shieldEnergy: 0 },
+      { ship: 1, sinkings: 0, boostEnergy: 0, shieldEnergy: 0 },
+      { ship: 2, sinkings: 1, boostEnergy: 0, shieldEnergy: 0 },
+    ] },
+  ];
+  const summary = summarise(parseLog(lines.map((l) => JSON.stringify(l)).join("\n")));
+
+  it("summarises all three crews", () => {
+    expect(summary.crews.map((c) => [c.ship, c.pilot, c.sinkings, c.hits])).toEqual([[0, "Ann", 0, 0], [1, "Cat", 0, 0], [2, "Eve", 1, 1]]);
+    expect(summary.packs).toHaveLength(3);
+  });
+
+  it("prints Crew 3 in both tables and names it the winner", () => {
+    const text = formatSummary(summary);
+    expect(text).toContain("Crew 3 wins");
+    expect(text.match(/^Crew 3\s/gm)).toHaveLength(2);
+  });
+});
+
 describe("summary command", () => {
   it("prints the summary of a log file", async () => {
     const dir = await mkdtemp(join(tmpdir(), "sos-summary-"));

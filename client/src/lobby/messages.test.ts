@@ -21,5 +21,6 @@ describe("rejectedText", () => {
     expect(rejectedText({ reason: RejectReason.SeatTaken })).toBe("That seat is taken.");
     expect(rejectedText({ reason: RejectReason.InvalidSeat })).toBe("That seat doesn't exist.");
     expect(rejectedText({ reason: RejectReason.SeatLocked })).toBe("Seats are locked during a match.");
+    expect(rejectedText({ reason: RejectReason.CrewNotInMatch })).toBe("Crew 3 joins from the next match.");
   });
 });

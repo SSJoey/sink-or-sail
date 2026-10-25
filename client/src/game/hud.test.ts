@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { empText, formatClock, packSlotText } from "./hud.ts";
+import { empText, formatClock, packSlotText, scoreHtml } from "./hud.ts";
 
 describe("formatClock", () => {
   it("shows minutes and seconds, rounding up so 0:00 means time is up", () => {
@@ -18,6 +18,13 @@ describe("packSlotText", () => {
     expect(packSlotText(null, "emp")).toBe("Packs: — · E");
     expect(packSlotText("mine", null)).toBe("Packs: M · —");
     expect(packSlotText(null, null)).toBe("Packs: — · —");
+  });
+});
+
+describe("scoreHtml", () => {
+  it("shows each crew's symbol and sinkings in its colour, for 2 or 3 crews", () => {
+    expect(scoreHtml([2, 1])).toBe('<span style="color:#F5A623">● 2</span> – <span style="color:#E8559A">■ 1</span>');
+    expect(scoreHtml([0, 3, 1])).toBe('<span style="color:#F5A623">● 0</span> – <span style="color:#E8559A">■ 3</span> – <span style="color:#2BB3C0">▲ 1</span>');
   });
 });
 

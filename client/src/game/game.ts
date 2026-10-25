@@ -4,7 +4,7 @@ import { ClientMessage, Phase, TUNING, rolePack, type PackType, type Role } from
 import { CREW_STYLES } from "./crews.ts";
 import { GameScene } from "./GameScene.ts";
 import type { ShipEffect } from "./effects.ts";
-import { empText, formatClock, packSlotText } from "./hud.ts";
+import { empText, formatClock, packSlotText, scoreHtml } from "./hud.ts";
 import { startInputSender } from "./inputSender.ts";
 import { PackLatch } from "./packLatch.ts";
 import { gunnerPackBuzz } from "./packBuzz.ts";
@@ -251,11 +251,7 @@ function updateHud(frame: Frame | null, seat: { crew: number; role: Role } | nul
   const slotText = seat ? packSlotText(crewShip?.pilotPack ?? null, crewShip?.gunnerPack ?? null) : "";
   if (packSlot.textContent !== slotText) packSlot.textContent = slotText;
   const score = byId("hud-score");
-  const parts = (frame?.ships ?? []).map((ship, i) => {
-    const style = CREW_STYLES[i] ?? CREW_STYLES[0];
-    return `<span style="color:${style.css}">${style.symbol} ${ship.sinkings}</span>`;
-  });
-  const html = parts.join(" – ");
+  const html = scoreHtml((frame?.ships ?? []).map((ship) => ship.sinkings));
   if (score.innerHTML !== html) score.innerHTML = html;
 
   if (!seat) {

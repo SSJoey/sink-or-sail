@@ -242,6 +242,25 @@ Asked for by the user after the slice 6 check matches; added as an extra Stage 1
 - **Flaky browser tests explained:** the steering helper gives up quietly after 40 s, so a ship that never reached its pack made the next top-bar check fail. With a 20 s pack life this happened every run (the test logs showed the torpedo expiring at 0:42 with no pickup); with 45 s, the full suite passed twice in a row. Running fewer browser tests at once was tried first and didn't help, so it was undone.
 - `docs/design.md` updated (user's request): two slots per ship, unpicked packs disappear.
 
+### 2026-10-25 — Stage 1 slice 8: a third ship (plan change)
+
+Asked for by the user before the combined playtest: 3 ship slots now, Frigates only (Stage 5 work brought forward).
+
+- **Ship count:** a match has **3 ships when someone sits in Crew 3 as it starts**, otherwise 2. With 4 players on Crews 1 and 2 it plays exactly as before (the Stage 0 recording still holds). If a match starts with Crew 3 seated but Crew 1 or 2 empty, the empty crew's ship sits there unmanned, as today.
+- **Room size:** `MAX_PLAYERS` 4 → **6**; `CREWS` is now `[0, 1, 2]`.
+- **Crew 3 during a match without a third ship:** its seats are closed (new refusal `crewNotInMatch`, "Crew 3 joins from the next match."), and open again between matches. Seatless players can still take free Crew 1 and 2 seats mid-match, as before.
+- **Crew 3's look:** teal `#2BB3C0` with ▲.
+- **3-ship starts** (`START_POINTS_3`): an equal-sided triangle centred on the middle of the sea, 360 from it (about 624 apart, just over gun range): Crew 1 bottom left (488, 630), Crew 2 bottom right (1112, 630), Crew 3 top (800, 90), each facing the middle. The user chose this over a larger triangle with the island off-centre.
+- **3-ship pack spots** (`PACK_SPOTS_3`): 6 spots, two in each gap between the starts (15° either side of it, 320 from the middle), so they repeat every 120°. All clear the island by 150 and every start and respawn spot by more than 200 (nearest start: 263). The world now carries its own `packSpots` (today's `PACK_SPOTS` with 2 ships).
+- **Packs on the map:** still at most 2, with 3 ships too (the user's choice: scarcer, more of a race).
+- **Respawn:** the four corner spots stay; a sunk ship comes back at the one farthest from all enemies, as before.
+- **Winning:** most sinkings wins; a tie between the leaders is a draw (already worked for any number of ships).
+- **Fix found while building:** the synced state only ever added ships, so a 2-ship match after a 3-ship one would have kept a stale third ship on clients. It now drops it.
+- The top-bar score moved to `hud.ts` (`scoreHtml`) so it can be tested with 3 crews. A new browser test (`e2e/threeShips.spec.ts`) runs three pilots, one on a 667 px phone, and checks the top bar still fits.
+- Tests changed with the rules (not weakened): room size 4 → 6 (the room-full tests now count to `MAX_PLAYERS`); crew index 2 is now a valid seat (the invalid-seat checks use 3).
+- **Watch: load-related browser-test failures.** With the 13th browser test (three browsers at once), 2 of 4 full browser runs had one failure each: the EMP test's steering never reached its pack (the log shows the EMP sat there its full 45 s), and once the smoke test's 3-2-1-Go took longer than its 6 s allowance. The other two runs passed fully. No game cause found.
+- `docs/playtest.md`: an extra "3-ship rounds" section for when 6 people are around; the 4-player rounds stay as planned (user's choice).
+
 ## Later
 
 - **(2026-10-25, Stage 5) Ship types**, discussed with the user ahead of Stage 5 (not to build before then):

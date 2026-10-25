@@ -34,7 +34,7 @@ Play **at least 3 rounds with packs off, then at least 3 rounds with packs on**,
 
 1. The **host** (whoever presses Create room) reads out the 4-letter room code.
 2. Everyone else opens `http://<address>:2567`, types their name and the code, and taps **Join**.
-3. Everyone taps a seat: Crew 1 or 2, Pilot or Gunner. The host's name has a ★. To switch, tap your own seat again (or **Leave seat**) to free it, then tap another; this works between matches, not during one.
+3. Everyone taps a seat: Crew 1 or 2, Pilot or Gunner (Crew 3 is only for the extra 3-ship rounds). The host's name has a ★. To switch, tap your own seat again (or **Leave seat**) to free it, then tap another; this works between matches, not during one.
 4. **Packs:** the host ticks or unticks **Packs on** in the room screen. Everyone else sees "Packs: on" or "Packs: off". A change applies from the next match. Rounds 1–3: off. Rounds 4–6: on.
 5. Phones: turn sideways. Android goes fullscreen on the first tap; iPhone shows "Rotate your phone" in portrait.
 6. The host taps **Start match**: 3-2-1-Go, then 4 minutes.
@@ -87,6 +87,16 @@ Write these down during or right after each round. Short answers are fine.
 | 4 | | | | | | | | | | |
 | 5 | | | | | | | | | | |
 | 6 | | | | | | | | | | |
+
+### Extra: 3-ship rounds (when 6 people are around)
+
+Not part of the 6 rounds above. With 6 people, play a few extra rounds with three crews: seat someone in **Crew 3** (teal ▲) before the host starts, and the match has 3 ships, starting on a triangle around the island. Up to 2 packs are on the sea at once, as with 2 ships. If nobody sits in Crew 3 when the match starts, it stays a 2-ship match; Crew 3 opens again for the next one.
+
+| Round | Crew 1 (pilot / gunner) | Crew 2 (pilot / gunner) | Crew 3 (pilot / gunner) | Packs on/off | Score | Did crews talk to each other? | Did anyone laugh? | Did they ask for another round? | Two crews ganging up on one? | Kept checking the clock? | Anything else (confusing, annoying, broken) |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| A | | | | | | | | | | | |
+| B | | | | | | | | | | | |
+| C | | | | | | | | | | | |
 
 ## After the playtest
 

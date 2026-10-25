@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Phase } from "@sink-or-sail/shared";
-import { canChangeSeat, canEndMatch, canPause, canResume, canSetPacks, canStart, nextHost } from "./matchFlow.ts";
+import { canChangeSeat, canEndMatch, canPause, canResume, canSetPacks, canStart, crewHasShip, nextHost } from "./matchFlow.ts";
 
 describe("canStart", () => {
   it("lets only the host start, and only when no match is on", () => {
@@ -9,6 +9,21 @@ describe("canStart", () => {
     expect(canStart("x", "h", Phase.Waiting)).toBe(false);
     expect(canStart("h", "h", Phase.Countdown)).toBe(false);
     expect(canStart("h", "h", Phase.Running)).toBe(false);
+  });
+});
+
+describe("crewHasShip", () => {
+  it("opens every crew between matches", () => {
+    expect(crewHasShip(Phase.Waiting, 2, 0)).toBe(true);
+    expect(crewHasShip(Phase.Over, 2, 2)).toBe(true);
+  });
+
+  it("during a match, opens only crews with a ship", () => {
+    for (const phase of [Phase.Countdown, Phase.Running, Phase.Paused]) {
+      expect(crewHasShip(phase, 1, 2)).toBe(true);
+      expect(crewHasShip(phase, 2, 2)).toBe(false);
+      expect(crewHasShip(phase, 2, 3)).toBe(true);
+    }
   });
 });
 

@@ -11,6 +11,12 @@ export function canChangeSeat(phase: string, isSeated: boolean): boolean {
   return !matchOn || !isSeated;
 }
 
+/** During a match, only crews with a ship can be joined (no ship for Crew 3 if it was empty at the start). */
+export function crewHasShip(phase: string, crew: number, shipCount: number): boolean {
+  const matchOn = phase === Phase.Countdown || phase === Phase.Running || phase === Phase.Paused;
+  return !matchOn || crew < shipCount;
+}
+
 /** The longest-present player (lowest join order) becomes host; "" if the room is empty. */
 export function nextHost(joinOrder: ReadonlyMap<string, number>): string {
   let best = "";

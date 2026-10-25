@@ -18,5 +18,6 @@ export function rejectedText(message: RejectedMessage): string {
     case RejectReason.SeatTaken: return "That seat is taken.";
     case RejectReason.InvalidSeat: return "That seat doesn't exist.";
     case RejectReason.SeatLocked: return "Seats are locked during a match.";
+    case RejectReason.CrewNotInMatch: return "Crew 3 joins from the next match.";
   }
 }

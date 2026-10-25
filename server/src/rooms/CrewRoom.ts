@@ -28,7 +28,7 @@ import {
 import { LOG_DIR, fixedSeed } from "../config.ts";
 import { controlLine, matchEndLine, matchMs, matchStartLine, playerLine, positionLines, seatLine, simEventLines, type LogLine, type Roster } from "../log/events.ts";
 import { MatchLog, fileSink, logFileName, type LogSink } from "../log/matchLog.ts";
-import { canChangeSeat, canEndMatch, canPause, canResume, canSetPacks, canStart, nextHost } from "./matchFlow.ts";
+import { canChangeSeat, canEndMatch, canPause, canResume, canSetPacks, canStart, crewHasShip, nextHost } from "./matchFlow.ts";
 import { generateUniqueCode } from "./roomCode.ts";
 import { isNameTaken, leaveSeat, takeSeat, type SeatMap } from "./seats.ts";
 import { CrewState, Player } from "./state.ts";
@@ -94,6 +94,11 @@ export class CrewRoom extends Room<{ state: CrewState }> {
         return;
       }
       const seat = result.seats.get(client.sessionId) ?? null;
+      // A match that started without Crew 3 has no third ship: Crew 3 opens again between matches.
+      if (seat && !crewHasShip(this.state.phase, seat.crew, this.world?.ships.length ?? 0)) {
+        client.send(ServerMessage.Rejected, { reason: RejectReason.CrewNotInMatch } satisfies RejectedMessage);
+        return;
+      }
       this.applySeat(client.sessionId, seat);
       if (this.log && seat) {
         this.roster = this.buildRoster();
@@ -200,7 +205,9 @@ export class CrewRoom extends Room<{ state: CrewState }> {
     void this.closeLog();
     const seed = this.seedForMatch() >>> 0;
     const packsOn = this.state.packsEnabled;
-    this.world = createWorld({ packs: packsOn, seed });
+    // A third ship only when someone sits in Crew 3 as the match starts.
+    const ships = [...this.state.players.values()].some((p) => p.crew === 2) ? 3 : 2;
+    this.world = createWorld({ packs: packsOn, seed, ships });
     this.roster = this.buildRoster();
     this.log = new MatchLog(this.logSinkFor(logFileName(new Date(), this.roomId)), { onError: (error) => this.logErrors(error) });
     this.logLine(matchStartLine(this.roomId, this.roster, { packsOn, seed }));
