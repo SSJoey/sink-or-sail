@@ -270,6 +270,21 @@ Asked for by the user before the combined playtest: 3 ship slots now, Frigates o
 - **Result:** 5 full browser runs in a row, 13/13 each.
 - The user kept the extra "Two crews ganging up on one?" column in the 3-ship playtest table.
 
+### 2026-10-26 — Combined playtest deferred; Stage 2 planning starts
+
+- **The combined playtest is deferred, still owed** (user's choice). Stage 1 is built, but its definition of done item 5 stays open; the playtest can be run any time, for example alongside Stage 2 testing. `docs/playtest.md` stays as it is.
+- **Decisions that were waiting on the playtest stay as planned:** ship types in Stage 5, countdown beeps in Stage 4, and "is the Pack button noticed?" stays a watch item. Any of them can be revisited later.
+- **Stage 2's "Current goal" section:** Claude drafts it from `docs/design.md` (scope, slice order, open questions); nothing is built until the user approves it.
+- **Stage 2 planning, question 1 (ghost time with 2 ships):** in Last Afloat **each ship has extra lives** before its crew becomes a ghost. The default (**2**) lives in `tuning.ts`; the **host picks 1–5 in the room screen** (shown only with Last Afloat, applies from the next match, like the Packs toggle). 1 plays as plain Last Afloat. Between lives a sunk ship **respawns as in Sink Count** (3 s countdown, safe spot, 2 s protection).
+- **Stage 2 planning, question 2 (hazards by mode):** reefs, shipwrecks, the moving storm, the whirlpool and the kraken come in **both Sink Count and Last Afloat**. The closing storm stays Last Afloat only, as in `docs/design.md`.
+- **Stage 2 planning, question 3 (what sets off dynamic hazards):** a **seeded timer** in both modes (same seed, same hazards, like packs); **ghosts make hazards come sooner** in the zones they haunt.
+- **Stage 2 planning, question 4 (Hazards toggle):** a host-only **Hazards on / off** toggle in the room screen, like Packs, **default on**, applying from the next match. With packs and hazards off on the default map, a match still plays exactly as Stage 0.
+- **Stage 2 planning, question 5 (mode choice):** a host-only **Sink Count / Last Afloat** choice in the room screen, **default Sink Count**, applying from the next match. The lives setting (1–5) shows only with Last Afloat. The match-start log line and the summary header record the mode (like Packs on/off).
+- **Stage 2 planning, question 6 (how Last Afloat ends):** the **closing storm plus a hard time limit**. The storm starts closing after a set time and leaves a small safe circle by a later time; ships outside it lose health steadily. If more than one ship is afloat at the time limit, the winner is the one with the **most lives left, then the most health**; otherwise a draw. All times go in `tuning.ts` and are proposed in the storm slice (examples discussed: closing from 1:00, small circle by 5:00, limit 7:00).
+- **Stage 2 planning, question 7 (ghost controls on a laptop):** **both crewmates steer with WASD**; the ghost follows whoever pressed last. Nothing else does anything for a ghost (no mouse aim, clicks or E). On a phone: the stick, following whoever touched last, no buttons (as in `docs/design.md`).
+- **Stage 2 planning, question 8 ("Sunk by…" banner):** yes, in Stage 2: both crewmates get a banner naming the cause, starting with the Stage 1 causes (shot, mine, torpedo, bump) and adding each new cause in its hazard's slice. Text only; no long vibration (the break-apart look is Stage 4 art).
+- **Stage 2 planning, question 9 (slice order):** kept as drafted: 1 mode choice and Last Afloat (with lives and the banner), 2 island layouts, 3 Hazards toggle and reefs, 4 shipwrecks, 5 closing storm and time limit, 6 moving storm, 7 whirlpool, 8 kraken, 9 ghosts and haunting, 10 summary script additions and home-network check matches.
+
 ## Later
 
 - **(2026-10-25, Stage 5) Ship types**, discussed with the user ahead of Stage 5 (not to build before then):

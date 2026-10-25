@@ -6,7 +6,7 @@ Full design: `docs/design.md` (exported from the "Sink or Sail — Game Design" 
 
 ## Progress (updated 2026-10-26)
 
-**Stage 0 is built** (all 10 slices). **Stage 1 is built and committed** (8 slices: pack basics and health, mine, torpedo, EMP, summary script additions, home network play; slice 7, changes after the check matches: unpicked packs disappear, leaving a seat, two pack slots; slice 8, a third ship: up to 3 crews and 6 players, Frigates only). Slice 6 ran five packs-on check matches in Docker over the Wi-Fi, two of them with 4 players, all to time-up with correct logs and summaries. Tests at the end of slice 8: 551 unit tests and 13 browser tests passing, type-check clean. After slice 8 (2026-10-26), the load-related browser-test failures were fixed in the test steering helper (no game code changed), and 5 full browser runs in a row passed. **Next:** the user rebuilds Docker (`sudo docker compose up --build -d`) and runs the combined playtest. Every decision, with its date, is in `NOTES.md`.
+**Stage 0 is built** (all 10 slices). **Stage 1 is built and committed** (8 slices: pack basics and health, mine, torpedo, EMP, summary script additions, home network play; slice 7, changes after the check matches: unpicked packs disappear, leaving a seat, two pack slots; slice 8, a third ship: up to 3 crews and 6 players, Frigates only). Slice 6 ran five packs-on check matches in Docker over the Wi-Fi, two of them with 4 players, all to time-up with correct logs and summaries. Tests at the end of slice 8: 551 unit tests and 13 browser tests passing, type-check clean. After slice 8 (2026-10-26), the load-related browser-test failures were fixed in the test steering helper (no game code changed), and 5 full browser runs in a row passed. **Next:** the user approves the Stage 2 plan; then slice 1 (mode choice and Last Afloat) starts with its own plan. Every decision, with its date, is in `NOTES.md`.
 
 **Changes to the plan agreed during Stage 0** (details in `NOTES.md`):
 - Added after the first game: **Pause** (any seated player) / **Resume** (host only, with a 3-2-1 countdown) and **Exit game** (host only, ends the match with the current score).
@@ -37,7 +37,7 @@ Full design: `docs/design.md` (exported from the "Sink or Sail — Game Design" 
 - Load-related browser-test failures (slice 8): fixed 2026-10-26. The steering helper read positions late on a busy machine, and a ship arriving side-on circled its target. It now eases off near the target and goes round again when off course; the countdown allowance is 10 s. If a steering test fails again, check the test server's log for a ship circling its target.
 - Flaky browser tests (slices 5–6): explained in slice 7. The steering helper gives up quietly after 40 s, so a slow test ship that never reached its pack made the next top-bar check fail. If a pack test fails again, check the test server's log (in the temp folder `sink-or-sail-test-logs`) for a `packExpired` before the pickup.
 
-**After slice 7:** the user runs the combined playtest (`docs/playtest.md`) and fills in its Findings. Stage 2 is then planned with the user, using those findings (and the ship-types timing question), and arrives as a new "Current goal" section in this file. Until then, nothing from the roadmap below is built.
+**Stage 2 is planned** (2026-10-26, see "Current goal: Stage 2" below; answers in `NOTES.md`). The Stage 1 combined playtest (`docs/playtest.md`) is deferred, still owed; the decisions waiting on it stay as planned (ship types Stage 5, beeps Stage 4, the Pack-button watch item).
 
 **Where things are:**
 - `shared/src/`: `tuning.ts` (every gameplay and client number; CLAUDE.md's "`shared/tuning.ts`"), `rooms.ts` (room rules, message names), `input.ts` (input validation), `packRules.ts` (who uses each pack, labels, when the Pack button is lit), `sim/` (pure, deterministic simulation; `step()` returns the new world plus events; `packs.ts`, `mines.ts`, `torpedoes.ts`, `random.ts` seeded generator, `map.ts` spawn spots; `fixtures/stage0-run.json` is the Stage 0 reference recording that packs-off play must match).
@@ -72,7 +72,82 @@ Full design: `docs/design.md` (exported from the "Sink or Sail — Game Design" 
 - **Known open question for Stage 2:** with 2 ships, Last Afloat ends at the first sinking, so ghosts get no time. The approach (for example extra lives per ship before a crew becomes a ghost) will be decided when Stage 2 is planned. Don't solve it in code.
 - When work on the current stage suggests something for a later stage (for example a lifebar would help now), note it in `NOTES.md` under "Later" and say so; don't build it.
 
-## Current goal: Stage 1 — packs
+## Current goal: Stage 2 — the sea fights back
+
+Answer one question: **do hazards and ghosts keep sunk crews involved?** Build on Stage 1 without changing how it plays on the default map with hazards off. Planned with the user on 2026-10-26 (answers in `NOTES.md`); the Stage 1 combined playtest is deferred, still owed, and can run alongside Stage 2 testing.
+
+### Stage 2 scope (in)
+
+Everything in Stages 0 and 1 stays as it is. Stage 2 adds:
+
+- **Mode choice:** the host picks **Sink Count** (default) or **Last Afloat** in the room screen; host only, applies from the next match (like the Packs toggle).
+- **Last Afloat:** free-for-all; each ship has **lives** (host picks 1–5 in the room screen, shown only with Last Afloat; default 2 in `tuning.ts`). Between lives a sunk ship respawns as in Sink Count (3 s countdown, safe spot, 2 s protection). A ship with no lives left is out, and its crew becomes a ghost (until slice 9, it watches). The last ship afloat wins.
+- **How Last Afloat ends:** the **closing storm** closes in from the map edge after a set time to a small safe circle; ships outside it lose health steadily. A **hard time limit** ends the match if more than one ship is still afloat: most lives left wins, then most health; otherwise a draw. The closing storm is Last Afloat only.
+- **Island layouts:** a few hand-made, mirrored layouts of 1–4 islands (small rocks up to today's island), each with its own start, respawn and pack spots, checked automatically (open water, clear of islands, far enough apart, reachable by a Frigate). The host picks one or **Random**; applies from the next match. **Today's single-island map stays the default.** Mirrored for 2 ships; how layouts handle 3 ships is settled in the layouts slice.
+- **Hazards on / off:** a host-only toggle in the room screen, **default on**, applies from the next match. With packs and hazards off on the default map, a match plays exactly as Stage 0.
+- **Hazards, in both modes:**
+
+| Hazard | Type | Effect |
+| --- | --- | --- |
+| Reef | Static | Passable, but slows the ship and deals a small hit |
+| Shipwreck | Static | Destructible; sometimes holds a pack |
+| Moving storm | Dynamic | Moves across the map, pushes ships and limits visibility |
+| Whirlpool | Dynamic | Pulls ships in; skilled pilots can slingshot around the edge |
+| Kraken | Dynamic | Roams and grabs the nearest ship |
+
+- **Dynamic hazards** come on a **seeded timer** (same seed, same hazards, like packs); every one is signalled before it acts; at most one or two are active at once; they spawn near ships, never directly on them (from `docs/design.md`).
+- **Ghosts and haunting** (Last Afloat): a crew that is out becomes **one shared ghost**. Phone: the stick, no buttons. Laptop: **both crewmates steer with WASD**. Either way the ghost follows whoever moved it last. Ghosts move freely, pass through everything, appear as faint dashed outlines and can't touch or block anyone. The sea is divided into zones, each with a hidden haunting meter that fills faster the more ghosts are in it; ghosts **make hazards come sooner** in the zones they haunt. A filling meter shows as thickening fog and darkening water, and each zone caps how often hazards can spawn there.
+- **"Sunk by…" banner:** both crewmates see the cause ("Sunk by Crew 2's torpedo", "Taken by the kraken", "Lost to the storm"); text only, no long vibration. Slice 1 covers the Stage 1 causes (shot, mine, torpedo, bump); each hazard slice adds its own.
+- Stage 2 events in the match event log and new figures in the summary script (see "Stage 2 log and summary" below).
+
+### Stage 2 starting values
+
+Every value goes in `shared/tuning.ts`. Unlike Stage 1, the numbers aren't agreed up front: each slice's plan proposes its values and they are approved before building. Already agreed: lives default 2 (host range 1–5); respawn between lives uses the Sink Count values. Still to propose, slice by slice: the layouts; reef slowdown and damage; wreck health and pack chance; closing-storm start, end, safe-circle size and damage; the time limit; moving-storm speed, push and visibility; whirlpool pull and size; kraken speed, reach and grab effect; the hazard timer; zone size, haunting rate and per-zone caps.
+
+### Stage 2 scope (out — do not build yet)
+
+Fleet Battle, bots, spectator view, awards, a results screen beyond the simple scoreboard, the lifebar, changing names in the lobby, final art (including the break-apart look), sound and countdown beeps, cloud hosting, more than 3 ships, ship types, layouts that scale with the map or are generated from the seed (Stage 5), and any obstacle from the "Potential add-ons" list in `docs/design.md` (sandbar, kelp, sea stacks and the rest).
+
+### Stage 2 log and summary (proposed; each slice's plan confirms its events)
+
+- **Match start** also records the mode, lives, layout and whether hazards are on; the summary header shows them (like Packs on/off).
+- **Events:** life lost (ship, lives left); crew out (became a ghost); match ended by time limit (with the tie-break used); reef hit; wreck hit, destroyed, pack released; storm damage; hazard signalled, started and ended (type, spot); ship caught by a whirlpool; kraken grab; a zone's haunting meter setting off a hazard. Ghosts' positions about once a second, with the ship positions.
+- **Summary**, per crew: finishing place and time afloat (Last Afloat); lives used; sinkings by cause; damage taken per hazard type; time as a ghost; hazards set off by haunting.
+
+### Stage 2 tests (on top of the Testing section)
+
+- Modes and lives: host-only choice, applies from the next match; lives count down and respawn as in Sink Count; out at zero; last ship afloat wins; time limit and tie-break; Sink Count unchanged.
+- Layouts: every spot of every layout passes the automatic checks; mirrored layouts are mirror images; Random uses the seed; the default layout keeps the Stage 0 recording matching.
+- Hazards: each hazard's effect and edge cases; the seeded timer gives the same hazards for the same seed; signalled before acting; never more active than the limit; never spawned on a ship; hazards off means none at all.
+- Ghosts: control by the last crewmate to move it; can't touch, block or be hit; haunting fills by ghost count and brings hazards sooner, within each zone's cap.
+- Banner: the right text for every cause.
+- Event log and summary: every Stage 2 event with its fields; summary figures correct on a hand-made sample log.
+- Browser smoke tests: the mode and lives choice, a Last Afloat match to its end, and a ghost steered on the laptop and the emulated phone.
+
+### Build order for Stage 2
+
+Same rules as before: plan, go-ahead, build with tests, summary, stop. Each slice is end-to-end (simulation, server, client, log and tests).
+
+1. **Mode choice and Last Afloat:** the mode and lives settings, lives and respawn, out at zero (watching until slice 9), last ship afloat wins, the "Sunk by…" banner with the Stage 1 causes, log and summary.
+2. **Island layouts:** a few hand-made, mirrored layouts with their own checked spots; host picks or Random; the default stays today's map.
+3. **Hazards toggle and reefs.**
+4. **Shipwrecks.**
+5. **Closing storm and time limit** (Last Afloat), with the tie-break.
+6. **Moving storm** (both modes, seeded timer).
+7. **Whirlpool.**
+8. **Kraken.**
+9. **Ghosts and haunting.**
+10. **Summary script additions and home-network check matches** in Docker over the Wi-Fi; fix only what blocks a full match.
+
+### Definition of done for Stage 2 (proposed)
+
+1. Four or more people on the home Wi-Fi can play full matches in both modes, with hazards on and off, on phones and laptops.
+2. Every hazard, the closing storm, lives and ghosts behave as described, and the banner names every cause.
+3. Every match's log includes the Stage 2 events, and the summary script reports the Stage 2 figures.
+4. Every slice's tests pass (including all Stage 0 and 1 tests), type-check is clean, and every decision is in `NOTES.md`.
+5. A Stage 2 playtest recorded in `docs/playtest.md`: Last Afloat rounds with hazards on and off. For each round, note whether sunk crews stayed involved as ghosts, which hazards people noticed, avoided or used, and whether they asked for another round.
+
+## Stage 1 — packs (built; combined playtest deferred)
 
 Answer one question: **do packs create "line it up… now!" moments for the crew?** Build on Stage 0 without changing how it plays when packs are off.
 
