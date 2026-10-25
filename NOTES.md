@@ -244,4 +244,28 @@ Asked for by the user after the slice 6 check matches; added as an extra Stage 1
 
 ## Later
 
-- (2026-10-25, Stage 5) Discuss different ship types: health, size, rate of fire, damage dealt.
+- **(2026-10-25, Stage 5) Ship types**, discussed with the user ahead of Stage 5 (not to build before then):
+  - **Five types:** Frigate, Cutter, Ironclad, Gunboat, Long gun. Settings: health, size, rate of fire, damage, gun range and energy (bar size and refill rate; boost and shield cost the same for all).
+  - **Speed and turning follow size** (bigger is slower and turns slower); not a separate setting.
+  - **Balance rule:** damage per second roughly equal (about 50), fine-tuned in playtesting; toughness, size, speed, range, energy and the Long gun's wider view are the trade-offs. Every type changes something for both the pilot and the gunner.
+  - **Packs do fixed amounts** whatever the type (today: torpedo 50, mine 40, health 40), so they matter more against small ships.
+  - **Size side effects are part of the trade:** a bigger ship reaches packs and sets off mines sooner, is easier to catch in an EMP and has less room around the island.
+  - **Picking:** the pilot picks the type in the lobby **before each match** (the crew agrees off-screen); locked during the match like seats. Both crews may pick the same type; a Fleet Battle fleet may mix types.
+  - **Looks:** each type has its own hull shape, plus the crew colour and symbol.
+  - **Range:** a setting of its own, paid for with lower damage per second or slower speed (so a ship can't win just by keeping its distance). **Shot speed is the same for all types**, so long shots stay slow and dodgeable at their far end. A long gun may set off mines from a safe distance (shooter credited, as now). The aiming line's length shows the type's range.
+  - **View:** the follow camera's view sets the longest range. **The Long gun crew's view zooms out slightly** (about 10–15%, enough for its full range plus a little margin): an exception for one ship type to "each player sees the same amount of sea" (which still holds across devices). It counts in the Long gun's balance and must be checked for readability on a small (667 px) phone.
+  - **Bots** use only the Frigate at first.
+  - **Timing:** stays in Stage 5; whether to move it earlier is decided after the Stage 1 playtest.
+  - **Measuring:** the summary reports figures per type, and the log records the distance each hit was landed from.
+  - **Visible damage (Stage 4):** shows when a ship's health drops below **25% of its own full health** (replaces "at or below one gun shot's damage").
+  - **Starting values** (approved by the user):
+
+    | Type | Health | Size | Speed | Fires every | Damage | Damage per second | Range | Energy bar | Refill per s | Notes |
+    |---|---|---|---|---|---|---|---|---|---|---|
+    | Frigate | 100 | 28 | 150 | 0.4 s | 20 | 50 | 600 | 100 | 5 | Today's ship |
+    | Cutter | 75 | 22 | 175 | 0.3 s | 15 | 50 | 450 | 80 | 6.5 | Small bar, quick refill |
+    | Ironclad | 140 | 34 | 125 | 0.6 s | 30 | 50 | 500 | 130 | 4 | Big bar, slow refill |
+    | Gunboat | 80 | 26 | 155 | 0.5 s | 27 | 54 | 450 | 100 | 5 | |
+    | Long gun | 85 | 30 | 145 | 0.7 s | 32 | 46 | 850 | 100 | 5 | View about 12% wider |
+
+    Speed is about 4 points per size point from the Frigate; turning slows the same way. Hits to sink against a Frigate gun (20): Cutter 4, Gunboat 4, Frigate 5, Long gun 5, Ironclad 7.

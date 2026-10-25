@@ -187,8 +187,8 @@ JCCJ builds it with Claude Code in TypeScript and Node.js, in six stages (0–5)
 | 1 · Packs | Mine, torpedo, EMP, health; signalled spawns | Do packs create "line it up… now!" moments? |
 | 2 · The sea fights back | Reefs, wrecks, whirlpool, kraken, closing storm, ghosts, Last Afloat | Do hazards and ghosts keep sunk crews involved? |
 | 3 · Full lobby | All lobby screens, bots, results and awards, spectator view (also usable by a host who only hosts and doesn't play), a simple lifebar for each ship, changing your name in the lobby before a match | Can a group get playing within 30 seconds? |
-| 4 · Polish and online | Sea-chart art, sound, tuning, cloud hosting, a styled lifebar to match the sea-chart art, flames, smoke or visible damage on a ship whose health is at or below one gun shot's damage | Is it ready for people outside the house? |
-| 5 · More ships | Up to 10 ships (20 players): Fleet Battle, rooms and seats, 10 crew colours with symbols, map size scaling with the number of ships, a camera that follows your ship and a minimap on larger maps, more start, respawn and pack spots, respawn away from all enemies; to discuss: different ship types based on health, size, rate of fire and damage dealt | Does the game hold up with up to 10 ships? |
+| 4 · Polish and online | Sea-chart art, sound, tuning, cloud hosting, a styled lifebar to match the sea-chart art, flames, smoke or visible damage on a ship whose health drops below 25% of full | Is it ready for people outside the house? |
+| 5 · More ships | Up to 10 ships (20 players): Fleet Battle, rooms and seats, 10 crew colours with symbols, map size scaling with the number of ships, a camera that follows your ship and a minimap on larger maps, more start, respawn and pack spots, respawn away from all enemies; five ship types (Frigate, Cutter, Ironclad, Gunboat, Long gun) differing in health, size (which sets speed and turning), rate of fire, damage, gun range and energy, picked by the pilot before each match | Does the game hold up with up to 10 ships? |
 
 ### Stage 0 tasks
 
