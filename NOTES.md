@@ -269,3 +269,14 @@ Asked for by the user after the slice 6 check matches; added as an extra Stage 1
     | Long gun | 85 | 30 | 145 | 0.7 s | 32 | 46 | 850 | 100 | 5 | View about 12% wider |
 
     Speed is about 4 points per size point from the Frigate; turning slows the same way. Hits to sink against a Frigate gun (20): Cutter 4, Gunboat 4, Frigate 5, Long gun 5, Ironclad 7.
+- **(2026-10-25, Stages 2 and 5) Island layouts**, discussed with the user ahead of time (not to build before then):
+  - **Layouts differ between matches**; terrain stays fixed during a match.
+  - **Hand-made first:** a small set of hand-made layouts; generating layouts from the match seed is a possible later step.
+  - **The host picks the layout** in the lobby, with **Random** as one option; a change applies from the next match (like the Packs toggle).
+  - **Mirrored**, so neither start has an advantage (with more than 2 ships in Stage 5: rotational symmetry, to settle then). With an odd number of islands, one sits on the centre line.
+  - **1–4 islands per layout**, from small rocks up to today's island size.
+  - **Some channels may be too narrow for big ships** (escape routes for small types), but every pack, start and respawn spot must be reachable by every type.
+  - **Each layout has its own pack, start and respawn spots**, checked automatically: open water, clear of islands, far enough apart, reachable by the biggest ship.
+  - **Split across stages:** Stage 2 gets a few fixed, mirrored layouts, designed together with reefs and wrecks (all ships are Frigates then, so "biggest ship" means the Frigate). Stage 5 gets layouts that scale with map size and the number of ships, and the checks against the bigger ship types.
+  - **Today's single-island map stays the default layout**, so the Stage 0 reference recording still holds with packs off.
+  - **Logging:** each match's start line records its layout; the summary header shows it (like Packs on/off).
