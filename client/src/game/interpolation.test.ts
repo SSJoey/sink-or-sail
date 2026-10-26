@@ -82,7 +82,7 @@ describe("SnapshotBuffer", () => {
 
 describe("moving storms (Stage 2)", () => {
   it("blend their position between snapshots, taking the phase from the newer one", () => {
-    const storm = (x: number, phase: string) => ({ kind: "movingStorm", phase, x, y: 300, heading: 0, timeLeft: 5 });
+    const storm = (x: number, phase: string) => ({ kind: "movingStorm", phase, x, y: 300, heading: 0, timeLeft: 5, spin: 0 });
     const buffer = new SnapshotBuffer();
     buffer.push({ ...snap(0, 0), hazards: new Map([["h", storm(100, "signalled")]]) });
     buffer.push({ ...snap(100, 0), hazards: new Map([["h", storm(110, "active")]]) });

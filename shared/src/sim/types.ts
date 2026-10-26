@@ -72,8 +72,8 @@ export interface Wreck {
   pack: PackType | null;
 }
 
-/** Stage 2 dynamic hazards (on the hazard timer). Only the moving storm so far; the whirlpool and kraken join later. */
-export type HazardKind = "movingStorm";
+/** Stage 2 dynamic hazards (on the hazard timer): the moving storm and the whirlpool; the kraken joins later. */
+export type HazardKind = "movingStorm" | "whirlpool";
 /** Signalled: its spot shows, it doesn't move or act. Active: it moves and acts. Fading: it still moves but no longer acts. */
 export type HazardPhase = "signalled" | "active" | "fading";
 export interface Hazard {
@@ -85,6 +85,8 @@ export interface Hazard {
   phase: HazardPhase;
   /** Seconds left in the current phase. */
   timeLeft: number;
+  /** Whirlpool: which way it turns on screen, 1 clockwise, -1 anticlockwise (0 for other kinds). */
+  spin: number;
 }
 
 /** When the closing storm starts closing and reaches its final circle (match seconds). */
@@ -190,7 +192,7 @@ export interface World {
   nextHazardIn: number | null;
   /** The hazard timer's own seeded generator state, so packs are the same with hazards on or off. */
   hazardRng: number;
-  /** Ships inside an active moving storm, as "ship:hazard". */
+  /** Ships inside an active moving storm or whirlpool, as "ship:hazard". */
   hazardContacts: string[];
   /** Stage 1: packs spawn only when on (set for the whole match). */
   packsOn: boolean;
@@ -233,12 +235,15 @@ export type SimEvent =
   | { type: "stormClosed" }
   | { type: "stormDamage"; ship: number; damage: number }
   /** Stage 2 dynamic hazards: signalled (where, and the way it will move), started acting, and stopped acting (then it fades). */
-  | { type: "hazardSignalled"; hazard: number; kind: HazardKind; pos: Vec; heading: number }
+  | { type: "hazardSignalled"; hazard: number; kind: HazardKind; pos: Vec; heading: number; spin?: number }
   | { type: "hazardStarted"; hazard: number; kind: HazardKind }
   | { type: "hazardEnded"; hazard: number; kind: HazardKind; reason: "time" | "edge" }
   /** A ship's centre entered or left an active moving storm (leaving includes the storm ending and the ship sinking). */
   | { type: "stormEntered"; ship: number; hazard: number }
   | { type: "stormLeft"; ship: number; hazard: number }
+  /** A ship's centre entered or left an active whirlpool's reach (leaving includes it ending and the ship sinking). */
+  | { type: "whirlpoolEntered"; ship: number; hazard: number }
+  | { type: "whirlpoolLeft"; ship: number; hazard: number }
   | { type: "respawned"; ship: number; pos: Vec }
   /** "lastAfloat": one ship (or none) left in a Last Afloat match; "time": the clock ran out. */
   | { type: "matchEnded"; winner: number | null; reason: "time" | "lastAfloat" }

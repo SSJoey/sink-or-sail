@@ -4,7 +4,7 @@ import { CREW_STYLES } from "./crews.ts";
 import { ShipEffects, type ShipEffect } from "./effects.ts";
 import { EmpRings } from "./empRing.ts";
 import { aimGuide, dashes, hullPoints, turretEnd } from "./hull.ts";
-import { cloudAlpha, hiddenByStorms } from "./hazardLook.ts";
+import { hazardAlpha, hiddenByStorms, whirlpoolArms } from "./hazardLook.ts";
 import type { Frame, HazardView, MineView, PackView, ShipView, WreckView } from "./interpolation.ts";
 import { blinkVisible, packBlinkVisible } from "./matchText.ts";
 import { gunnerFromMouse, pilotFromKeys } from "./laptopInput.ts";
@@ -44,6 +44,9 @@ const STORM_EDGE = 0x9aa3b5;
 const STORM_FLASH = 0xff4d4d;
 const MOVING_STORM_CLOUD = 0x3b4150;
 const MOVING_STORM_SWIRL = 0xc9d1e0;
+const WHIRLPOOL_WATER = 0x123d70;
+const WHIRLPOOL_FOAM = 0xcfeaff;
+const WHIRLPOOL_EYE = 0x08182f;
 
 export class GameScene extends Phaser.Scene {
   private g!: Phaser.GameObjects.Graphics;
@@ -118,6 +121,8 @@ export class GameScene extends Phaser.Scene {
     for (const reef of this.link.reefs()) this.reef(reef);
     for (const island of this.link.islands()) this.polygon(island, ISLAND_SAND, ISLAND_EDGE);
     if (frame) this.drawWrecks(frame.wrecks);
+    // Stage 2 whirlpools are water: drawn under everything that floats.
+    if (frame) this.drawWhirlpools(frame.hazards);
     // The storm covers the sea, islands and wrecks; packs, mines and ships stay clear on top of it.
     const stormRadius = this.link.stormRadius();
     if (stormRadius !== null) this.drawStorm(stormRadius);
@@ -415,7 +420,7 @@ export class GameScene extends Phaser.Scene {
         g.fillTriangle(tip.x + dir.x * 14, tip.y + dir.y * 14, tip.x - dir.y * 12, tip.y + dir.x * 12, tip.x + dir.y * 12, tip.y - dir.x * 12);
         continue;
       }
-      const alpha = cloudAlpha(h);
+      const alpha = hazardAlpha(h);
       if (alpha <= 0) continue;
       clouds.push({ x: h.x, y: h.y, alpha });
       g.fillStyle(MOVING_STORM_CLOUD, 0.96 * alpha);
@@ -449,6 +454,55 @@ export class GameScene extends Phaser.Scene {
         g.closePath();
         g.strokePath();
       }
+    }
+  }
+
+  /**
+   * Stage 2 whirlpools. Signalled: a dashed ring at the edge of its reach with arrows turning the way it will spin.
+   * Active: darker water out to its reach, three turning spiral arms of foam and a dark eye; it fades out at the end.
+   */
+  private drawWhirlpools(hazards: Map<string, HazardView>): void {
+    const g = this.g;
+    const W = TUNING.whirlpool;
+    const now = performance.now();
+    const t = now / 1000;
+    const pulse = (Math.sin(now / 150) + 1) / 2;
+    for (const h of hazards.values()) {
+      if (h.kind !== "whirlpool") continue;
+      if (h.phase === "signalled") {
+        const turn = h.spin * t * 0.8;
+        g.lineStyle(3, 0xffffff, 0.35 + 0.5 * pulse);
+        for (let i = 0; i < 60; i += 2) {
+          const a = (i / 60) * Math.PI * 2 + turn;
+          const b = ((i + 1) / 60) * Math.PI * 2 + turn;
+          g.lineBetween(h.x + W.reach * Math.cos(a), h.y + W.reach * Math.sin(a), h.x + W.reach * Math.cos(b), h.y + W.reach * Math.sin(b));
+        }
+        // Four arrowheads on the ring, pointing the way it will turn.
+        g.fillStyle(0xffffff, 0.35 + 0.5 * pulse);
+        for (let k = 0; k < 4; k++) {
+          const a = (k * Math.PI) / 2 + turn;
+          const p = { x: h.x + W.reach * Math.cos(a), y: h.y + W.reach * Math.sin(a) };
+          const along = { x: -Math.sin(a) * h.spin, y: Math.cos(a) * h.spin };
+          const out = { x: Math.cos(a), y: Math.sin(a) };
+          g.fillTriangle(p.x + along.x * 16, p.y + along.y * 16, p.x + out.x * 10, p.y + out.y * 10, p.x - out.x * 10, p.y - out.y * 10);
+        }
+        continue;
+      }
+      const alpha = hazardAlpha(h);
+      if (alpha <= 0) continue;
+      g.fillStyle(WHIRLPOOL_WATER, 0.45 * alpha);
+      g.fillCircle(h.x, h.y, W.reach);
+      g.lineStyle(2, WHIRLPOOL_FOAM, 0.25 * alpha);
+      g.strokeCircle(h.x, h.y, W.reach);
+      g.lineStyle(4, WHIRLPOOL_FOAM, 0.6 * alpha);
+      for (const arm of whirlpoolArms(h, t)) {
+        g.beginPath();
+        g.moveTo(arm[0]!.x, arm[0]!.y);
+        for (const p of arm.slice(1)) g.lineTo(p.x, p.y);
+        g.strokePath();
+      }
+      g.fillStyle(WHIRLPOOL_EYE, 0.85 * alpha);
+      g.fillCircle(h.x, h.y, W.eyeRadius);
     }
   }
 

@@ -41,6 +41,6 @@ export function snapshotFromState(state: GameStateView, t: number): Snapshot {
   const wrecks = new Map<string, WreckView>();
   state.wrecks.forEach((wreck, id) => wrecks.set(id, { health: wreck.health, hasPack: wreck.hasPack }));
   const hazards = new Map<string, HazardView>();
-  state.hazards.forEach((h, id) => hazards.set(id, { kind: h.kind, phase: h.phase, x: h.x, y: h.y, heading: h.heading, timeLeft: h.timeLeft }));
+  state.hazards.forEach((h, id) => hazards.set(id, { kind: h.kind, phase: h.phase, x: h.x, y: h.y, heading: h.heading, timeLeft: h.timeLeft, spin: h.spin }));
   return { t, ships, shots, packs, mines, torpedoes, wrecks, hazards };
 }

@@ -89,8 +89,9 @@ export function syncWorld(state: CrewState, world: World): void {
       synced.y = hazard.pos.y;
       synced.heading = hazard.heading;
       synced.timeLeft = hazard.timeLeft;
+      synced.spin = hazard.spin;
     } else {
-      state.hazards.set(id, new HazardState({ kind: hazard.kind, phase: hazard.phase, x: hazard.pos.x, y: hazard.pos.y, heading: hazard.heading, timeLeft: hazard.timeLeft }));
+      state.hazards.set(id, new HazardState({ kind: hazard.kind, phase: hazard.phase, x: hazard.pos.x, y: hazard.pos.y, heading: hazard.heading, timeLeft: hazard.timeLeft, spin: hazard.spin }));
     }
   }
 

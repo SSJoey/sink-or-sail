@@ -12,7 +12,7 @@ import { NO_INPUT, type Mine, type Ship, type ShipInput, type Shot, type SimEven
 import { add, distance, scale } from "./vec.ts";
 import { circleOverlapsPolygon, pointInPolygon } from "./geometry.ts";
 import { ramDamage, touchingWreck, wreckContactKey, wreckDamage } from "./wrecks.ts";
-import { pushByStorms, stormContacts, updateHazards } from "./hazards.ts";
+import { applyHazards, hazardContactsOf, updateHazards } from "./hazards.ts";
 import { inStorm, respawnInside, stormRadius, stormTicks } from "./storm.ts";
 import { aimTurret, fireGun, moveShot } from "./weapons.ts";
 
@@ -239,13 +239,14 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
     }
   }
 
-  // Stage 2 dynamic hazards: they move (and the timer signals the next); active moving storms carry ships inside.
-  const hazardUpdate = world.hazards.length > 0 || world.nextHazardIn !== null ? updateHazards(world, ships, dt) : null;
+  // Stage 2 dynamic hazards: they move (and the timer signals the next); active moving storms carry ships inside,
+  // active whirlpools pull them in and swirl them round.
+  const hazardUpdate = world.hazards.length > 0 || world.nextHazardIn !== null ? updateHazards(world, ships, dt, solids()) : null;
   const hazards = hazardUpdate?.hazards ?? world.hazards;
   if (hazardUpdate) {
     events.push(...hazardUpdate.events);
     for (let i = 0; i < ships.length; i++) {
-      if (!ships[i]!.sunk) ships[i] = pushByStorms(ships[i]!, hazards, dt);
+      if (!ships[i]!.sunk) ships[i] = applyHazards(ships[i]!, hazards, dt);
     }
   }
 
@@ -413,18 +414,19 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
     }
   }
 
-  // Stage 2: ships entering and leaving moving storms (leaving also when the storm ends or the ship sinks).
+  // Stage 2: ships entering and leaving moving storms and whirlpools (leaving also when it ends or the ship sinks).
   let hazardContacts = world.hazardContacts;
   if (hazardUpdate || hazardContacts.length > 0) {
-    hazardContacts = stormContacts(ships, hazards);
+    hazardContacts = hazardContactsOf(ships, hazards);
     const contact = (key: string) => key.split(":").map(Number) as [number, number];
+    const kindOf = (id: number) => (hazards.find((h) => h.id === id) ?? world.hazards.find((h) => h.id === id))?.kind;
     for (const key of hazardContacts.filter((k) => !world.hazardContacts.includes(k))) {
       const [ship, hazard] = contact(key);
-      events.push({ type: "stormEntered", ship, hazard });
+      events.push({ type: kindOf(hazard) === "whirlpool" ? "whirlpoolEntered" : "stormEntered", ship, hazard });
     }
     for (const key of world.hazardContacts.filter((k) => !hazardContacts.includes(k))) {
       const [ship, hazard] = contact(key);
-      events.push({ type: "stormLeft", ship, hazard });
+      events.push({ type: kindOf(hazard) === "whirlpool" ? "whirlpoolLeft" : "stormLeft", ship, hazard });
     }
   }
 

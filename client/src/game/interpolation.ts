@@ -57,7 +57,7 @@ export interface WreckView {
   hasPack: boolean;
 }
 
-/** Stage 2: a dynamic hazard on the sea (only the moving storm so far). */
+/** Stage 2: a dynamic hazard on the sea (a moving storm or a whirlpool). */
 export interface HazardView {
   kind: string;
   /** "signalled", "active" or "fading". */
@@ -67,6 +67,8 @@ export interface HazardView {
   heading: number;
   /** Seconds left in its phase. */
   timeLeft: number;
+  /** Whirlpool: 1 clockwise, -1 anticlockwise; 0 for other kinds. */
+  spin: number;
 }
 
 export interface ShotView {

@@ -260,10 +260,18 @@ describe("Stage 2: Last Afloat lines", () => {
     expect(lines({ type: "stormLeft", ship: 0, hazard: 2 })).toEqual([{ t: 1234, type: "stormLeft", ship: 0, crew, hazard: 2 }]);
   });
 
+  it("logs a whirlpool's spin when signalled, and ships entering and leaving its reach", () => {
+    expect(lines({ type: "hazardSignalled", hazard: 3, kind: "whirlpool", pos: { x: 500, y: 300 }, heading: 0, spin: -1 })).toEqual([
+      { t: 1234, type: "hazardSignalled", hazard: 3, kind: "whirlpool", x: 500, y: 300, heading: 0, spin: -1 },
+    ]);
+    expect(lines({ type: "whirlpoolEntered", ship: 0, hazard: 3 })).toEqual([{ t: 1234, type: "whirlpoolEntered", ship: 0, crew, hazard: 3 }]);
+    expect(lines({ type: "whirlpoolLeft", ship: 0, hazard: 3 })).toEqual([{ t: 1234, type: "whirlpoolLeft", ship: 0, crew, hazard: 3 }]);
+  });
+
   it("adds each hazard on the sea to the once-a-second lines", () => {
     const world = createWorld({ hazards: true });
     world.time = 12;
-    world.hazards = [{ id: 2, kind: "movingStorm", pos: { x: 400.04, y: 300 }, heading: 0, phase: "active", timeLeft: 5 }];
+    world.hazards = [{ id: 2, kind: "movingStorm", pos: { x: 400.04, y: 300 }, heading: 0, phase: "active", timeLeft: 5, spin: 0 }];
     expect(positionLines(world).filter((l) => l.type === "hazard")).toEqual([{ t: 12000, type: "hazard", hazard: 2, kind: "movingStorm", phase: "active", x: 400, y: 300 }]);
   });
 

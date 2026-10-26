@@ -74,7 +74,7 @@ export const WreckState = schema({
 }, "WreckState");
 export type WreckState = SchemaType<typeof WreckState>;
 
-/** Stage 2: a dynamic hazard on the sea (only the moving storm so far). */
+/** Stage 2: a dynamic hazard on the sea (a moving storm or a whirlpool). */
 export const HazardState = schema({
   kind: t.string(),
   /** "signalled", "active" or "fading". */
@@ -85,6 +85,8 @@ export const HazardState = schema({
   heading: t.float32(),
   /** Seconds left in its phase (clients fade a fading storm out with it). */
   timeLeft: t.float32(),
+  /** Whirlpool: 1 clockwise, -1 anticlockwise; 0 for other kinds. */
+  spin: t.int8(),
 }, "HazardState");
 export type HazardState = SchemaType<typeof HazardState>;
 

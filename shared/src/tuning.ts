@@ -100,6 +100,8 @@ export const TUNING = {
     clearance: 50,
     /** With no clear spot (or no ship afloat), the timer tries again after this many seconds. */
     retryAfter: 1,
+    /** Relative chance of each kind when the timer runs out. */
+    chances: { movingStorm: 1, whirlpool: 1 },
   },
   /** Stage 2 moving storm (approved 2026-10-26): pushes ships whose centre is inside; hides what's in it. No damage. */
   movingStorm: {
@@ -112,6 +114,23 @@ export const TUNING = {
     /** Speed a ship inside is carried along the storm's direction: slower than the drift, so the storm swallows
      *  a waiting ship and slowly passes over it (changed from 70, 2026-10-26: at 70 waiting ships rode its front edge). */
     push: 40,
+  },
+  /** Stage 2 whirlpool (approved 2026-10-26): stays put; pulls ships in and swirls them round; no damage. */
+  whirlpool: {
+    /** A ship whose centre is within this of the middle is pulled and swirled. */
+    reach: 180,
+    /** The eye: inside it the pull is stronger than full sail, so only boosting gets a ship out. */
+    eyeRadius: 35,
+    /** Inward pull: this at the edge of the reach, rising to `innerPull` at the eye's edge, and `eyePull` inside the eye. */
+    edgePull: 20,
+    innerPull: 90,
+    eyePull: 170,
+    /** Speed of the current round it (the slingshot: sailing with it is faster). */
+    swirl: 80,
+    /** Appears this far from the picked ship (its reach plus a ship plus the hazard clearance is 258, more than the usual 250). */
+    distanceFromShip: 260,
+    lifetime: 15,
+    fadeTime: 1,
   },
   /** Stage 2: Last Afloat (approved 2026-10-26). */
   lastAfloat: {

@@ -230,7 +230,7 @@ describe("moving storms in the synced state", () => {
   it("shows each hazard's kind, phase, place and heading, and drops it when gone", () => {
     const state = new CrewState();
     const world = createWorld({ hazards: true });
-    world.hazards = [{ id: 3, kind: "movingStorm", pos: { x: 400, y: 300 }, heading: 1.5, phase: "signalled", timeLeft: 2 }];
+    world.hazards = [{ id: 3, kind: "movingStorm", pos: { x: 400, y: 300 }, heading: 1.5, phase: "signalled", timeLeft: 2, spin: 0 }];
     syncWorld(state, world);
     const synced = state.hazards.get("3")!;
     expect([synced.kind, synced.phase, synced.x, synced.y]).toEqual(["movingStorm", "signalled", 400, 300]);
@@ -241,6 +241,10 @@ describe("moving storms in the synced state", () => {
     world.hazards = [];
     syncWorld(state, world);
     expect(state.hazards.size).toBe(0);
+    // A whirlpool carries its spin (a new match reuses the id).
+    world.hazards = [{ id: 3, kind: "whirlpool", pos: { x: 500, y: 300 }, heading: 0, phase: "active", timeLeft: 9, spin: -1 }];
+    syncWorld(state, world);
+    expect([state.hazards.get("3")!.kind, state.hazards.get("3")!.spin]).toEqual(["whirlpool", -1]);
   });
 });
 

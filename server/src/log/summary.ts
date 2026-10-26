@@ -35,6 +35,8 @@ export interface CrewSummary {
   stormDamage: number;
   /** Stage 2: seconds spent inside moving storms (a ship still inside counts to the end of the log). */
   movingStormTime: number;
+  /** Stage 2: seconds spent within whirlpools' reach (counted the same way). */
+  whirlpoolTime: number;
 }
 
 /** Stage 2: Last Afloat figures for one crew. */
@@ -162,18 +164,21 @@ export function summarise(lines: readonly Line[]): MatchSummary {
     if (emptySince !== null) emptyMs += endT - emptySince;
     if (lifeStart !== null) lifeLengths.push(endT - lifeStart);
     afloat.set(ship, lifeLengths.reduce((a, b) => a + b, 0) / 1000);
-    // Time in moving storms: each entry runs to the matching exit (or the end of the log).
-    const inStorm = new Map<unknown, number>();
-    let stormMs = 0;
-    for (const l of lines) {
-      if (l.ship !== ship) continue;
-      if (l.type === "stormEntered") inStorm.set(l.hazard, l.t);
-      if (l.type === "stormLeft" && inStorm.has(l.hazard)) {
-        stormMs += l.t - inStorm.get(l.hazard)!;
-        inStorm.delete(l.hazard);
+    // Time in moving storms and whirlpools: each entry runs to the matching exit (or the end of the log).
+    const timeIn = (entered: string, left: string) => {
+      const inside = new Map<unknown, number>();
+      let ms = 0;
+      for (const l of lines) {
+        if (l.ship !== ship) continue;
+        if (l.type === entered) inside.set(l.hazard, l.t);
+        if (l.type === left && inside.has(l.hazard)) {
+          ms += l.t - inside.get(l.hazard)!;
+          inside.delete(l.hazard);
+        }
       }
-    }
-    for (const since of inStorm.values()) stormMs += endT - since;
+      for (const since of inside.values()) ms += endT - since;
+      return ms / 1000;
+    };
     const sunkBy: Partial<Record<string, number>> = {};
     for (const l of mine("sunk")) if (typeof l.cause === "string") sunkBy[l.cause] = (sunkBy[l.cause] ?? 0) + 1;
 
@@ -197,7 +202,8 @@ export function summarise(lines: readonly Line[]): MatchSummary {
       wrecksDestroyed: mine("wreckDestroyed").length,
       wreckPacksReleased: lines.filter((l) => l.type === "wreckPackReleased" && mine("wreckDestroyed").some((d) => d.wreck === l.wreck)).length,
       stormDamage: Math.round(mine("stormDamage").reduce((sum, l) => sum + (l.damage as number), 0) * 10) / 10,
-      movingStormTime: stormMs / 1000,
+      movingStormTime: timeIn("stormEntered", "stormLeft"),
+      whirlpoolTime: timeIn("whirlpoolEntered", "whirlpoolLeft"),
     };
   });
 
@@ -345,10 +351,10 @@ export function formatSummary(s: MatchSummary): string {
     `${r1(c.emptySeconds)} s`,
     `${r1(c.averageSurvivalSeconds)} s (${c.lives})`,
     Object.entries(c.sunkBy).map(([cause, n]) => `${cause} ${n}`).join(" · ") || "—",
-    ...(s.hazardsOn ? [r1(c.movingStormTime), `${c.reefHits} (${r1(c.reefDamage)})`, `${c.wrecksDestroyed} (${c.wreckPacksReleased})`] : []),
+    ...(s.hazardsOn ? [r1(c.movingStormTime), r1(c.whirlpoolTime), `${c.reefHits} (${r1(c.reefDamage)})`, `${c.wrecksDestroyed} (${c.wreckPacksReleased})`] : []),
     ...(s.stormOn ? [r1(c.stormDamage)] : []),
   ]);
-  const head = ["Crew", "Pilot & Gunner", "Sinkings", "Shots", "Hits", "Blocked", "Accuracy", "Energy boost / shield", "Empty bar", "Avg survival (lives)", "Sunk by", ...(s.hazardsOn ? ["Time in moving storms (s)", "Reef hits (damage)", "Wrecks destroyed (packs released)"] : []), ...(s.stormOn ? ["Storm damage"] : [])];
+  const head = ["Crew", "Pilot & Gunner", "Sinkings", "Shots", "Hits", "Blocked", "Accuracy", "Energy boost / shield", "Empty bar", "Avg survival (lives)", "Sunk by", ...(s.hazardsOn ? ["Time in moving storms (s)", "Whirlpool time (s)", "Reef hits (damage)", "Wrecks destroyed (packs released)"] : []), ...(s.stormOn ? ["Storm damage"] : [])];
   const out = [header, "", ...table(head, rows)];
   if (s.lastAfloat) {
     const laRows = s.lastAfloat.map((c) => [`Crew ${c.ship + 1}`, ordinal(c.place), `${r1(c.afloatSeconds)} s`, String(c.livesUsed)]);

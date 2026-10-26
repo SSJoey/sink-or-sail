@@ -44,12 +44,14 @@ export function simEventLines(t: number, events: readonly SimEvent[], roster: Ro
       case "stormClosed": lines.push({ t, type: "stormClosed" }); break;
       case "stormDamage": lines.push({ t, type: "stormDamage", ...crew(e.ship), damage: r1(e.damage) }); break;
       case "hazardSignalled":
-        lines.push({ t, type: "hazardSignalled", hazard: e.hazard, kind: e.kind, x: r1(e.pos.x), y: r1(e.pos.y), heading: Math.round(e.heading * 1000) / 1000 });
+        lines.push({ t, type: "hazardSignalled", hazard: e.hazard, kind: e.kind, x: r1(e.pos.x), y: r1(e.pos.y), heading: Math.round(e.heading * 1000) / 1000, ...(e.spin !== undefined && { spin: e.spin }) });
         break;
       case "hazardStarted": lines.push({ t, type: "hazardStarted", hazard: e.hazard, kind: e.kind }); break;
       case "hazardEnded": lines.push({ t, type: "hazardEnded", hazard: e.hazard, kind: e.kind, reason: e.reason }); break;
       case "stormEntered": lines.push({ t, type: "stormEntered", ...crew(e.ship), hazard: e.hazard }); break;
       case "stormLeft": lines.push({ t, type: "stormLeft", ...crew(e.ship), hazard: e.hazard }); break;
+      case "whirlpoolEntered": lines.push({ t, type: "whirlpoolEntered", ...crew(e.ship), hazard: e.hazard }); break;
+      case "whirlpoolLeft": lines.push({ t, type: "whirlpoolLeft", ...crew(e.ship), hazard: e.hazard }); break;
       case "respawned": lines.push({ t, type: "respawn", ...crew(e.ship), x: r1(e.pos.x), y: r1(e.pos.y) }); break;
       case "bump": lines.push({ t, type: "bump", ships: e.ships, damage: [r1(e.damage[0]), r1(e.damage[1])] }); break;
       case "packSignalled": lines.push({ t, type: "packSignalled", pack: e.pack, spot: e.spot, packType: e.packType }); break;
