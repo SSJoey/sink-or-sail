@@ -74,6 +74,8 @@ describe("match start and end", () => {
       lives: null,
       layout: "oneIsland",
       layoutRandom: false,
+      hazardsOn: false,
+      reefs: "none",
       tuning: TUNING,
     });
   });
@@ -215,6 +217,11 @@ describe("Stage 1 EMP line", () => {
 describe("Stage 2: Last Afloat lines", () => {
   const crew = { pilot: "Joey", gunner: "Sam" };
   const lines = (e: SimEvent) => simEventLines(1234, [e], roster);
+
+  it("records hazards and reefs at match start, and logs reef hits", () => {
+    expect(matchStartLine("KWPZ", roster, { packsOn: true, seed: 1, mode: "sinkCount", lives: null, hazardsOn: true, reefs: "few" })).toMatchObject({ hazardsOn: true, reefs: "few" });
+    expect(lines({ type: "reefHit", ship: 0, damage: 5 })).toEqual([{ t: 1234, type: "reefHit", ship: 0, crew, damage: 5 }]);
+  });
 
   it("records the layout at match start, and whether Random picked it", () => {
     expect(matchStartLine("KWPZ", roster, { packsOn: true, seed: 1, mode: "sinkCount", lives: null, layout: "wall", layoutRandom: true })).toMatchObject({ layout: "wall", layoutRandom: true });

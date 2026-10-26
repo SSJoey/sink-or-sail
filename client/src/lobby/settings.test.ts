@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { TUNING } from "@sink-or-sail/shared";
-import { LAYOUT_CHOICES, LIFE_CHOICES, layoutText, livesShown, settingsText } from "./settings.ts";
+import { LAYOUT_CHOICES, LIFE_CHOICES, REEF_CHOICES, hazardsText, layoutText, livesShown, settingsText } from "./settings.ts";
 
 describe("room-screen match settings (Stage 2)", () => {
   it("tells non-hosts the mode, and the lives with Last Afloat", () => {
@@ -31,5 +31,17 @@ describe("layout setting (Stage 2)", () => {
     expect(layoutText("random", "wall")).toBe("Layout: Random → The Wall");
     expect(layoutText("slalom", "slalom")).toBe("Layout: Slalom");
     expect(layoutText("nonsense", null)).toBe("Layout: One Island");
+  });
+});
+
+describe("hazards and reefs (Stage 2 slice 3)", () => {
+  it("offers None, Few and All", () => {
+    expect(REEF_CHOICES).toEqual([{ value: "none", label: "None" }, { value: "few", label: "Few" }, { value: "all", label: "All" }]);
+  });
+
+  it("tells non-hosts the hazards and reefs settings", () => {
+    expect(hazardsText(true, "all")).toBe("Hazards: on · Reefs: All");
+    expect(hazardsText(true, "few")).toBe("Hazards: on · Reefs: Few");
+    expect(hazardsText(false, "all")).toBe("Hazards: off");
   });
 });

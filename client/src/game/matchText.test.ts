@@ -106,6 +106,7 @@ describe("Stage 2: Last Afloat texts", () => {
     expect(sinkBanner(2, "torpedo")).toBe("Sunk by ▲ Crew 3's torpedo");
     expect(sinkBanner(0, "bump")).toBe("Rammed by ● Crew 1");
     expect(sinkBanner(-1, "ownMine")).toBe("Sunk by your own mine");
+    expect(sinkBanner(-1, "reef")).toBe("Wrecked on a reef");
     // Nobody credited (a ship's own blast from a mine it shot): as in Stage 1.
     expect(sinkBanner(-1, "shot")).toBe("Sunk!");
   });
@@ -114,6 +115,7 @@ describe("Stage 2: Last Afloat texts", () => {
     expect(outBanner(1, "torpedo")).toBe("Out: sunk by ■ Crew 2's torpedo");
     expect(outBanner(0, "bump")).toBe("Out: rammed by ● Crew 1");
     expect(outBanner(-1, "ownMine")).toBe("Out: sunk by your own mine");
+    expect(outBanner(-1, "reef")).toBe("Out: wrecked on a reef");
     expect(outBanner(-1, "shot")).toBe("Out");
   });
 

@@ -10,6 +10,7 @@ import { chooseSpawn, respawnShip } from "./respawn.ts";
 import { keepInSea, pushOutOfIslands, separateShips, steerShip } from "./ship.ts";
 import { NO_INPUT, type Mine, type Ship, type ShipInput, type Shot, type SimEvent, type SinkCause, type Torpedo, type World } from "./types.ts";
 import { add, distance, scale } from "./vec.ts";
+import { pointInPolygon } from "./geometry.ts";
 import { aimTurret, fireGun, moveShot } from "./weapons.ts";
 
 /** Guards timer comparisons against float drift from adding dt many times. */
@@ -111,7 +112,7 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
       shieldEnergy: ship.shieldEnergy + energy.spent.shield,
     };
 
-    ship = steerShip(ship, input.pilot, ship.boosting, dt);
+    ship = steerShip(ship, input.pilot, ship.boosting, dt, ship.onReef ? TUNING.reef.speedFactor : 1);
 
     const fired = fireGun(ship, disabled ? { ...input.gunner, fire: false } : input.gunner, dt, nextShotId);
     ship = fired.ship;
@@ -196,6 +197,23 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
   // The islands and the sea edge win over ship pushes, so nothing ends up inside them.
   for (let i = 0; i < ships.length; i++) {
     if (!ships[i]!.sunk) ships[i] = keepInSea(pushOutOfIslands(ships[i]!, world.islands));
+  }
+
+  // Stage 2 reefs: a ship whose centre enters one takes a hit (not while protected); on one, it's slowed next step.
+  if (world.reefs.length > 0) {
+    for (let i = 0; i < ships.length; i++) {
+      const ship = ships[i]!;
+      if (ship.sunk) continue;
+      const onReef = world.reefs.some((reef) => pointInPolygon(ship.pos, reef));
+      if (onReef === ship.onReef) continue;
+      ships[i] = { ...ship, onReef };
+      if (!onReef || ship.protection > 0) continue;
+      const damage = TUNING.ship.maxHealth * TUNING.reef.damage;
+      const hurt = damageShip(ships[i]!, damage);
+      ships[i] = hurt.ship;
+      events.push({ type: "reefHit", ship: ship.id, damage });
+      if (hurt.sank) sink(i, null, "reef");
+    }
   }
 
   // Stage 1 packs: the spawn clock runs, then ships take packs they touch (so a clock restarted by a

@@ -121,6 +121,28 @@ describe.each(all.map((l) => [l.name, l] as [string, Layout]))("%s", (_name, l) 
     }
   });
 
+  it("has reefs (Stage 2 slice 3): mirrored both ways, clear of every spot and of the islands; Few is part of All", () => {
+    expect(l.reefs.length).toBeGreaterThanOrEqual(2);
+    expect(l.fewReefs.length).toBeGreaterThanOrEqual(1);
+    for (const reef of l.fewReefs) expect(l.reefs).toContain(reef);
+    for (const mirror of [mirrorX, mirrorY]) {
+      for (const reef of l.reefs) expect(l.reefs.some((other) => sameSpots(reef.map(mirror), other))).toBe(true);
+    }
+    const spots = [...l.starts, ...l.starts3, ...SPAWN_POINTS, ...l.packSpots, ...l.packSpots3];
+    for (const reef of l.reefs) {
+      for (const spot of spots) {
+        expect(pointInPolygon(spot, reef) || circleOverlapsPolygon(spot, 2 * R + 12, reef) !== null, JSON.stringify(spot)).toBe(false);
+      }
+      for (const island of l.islands) expect(islandGap(reef, island)).toBeGreaterThan(0);
+      expect(reef.every((p) => p.x > 0 && p.x < W && p.y > 0 && p.y < H)).toBe(true);
+    }
+  });
+
+  it("Few reefs look the same from either 2-ship start (each mirrored through the middle)", () => {
+    const throughMiddle = (p: Vec): Vec => ({ x: W - p.x, y: H - p.y });
+    for (const reef of l.fewReefs) expect(l.fewReefs.some((other) => sameSpots(reef.map(throughMiddle), other))).toBe(true);
+  });
+
   it(`leaves every channel at least ${MIN_CHANNEL} wide, between islands and to the sea edge`, () => {
     for (let i = 0; i < l.islands.length; i++) {
       expect(edgeGap(l.islands[i]!), `island ${i} to the edge`).toBeGreaterThanOrEqual(MIN_CHANNEL);

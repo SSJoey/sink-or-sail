@@ -100,6 +100,11 @@ export const CrewState = schema({
   layout: t.string().default("oneIsland"),
   /** The layout of the current (or last) match, which clients draw. */
   matchLayout: t.string().default("oneIsland"),
+  /** Room settings for the next match (host only, Stage 2): hazards on/off and the amount of reefs. */
+  hazardsEnabled: t.boolean().default(true),
+  reefs: t.string().default("all"),
+  /** The reefs of the current (or last) match: "none" with hazards off. Clients draw the layout's reefs from it. */
+  matchReefs: t.string().default("none"),
   /** Keyed by pack id. */
   packs: t.map(PackState),
   /** Keyed by mine id. */

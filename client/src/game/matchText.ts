@@ -16,6 +16,7 @@ export function countdownLabel(phase: string, countdown: number, timeLeft: numbe
 /** What sank the crew's ship; `cause` is a SinkCause, or "" when not known. */
 export function sinkBanner(sunkBy: number, cause = ""): string {
   if (cause === "ownMine") return "Sunk by your own mine";
+  if (cause === "reef") return "Wrecked on a reef";
   if (sunkBy < 0) return "Sunk!";
   const crew = crewLabel(sunkBy);
   switch (cause) {

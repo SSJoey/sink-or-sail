@@ -36,6 +36,7 @@
       #hud-pack { white-space: nowrap; }
       /* Host's mode buttons: the chosen one is highlighted. */
       .mode-btn[aria-pressed="true"] { background: #ffd166; color: #0b2545; font-weight: bold; }
+      #hazards-host { margin-right: 16px; }
       #hud-emp { color: #7fd8ff; white-space: nowrap; }
       /* EMP'd crew: every button dim (the stick still steers). */
       #touch.emp .touch-btn { opacity: 0.25; }
@@ -78,6 +79,11 @@
         <label id="lives-host" hidden>Lives <select id="lives-select"></select></label>
       </p>
       <p id="mode-status"></p>
+      <p>
+        <label id="hazards-host" hidden><input type="checkbox" id="hazards-toggle" /> Hazards on</label>
+        <label id="reefs-host" hidden>Reefs <select id="reefs-select"></select></label>
+        <span id="hazards-status"></span>
+      </p>
       <p>
         <label id="layout-host" hidden>Layout <select id="layout-select"></select></label>
         <span id="layout-status"></span>

@@ -18,7 +18,7 @@ import { renderResult, startGame, type GameHandle, type PlayerView, type RoomSta
 import { joinErrorText, rejectedText } from "./messages.ts";
 import { reloadIfNewBuild } from "./newBuild.ts";
 import { leaveSeatShown, seatAction } from "./seatButtons.ts";
-import { LAYOUT_CHOICES, LIFE_CHOICES, layoutText, livesShown, settingsText } from "./settings.ts";
+import { LAYOUT_CHOICES, LIFE_CHOICES, REEF_CHOICES, hazardsText, layoutText, livesShown, settingsText } from "./settings.ts";
 import { clearToken, loadToken, saveToken } from "./reconnectToken.ts";
 
 /** The parts of the server's room state the lobby reads. */
@@ -93,6 +93,11 @@ export function startLobby(): void {
     const lives = byId<HTMLSelectElement>("lives-select");
     lives.replaceChildren(...LIFE_CHOICES.map((n) => new Option(String(n), String(n))));
     lives.onchange = () => room.send(ClientMessage.SetLives, { lives: Number(lives.value) });
+    byId<HTMLInputElement>("hazards-toggle").onchange = (e) =>
+      room.send(ClientMessage.SetHazards, { on: (e.target as HTMLInputElement).checked });
+    const reefs = byId<HTMLSelectElement>("reefs-select");
+    reefs.replaceChildren(...REEF_CHOICES.map((c) => new Option(c.label, c.value)));
+    reefs.onchange = () => room.send(ClientMessage.SetReefs, { reefs: reefs.value });
     const layout = byId<HTMLSelectElement>("layout-select");
     layout.replaceChildren(...LAYOUT_CHOICES.map((c) => new Option(c.label, c.value)));
     layout.onchange = () => room.send(ClientMessage.SetLayout, { layout: layout.value });
@@ -164,6 +169,17 @@ export function startLobby(): void {
     lives.value = String(state.lives);
     lives.disabled = matchOn;
     byId("mode-status").textContent = isHost ? "" : settingsText(state.mode, state.lives);
+
+    // Hazards and reefs: the host's checkbox and dropdown (reefs greyed out with hazards off); others see the settings.
+    byId("hazards-host").hidden = !isHost;
+    byId("reefs-host").hidden = !isHost;
+    const hazards = byId<HTMLInputElement>("hazards-toggle");
+    hazards.checked = state.hazardsEnabled;
+    hazards.disabled = matchOn;
+    const reefs = byId<HTMLSelectElement>("reefs-select");
+    reefs.value = state.reefs;
+    reefs.disabled = matchOn || !state.hazardsEnabled;
+    byId("hazards-status").textContent = isHost ? "" : hazardsText(state.hazardsEnabled, state.reefs);
 
     // Layout: the host's dropdown; others see the setting. With Random, everyone sees what it picked.
     byId("layout-host").hidden = !isHost;

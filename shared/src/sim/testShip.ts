@@ -26,6 +26,7 @@ export function testShip(overrides: Partial<Ship> = {}): Ship {
     disabled: 0,
     livesLeft: null,
     out: false,
+    onReef: false,
     ...overrides,
   };
 }

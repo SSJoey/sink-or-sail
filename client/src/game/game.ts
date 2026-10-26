@@ -1,6 +1,6 @@
 import * as Phaser from "phaser";
 import type { Room } from "@colyseus/sdk";
-import { ClientMessage, DEFAULT_LAYOUT, LAYOUTS, Phase, TUNING, isLayoutId, rolePack, type PackType, type Role } from "@sink-or-sail/shared";
+import { ClientMessage, DEFAULT_LAYOUT, LAYOUTS, Phase, TUNING, isLayoutId, isReefAmount, reefsFor, rolePack, type PackType, type Role } from "@sink-or-sail/shared";
 import { CREW_STYLES } from "./crews.ts";
 import { GameScene } from "./GameScene.ts";
 import type { ShipEffect } from "./effects.ts";
@@ -37,6 +37,10 @@ export interface RoomStateView extends GameStateView {
   /** The layout setting ("random" or a layout id) and the current (or last) match's layout. */
   layout: string;
   matchLayout: string;
+  /** Hazards on/off and the reefs setting for the next match; the reefs of the current (or last) match. */
+  hazardsEnabled: boolean;
+  reefs: string;
+  matchReefs: string;
   phase: string;
   pausedBy: string;
   countdown: number;
@@ -112,6 +116,10 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
     islands: () => {
       const id = (room.state as RoomStateView).matchLayout;
       return LAYOUTS[isLayoutId(id) ? id : DEFAULT_LAYOUT].islands;
+    },
+    reefs: () => {
+      const state = room.state as RoomStateView;
+      return reefsFor(isLayoutId(state.matchLayout) ? state.matchLayout : DEFAULT_LAYOUT, isReefAmount(state.matchReefs) ? state.matchReefs : "none");
     },
     seat,
     touch,

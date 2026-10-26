@@ -36,7 +36,7 @@ export const GAME_MODES = ["sinkCount", "lastAfloat"] as const;
 export type GameMode = (typeof GAME_MODES)[number];
 
 /** What sank a ship. A mine set off by a shot or a torpedo counts as that weapon; "ownMine" is a ship's own mine it sailed into. */
-export type SinkCause = "shot" | "mine" | "ownMine" | "torpedo" | "bump";
+export type SinkCause = "shot" | "mine" | "ownMine" | "torpedo" | "bump" | "reef";
 
 /** A pack on the map. While `signalLeft` > 0 its spot is glowing and it can't be picked up yet. */
 export interface Pack {
@@ -102,6 +102,8 @@ export interface Ship {
   livesLeft: number | null;
   /** Last Afloat: sunk on its last life; it stays sunk for the rest of the match. */
   out: boolean;
+  /** Stage 2: its centre was over a reef after the last step (entering one hurts). */
+  onReef: boolean;
 }
 
 export interface Shot {
@@ -126,6 +128,9 @@ export interface World {
   /** Stage 2: the match's island layout and its islands (One Island by default). */
   layout: LayoutId;
   islands: readonly Polygon[];
+  /** Stage 2: hazards on for the whole match; `reefs` are the match's reefs (none with hazards off). */
+  hazardsOn: boolean;
+  reefs: readonly Polygon[];
   /** Stage 1: packs spawn only when on (set for the whole match). */
   packsOn: boolean;
   /** Seeded generator state; the same seed gives the same packs. */
@@ -156,6 +161,8 @@ export type SimEvent =
   | { type: "sunk"; ship: number; by: number | null; cause: SinkCause; livesLeft?: number }
   /** Last Afloat: sunk on its last life. */
   | { type: "crewOut"; ship: number }
+  /** Stage 2: a ship's centre entered a reef (not counted while protected). */
+  | { type: "reefHit"; ship: number; damage: number }
   | { type: "respawned"; ship: number; pos: Vec }
   /** "lastAfloat": one ship (or none) left in a Last Afloat match; "time": the clock ran out. */
   | { type: "matchEnded"; winner: number | null; reason: "time" | "lastAfloat" }

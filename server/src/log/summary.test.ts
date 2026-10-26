@@ -44,8 +44,8 @@ describe("summarise", () => {
 
   it("gives the exact per-crew numbers", () => {
     expect(summary.crews).toEqual([
-      { ship: 0, pilot: "Ann", gunner: "Bob", sinkings: 0, shots: 3, hits: 1, blocked: 1, accuracy: 1 / 3, boostEnergy: 50.5, shieldEnergy: 0, emptySeconds: 2, averageSurvivalSeconds: 13.5, lives: 2, sunkBy: {} },
-      { ship: 1, pilot: "Cat", gunner: null, sinkings: 1, shots: 1, hits: 0, blocked: 0, accuracy: 0, boostEnergy: 0, shieldEnergy: 30, emptySeconds: 5, averageSurvivalSeconds: 30, lives: 1, sunkBy: {} },
+      { ship: 0, pilot: "Ann", gunner: "Bob", sinkings: 0, shots: 3, hits: 1, blocked: 1, accuracy: 1 / 3, boostEnergy: 50.5, shieldEnergy: 0, emptySeconds: 2, averageSurvivalSeconds: 13.5, lives: 2, sunkBy: {}, reefHits: 0, reefDamage: 0 },
+      { ship: 1, pilot: "Cat", gunner: null, sinkings: 1, shots: 1, hits: 0, blocked: 0, accuracy: 0, boostEnergy: 0, shieldEnergy: 30, emptySeconds: 5, averageSurvivalSeconds: 30, lives: 1, sunkBy: {}, reefHits: 0, reefDamage: 0 },
     ]);
   });
 
@@ -378,5 +378,36 @@ describe("Stage 2: Last Afloat in the summary", () => {
     expect(text).toMatch(/^Crew 2\s+3rd\s+47 s\s+2$/m);
     expect(text).toContain("shot 1 · mine 1");
     expect(formatSummary(summarise(parseLog(sampleText)))).toContain("· Sink Count");
+  });
+});
+
+describe("Stage 2: hazards and reefs in the summary", () => {
+  const crew = { pilot: "Ann", gunner: "Bob" };
+  const lines = [
+    { t: 0, type: "matchStart", room: "REEF", crews: [{ ship: 0, ...crew }, { ship: 1, pilot: "Cat", gunner: null }], packsOn: false, seed: 1, mode: "sinkCount", lives: null, layout: "oneIsland", hazardsOn: true, reefs: "few", tuning: {} },
+    { t: 5000, type: "reefHit", ship: 0, crew, damage: 5 },
+    { t: 9000, type: "reefHit", ship: 0, crew, damage: 5 },
+    { t: 20000, type: "sunk", ship: 0, crew, by: null, cause: "reef" },
+    { t: 30000, type: "matchEnd", winner: null, endedEarly: false, reason: "time", scores: [] },
+  ];
+
+  it("reads hazards and the reefs setting (logs from before hazards: off)", () => {
+    const s = summarise(lines);
+    expect([s.hazardsOn, s.reefs]).toEqual([true, "few"]);
+    expect([summarise(parseLog(sampleText)).hazardsOn]).toEqual([false]);
+  });
+
+  it("counts each crew's reef hits and reef damage", () => {
+    expect(summarise(lines).crews.map((c) => [c.reefHits, c.reefDamage])).toEqual([[2, 10], [0, 0]]);
+  });
+
+  it("prints hazards and reefs in the header, and a Reef hits column with hazards on", () => {
+    const text = formatSummary(summarise(lines));
+    expect(text).toContain("· Hazards on, reefs Few");
+    expect(text).toContain("Reef hits");
+    expect(text).toMatch(/^Crew 1 .* 2 \(10\)/m);
+    const old = formatSummary(summarise(parseLog(sampleText)));
+    expect(old).toContain("· Hazards off");
+    expect(old).not.toContain("Reef hits");
   });
 });

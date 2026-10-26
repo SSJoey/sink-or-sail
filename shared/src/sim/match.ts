@@ -1,5 +1,5 @@
 import { TUNING } from "../tuning.ts";
-import { DEFAULT_LAYOUT, LAYOUTS, type LayoutId } from "./layouts.ts";
+import { DEFAULT_LAYOUT, LAYOUTS, reefsFor, type LayoutId, type ReefAmount } from "./layouts.ts";
 import { SEA_CENTRE } from "./map.ts";
 import type { GameMode, Ship, World } from "./types.ts";
 import { angleOf, sub } from "./vec.ts";
@@ -17,6 +17,10 @@ export interface WorldOptions {
   lives?: number;
   /** Stage 2: the island layout (default One Island, today's map). */
   layout?: LayoutId;
+  /** Stage 2 hazards; off by default, which plays exactly as Stage 1. */
+  hazards?: boolean;
+  /** With hazards on: None, Few or All (default) of the layout's reefs. */
+  reefs?: ReefAmount;
 }
 
 export function createWorld(options: WorldOptions = {}): World {
@@ -50,6 +54,7 @@ export function createWorld(options: WorldOptions = {}): World {
       disabled: 0,
       livesLeft,
       out: false,
+      onReef: false,
     };
   });
   return {
@@ -62,6 +67,8 @@ export function createWorld(options: WorldOptions = {}): World {
     mode,
     layout: layout.id,
     islands: layout.islands,
+    hazardsOn: options.hazards ?? false,
+    reefs: options.hazards ? reefsFor(layout.id, options.reefs ?? "all") : [],
     packsOn,
     rng: (options.seed ?? 1) >>> 0,
     packs: [],

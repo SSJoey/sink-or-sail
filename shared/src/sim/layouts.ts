@@ -21,7 +21,14 @@ export interface Layout {
   /** 3-ship starts, by ship id, and pack spots: hand-placed to be roughly fair. */
   starts3: readonly Vec[];
   packSpots3: readonly Vec[];
+  /** Stage 2 reefs (slice 3, approved 2026-10-26): every reef ("All"), and the host's "Few" set (part of All). */
+  reefs: readonly Polygon[];
+  fewReefs: readonly Polygon[];
 }
+
+/** The host's Reefs setting (only with hazards on). */
+export const REEF_AMOUNTS = ["none", "few", "all"] as const;
+export type ReefAmount = (typeof REEF_AMOUNTS)[number];
 
 /** Radius factors for the 8 points of a rock, from east clockwise: irregular, but the same mirrored both ways. */
 const ROCK_SHAPE = [1, 0.8, 0.95, 0.8, 1, 0.8, 0.95, 0.8];
@@ -42,6 +49,9 @@ const fourWays = (x: number, y: number, rx: number, ry = rx): Polygon[] => [rock
 /** A rock on the middle line across (y = middle) or down (x = middle), plus its mirror image. */
 const acrossPair = (x: number, rx: number, ry = rx): Polygon[] => [rock(x, SEA_CENTRE.y, rx, ry), rock(W - x, SEA_CENTRE.y, rx, ry)];
 const downPair = (y: number, rx: number, ry = rx): Polygon[] => [rock(SEA_CENTRE.x, y, rx, ry), rock(SEA_CENTRE.x, H - y, rx, ry)];
+/** Two of a fourWays group: top-left and bottom-right, mirrored through the middle (the same from either 2-ship start). */
+const diagonal = (group: readonly Polygon[]): Polygon[] => [group[0]!, group[3]!];
+const middle = (rx: number, ry = rx): Polygon => rock(SEA_CENTRE.x, SEA_CENTRE.y, rx, ry);
 
 /** Spots mirrored the same way as the rocks. */
 const spots4 = (x: number, y: number): Vec[] => [{ x, y }, { x: W - x, y }, { x, y: H - y }, { x: W - x, y: H - y }];
@@ -61,6 +71,17 @@ const gapSpots = (first: number, spread: number, r: number): Vec[] =>
 
 const TWO_STARTS = START_POINTS;
 
+// Reefs, hand-placed per layout; "Few" keeps a diagonal pair of a group of four, or the middle reef.
+const ONE_ISLAND_REEFS = fourWays(700, 275, 45, 35);
+const TWIN_MIDDLE = middle(90, 55);
+const STRAIT_REEFS = fourWays(450, 300, 45, 35);
+const FOUR_ROCKS_MIDDLE = middle(45, 35);
+const CROSSROADS_MIDDLE = middle(60);
+const WALL_REEFS = acrossPair(560, 45, 120);
+const RING_SIDES = acrossPair(500, 45, 35);
+const ARCHIPELAGO_REEFS = fourWays(700, 350, 45, 35);
+const SLALOM_REEFS = fourWays(625, 325, 45, 35);
+
 export const LAYOUTS: Readonly<Record<LayoutId, Layout>> = {
   oneIsland: {
     id: "oneIsland",
@@ -70,6 +91,8 @@ export const LAYOUTS: Readonly<Record<LayoutId, Layout>> = {
     packSpots: PACK_SPOTS,
     starts3: START_POINTS_3,
     packSpots3: PACK_SPOTS_3,
+    reefs: ONE_ISLAND_REEFS,
+    fewReefs: diagonal(ONE_ISLAND_REEFS),
   },
   twinIsles: {
     id: "twinIsles",
@@ -79,6 +102,8 @@ export const LAYOUTS: Readonly<Record<LayoutId, Layout>> = {
     packSpots: [...spots4(450, 250), ...spotsAcross(620)],
     starts3: triangle(180, 430),
     packSpots3: gapSpots(0, 10, 405),
+    reefs: [TWIN_MIDDLE, ...fourWays(330, 300, 55, 40)],
+    fewReefs: [TWIN_MIDDLE],
   },
   strait: {
     id: "strait",
@@ -89,6 +114,8 @@ export const LAYOUTS: Readonly<Record<LayoutId, Layout>> = {
     packSpots: [...spotsDown(62), ...spotsAcross(500), ...spotsDown(310)],
     starts3: triangle(0, 430),
     packSpots3: gapSpots(30, 30, 165),
+    reefs: STRAIT_REEFS,
+    fewReefs: diagonal(STRAIT_REEFS),
   },
   fourRocks: {
     id: "fourRocks",
@@ -98,6 +125,8 @@ export const LAYOUTS: Readonly<Record<LayoutId, Layout>> = {
     packSpots: [...spots4(650, 330), ...spotsDown(80)],
     starts3: triangle(150, 420),
     packSpots3: gapSpots(90, 10, 390),
+    reefs: [FOUR_ROCKS_MIDDLE, ...fourWays(275, 325, 45, 35)],
+    fewReefs: [FOUR_ROCKS_MIDDLE],
   },
   crossroads: {
     id: "crossroads",
@@ -107,6 +136,8 @@ export const LAYOUTS: Readonly<Record<LayoutId, Layout>> = {
     packSpots: [...spotsAcross(560), ...spotsDown(250), ...spotsDown(90)],
     starts3: [{ x: 352, y: 791 }, { x: 1248, y: 791 }, { x: 800, y: 123 }],
     packSpots3: [{ x: 476, y: 438 }, { x: 1124, y: 438 }, { x: 407, y: 97 }, { x: 1193, y: 97 }, { x: 86, y: 435 }, { x: 1514, y: 435 }],
+    reefs: [CROSSROADS_MIDDLE, ...acrossPair(270, 40, 90)],
+    fewReefs: [CROSSROADS_MIDDLE],
   },
   wall: {
     id: "wall",
@@ -116,6 +147,8 @@ export const LAYOUTS: Readonly<Record<LayoutId, Layout>> = {
     packSpots: [...spotsDown(75), ...spots4(500, 300)],
     starts3: triangle(180, 430),
     packSpots3: gapSpots(0, 10, 350),
+    reefs: WALL_REEFS,
+    fewReefs: WALL_REEFS,
   },
   ring: {
     id: "ring",
@@ -128,6 +161,8 @@ export const LAYOUTS: Readonly<Record<LayoutId, Layout>> = {
     packSpots: [...spotsDown(300), ...spots4(400, 250)],
     starts3: triangle(180, 430),
     packSpots3: gapSpots(30, 30, 120),
+    reefs: [...RING_SIDES, ...fourWays(650, 190, 45, 35)],
+    fewReefs: RING_SIDES,
   },
   archipelago: {
     id: "archipelago",
@@ -144,6 +179,8 @@ export const LAYOUTS: Readonly<Record<LayoutId, Layout>> = {
     packSpots: [...spots4(560, 360), ...spotsDown(175)],
     starts3: triangle(150, 360),
     packSpots3: gapSpots(90, 10, 365),
+    reefs: ARCHIPELAGO_REEFS,
+    fewReefs: diagonal(ARCHIPELAGO_REEFS),
   },
   slalom: {
     id: "slalom",
@@ -162,6 +199,8 @@ export const LAYOUTS: Readonly<Record<LayoutId, Layout>> = {
     packSpots: [...spots4(640, 105), ...spotsAcross(480)],
     starts3: triangle(150, 360),
     packSpots3: gapSpots(90, 10, 365),
+    reefs: SLALOM_REEFS,
+    fewReefs: diagonal(SLALOM_REEFS),
   },
 };
 
@@ -177,3 +216,11 @@ export function randomLayout(seed: number, previous: LayoutId | null): LayoutId 
   const choices = LAYOUT_IDS.filter((id) => id !== previous);
   return choices[randomIndex(seed >>> 0, choices.length).value]!;
 }
+
+/** The reefs a match has: none with hazards off; otherwise the host's None, Few or All of the layout's. */
+export function reefsFor(layout: LayoutId, amount: ReefAmount): readonly Polygon[] {
+  if (amount === "none") return [];
+  return amount === "few" ? LAYOUTS[layout].fewReefs : LAYOUTS[layout].reefs;
+}
+
+export const isReefAmount = (value: unknown): value is ReefAmount => (REEF_AMOUNTS as readonly unknown[]).includes(value);

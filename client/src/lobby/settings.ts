@@ -26,3 +26,16 @@ export function layoutText(setting: string, inUse: string | null): string {
   if (setting !== RANDOM_LAYOUT) return `Layout: ${layoutName(setting)}`;
   return inUse ? `Layout: Random → ${layoutName(inUse)}` : "Layout: Random";
 }
+
+/** The host's Reefs dropdown (used only with hazards on). */
+export const REEF_CHOICES: readonly { value: string; label: string }[] = [
+  { value: "none", label: "None" },
+  { value: "few", label: "Few" },
+  { value: "all", label: "All" },
+];
+
+/** What non-hosts see of the next match's hazards: "Hazards: on · Reefs: All", or "Hazards: off". */
+export function hazardsText(on: boolean, reefs: string): string {
+  if (!on) return "Hazards: off";
+  return `Hazards: on · Reefs: ${REEF_CHOICES.find((c) => c.value === reefs)?.label ?? "All"}`;
+}

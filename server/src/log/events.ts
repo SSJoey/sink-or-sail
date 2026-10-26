@@ -1,4 +1,4 @@
-import { DEFAULT_LAYOUT, TUNING, type GameMode, type LayoutId, type Role, type Seat, type SimEvent, type World } from "@sink-or-sail/shared";
+import { DEFAULT_LAYOUT, TUNING, type GameMode, type LayoutId, type ReefAmount, type Role, type Seat, type SimEvent, type World } from "@sink-or-sail/shared";
 
 /** Who crews each ship (index = ship id); null for an empty seat. */
 export type Roster = { pilot: string | null; gunner: string | null }[];
@@ -32,6 +32,7 @@ export function simEventLines(t: number, events: readonly SimEvent[], roster: Ro
       case "protectionEnded": lines.push({ t, type: "protectionEnded", ...crew(e.ship) }); break;
       case "sunk": lines.push({ t, type: "sunk", ...crew(e.ship), by: e.by, cause: e.cause, ...(e.livesLeft !== undefined && { livesLeft: e.livesLeft }) }); break;
       case "crewOut": lines.push({ t, type: "crewOut", ...crew(e.ship) }); break;
+      case "reefHit": lines.push({ t, type: "reefHit", ...crew(e.ship), damage: r1(e.damage) }); break;
       case "respawned": lines.push({ t, type: "respawn", ...crew(e.ship), x: r1(e.pos.x), y: r1(e.pos.y) }); break;
       case "bump": lines.push({ t, type: "bump", ships: e.ships, damage: [r1(e.damage[0]), r1(e.damage[1])] }); break;
       case "packSignalled": lines.push({ t, type: "packSignalled", pack: e.pack, spot: e.spot, packType: e.packType }); break;
@@ -69,7 +70,7 @@ export function simEventLines(t: number, events: readonly SimEvent[], roster: Ro
   return lines;
 }
 
-export function matchStartLine(room: string, roster: Roster, match: { packsOn: boolean; seed: number; mode: GameMode; lives: number | null; layout?: LayoutId; layoutRandom?: boolean }): LogLine {
+export function matchStartLine(room: string, roster: Roster, match: { packsOn: boolean; seed: number; mode: GameMode; lives: number | null; layout?: LayoutId; layoutRandom?: boolean; hazardsOn?: boolean; reefs?: ReefAmount }): LogLine {
   return {
     t: 0,
     type: "matchStart",
@@ -81,6 +82,8 @@ export function matchStartLine(room: string, roster: Roster, match: { packsOn: b
     lives: match.lives,
     layout: match.layout ?? DEFAULT_LAYOUT,
     layoutRandom: match.layoutRandom ?? false,
+    hazardsOn: match.hazardsOn ?? false,
+    reefs: match.reefs ?? "none",
     tuning: TUNING,
   };
 }

@@ -659,6 +659,46 @@ describe("island layouts (Stage 2)", () => {
   });
 });
 
+describe("hazards and reefs (Stage 2)", () => {
+  it("hazards on and reefs All by default; only the host changes them, between matches; malformed is ignored", async () => {
+    const { room, pilot, gunner } = await crewedRoom();
+    expect([room.state.hazardsEnabled, room.state.reefs]).toEqual([true, "all"]);
+    gunner.send(ClientMessage.SetHazards, { on: false });
+    gunner.send(ClientMessage.SetReefs, { reefs: "few" });
+    for (const bad of [null, { on: "no" }]) pilot.send(ClientMessage.SetHazards, bad);
+    for (const bad of [null, { reefs: "lots" }]) pilot.send(ClientMessage.SetReefs, bad);
+    await sleep(150);
+    expect([room.state.hazardsEnabled, room.state.reefs]).toEqual([true, "all"]);
+    pilot.send(ClientMessage.SetReefs, { reefs: "few" });
+    pilot.send(ClientMessage.SetHazards, { on: false });
+    await waitFor(() => room.state.reefs === "few" && !room.state.hazardsEnabled);
+  });
+
+  it("starts the match with the reefs chosen, and none with hazards off", async () => {
+    const { room, pilot } = await crewedRoom();
+    room.countdownSeconds = 0.1;
+    pilot.send(ClientMessage.SetReefs, { reefs: "few" });
+    await waitFor(() => room.state.reefs === "few");
+    pilot.send(ClientMessage.Start);
+    await waitFor(() => room.state.phase === Phase.Running);
+    expect(room.world!.hazardsOn).toBe(true);
+    expect(room.world!.reefs).toHaveLength(2);
+    expect(room.state.matchReefs).toBe("few");
+    pilot.send(ClientMessage.SetHazards, { on: false });
+    await sleep(150);
+    expect(room.state.hazardsEnabled).toBe(true);
+
+    pilot.send(ClientMessage.EndMatch);
+    await waitFor(() => room.state.phase === Phase.Over);
+    pilot.send(ClientMessage.SetHazards, { on: false });
+    await waitFor(() => !room.state.hazardsEnabled);
+    pilot.send(ClientMessage.Start);
+    await waitFor(() => room.state.phase === Phase.Running);
+    expect(room.world!.reefs).toEqual([]);
+    expect(room.state.matchReefs).toBe("none");
+  });
+});
+
 describe("mines (Stage 1)", () => {
   /** Puts a mine in Crew 1's slot, in open water facing east. */
   const loadMine = (room: CrewRoom) => {

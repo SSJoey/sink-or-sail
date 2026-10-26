@@ -25,6 +25,9 @@ export interface CrewSummary {
   lives: number;
   /** Stage 2: times this crew was sunk, by cause (logs from before Stage 2 have none). */
   sunkBy: Partial<Record<string, number>>;
+  /** Stage 2: reefs entered with damage, and the damage taken. */
+  reefHits: number;
+  reefDamage: number;
 }
 
 /** Stage 2: Last Afloat figures for one crew. */
@@ -81,6 +84,9 @@ export interface MatchSummary {
   /** Stage 2: the layout's name ("One Island" for logs from before layouts), and whether Random picked it. */
   layout: string;
   layoutRandom: boolean;
+  /** Stage 2: hazards on (logs from before hazards: off) and the reefs setting ("none" with hazards off). */
+  hazardsOn: boolean;
+  reefs: string;
   /** "time", "lastAfloat" or "endedEarly"; null if the log doesn't say. */
   endReason: string | null;
   crews: CrewSummary[];
@@ -165,6 +171,8 @@ export function summarise(lines: readonly Line[]): MatchSummary {
       averageSurvivalSeconds: lifeLengths.length ? lifeLengths.reduce((a, b) => a + b, 0) / lifeLengths.length / 1000 : 0,
       lives: lifeLengths.length,
       sunkBy,
+      reefHits: mine("reefHit").length,
+      reefDamage: Math.round(mine("reefHit").reduce((sum, l) => sum + (l.damage as number), 0) * 10) / 10,
     };
   });
 
@@ -183,6 +191,8 @@ export function summarise(lines: readonly Line[]): MatchSummary {
     endReason: (end?.reason as string | undefined) ?? null,
     layout: LAYOUTS[isLayoutId(start?.layout) ? start.layout : "oneIsland"].name,
     layoutRandom: start?.layoutRandom === true,
+    hazardsOn: start?.hazardsOn === true,
+    reefs: start?.hazardsOn === true && typeof start?.reefs === "string" ? start.reefs : "none",
     crews: summaries,
     lastAfloat: mode === "lastAfloat" ? lastAfloatFigures(lines, crews, scores, winner, endT, afloat) : null,
     packs: packsOn ? crews.map((c) => packFigures(lines, c.ship)) : null,
@@ -296,7 +306,7 @@ const r1 = (n: number) => String(Math.round(n * 10) / 10);
 export function formatSummary(s: MatchSummary): string {
   // Players know the crews as Crew 1 and Crew 2; the log's ship ids start at 0.
   const result = !s.complete ? "Log ends before the match did" : s.winner === null ? "Draw" : `Crew ${s.winner + 1} wins`;
-  const header = `Room ${s.room ?? "?"} · ${clock(s.durationSeconds)} · ${result}${s.endedEarly ? " (ended early by the host)" : ""} · Packs ${s.packsOn ? "on" : "off"} · ${modeText(s)} · ${s.layout}${s.layoutRandom ? " (Random)" : ""}`;
+  const header = `Room ${s.room ?? "?"} · ${clock(s.durationSeconds)} · ${result}${s.endedEarly ? " (ended early by the host)" : ""} · Packs ${s.packsOn ? "on" : "off"} · ${modeText(s)} · ${s.layout}${s.layoutRandom ? " (Random)" : ""} · ${hazardsText(s)}`;
   const rows = s.crews.map((c) => [
     `Crew ${c.ship + 1}`,
     [c.pilot, c.gunner].map((n) => n ?? "—").join(" & "),
@@ -309,8 +319,9 @@ export function formatSummary(s: MatchSummary): string {
     `${r1(c.emptySeconds)} s`,
     `${r1(c.averageSurvivalSeconds)} s (${c.lives})`,
     Object.entries(c.sunkBy).map(([cause, n]) => `${cause} ${n}`).join(" · ") || "—",
+    ...(s.hazardsOn ? [`${c.reefHits} (${r1(c.reefDamage)})`] : []),
   ]);
-  const head = ["Crew", "Pilot & Gunner", "Sinkings", "Shots", "Hits", "Blocked", "Accuracy", "Energy boost / shield", "Empty bar", "Avg survival (lives)", "Sunk by"];
+  const head = ["Crew", "Pilot & Gunner", "Sinkings", "Shots", "Hits", "Blocked", "Accuracy", "Energy boost / shield", "Empty bar", "Avg survival (lives)", "Sunk by", ...(s.hazardsOn ? ["Reef hits (damage)"] : [])];
   const out = [header, "", ...table(head, rows)];
   if (s.lastAfloat) {
     const laRows = s.lastAfloat.map((c) => [`Crew ${c.ship + 1}`, ordinal(c.place), `${r1(c.afloatSeconds)} s`, String(c.livesUsed)]);
@@ -320,6 +331,8 @@ export function formatSummary(s: MatchSummary): string {
   return out.join("\n");
 }
 
+const REEF_NAMES: Record<string, string> = { none: "None", few: "Few", all: "All" };
+const hazardsText = (s: MatchSummary) => (s.hazardsOn ? `Hazards on, reefs ${REEF_NAMES[s.reefs] ?? s.reefs}` : "Hazards off");
 const modeText = (s: MatchSummary) => (s.mode === "lastAfloat" ? `Last Afloat, ${s.lives ?? "?"} lives` : "Sink Count");
 const ordinal = (n: number) => `${n}${n === 1 ? "st" : n === 2 ? "nd" : n === 3 ? "rd" : "th"}`;
 

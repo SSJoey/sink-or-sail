@@ -50,6 +50,13 @@ export const TUNING = {
     /** 3-2-1-Go before a match: ships visible but frozen. */
     countdown: 3,
   },
+  /** Stage 2: reefs (approved 2026-10-26). A ship is on a reef while its centre is over it. */
+  reef: {
+    /** Top speed on a reef, boosted or not, as a fraction of normal. */
+    speedFactor: 0.5,
+    /** Fraction of full health lost on entering a reef (respawn protection blocks it; a shield doesn't). */
+    damage: 0.05,
+  },
   /** Stage 2: Last Afloat (approved 2026-10-26). */
   lastAfloat: {
     /** Lives per ship unless the host picks another number; each sinking costs one, and at 0 the crew is out. */

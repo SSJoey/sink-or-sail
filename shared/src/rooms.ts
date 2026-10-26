@@ -48,6 +48,10 @@ export const ClientMessage = {
   SetLives: "setLives",
   /** Stage 2: the island layout for the next match: { layout: a LayoutId or "random" } (host only, between matches). */
   SetLayout: "setLayout",
+  /** Stage 2: hazards on or off for the next match: { on: boolean } (host only, between matches). */
+  SetHazards: "setHazards",
+  /** Stage 2: reefs for the next match: { reefs: "none" | "few" | "all" } (host only, between matches). */
+  SetReefs: "setReefs",
 } as const;
 
 /** The host's layout setting: a layout, or Random (picked at each match start). */

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Phase, TUNING } from "@sink-or-sail/shared";
-import { canChangeSeat, canEndMatch, canPause, canResume, canSetPacks, canStart, crewHasShip, everyCrewManned, nextHost, readLayout, readLives, readMode, shipCount } from "./matchFlow.ts";
+import { canChangeSeat, canEndMatch, canPause, canResume, canSetPacks, canStart, crewHasShip, everyCrewManned, nextHost, readLayout, readOnOff, readReefs, readLives, readMode, shipCount } from "./matchFlow.ts";
 
 describe("canStart", () => {
   it("lets only the host start, and only when no match is on", () => {
@@ -141,5 +141,18 @@ describe("readLayout (Stage 2)", () => {
     expect(readLayout({ layout: "oneIsland" })).toBe("oneIsland");
     expect(readLayout({ layout: "random" })).toBe("random");
     for (const bad of [null, "slalom", { layout: "atlantis" }, { layout: 3 }, { layout: "slalom", extra: 1 }]) expect(readLayout(bad)).toBeNull();
+  });
+});
+
+describe("readReefs and readOnOff (Stage 2 slice 3)", () => {
+  it("accepts only { reefs } with none, few or all", () => {
+    for (const ok of ["none", "few", "all"] as const) expect(readReefs({ reefs: ok })).toBe(ok);
+    for (const bad of [null, "all", { reefs: "lots" }, { reefs: 2 }, { reefs: "all", extra: 1 }]) expect(readReefs(bad)).toBeNull();
+  });
+
+  it("accepts only { on } with a boolean", () => {
+    expect(readOnOff({ on: true })).toBe(true);
+    expect(readOnOff({ on: false })).toBe(false);
+    for (const bad of [null, "off", { on: "no" }, { on: false, extra: 1 }]) expect(readOnOff(bad)).toBeNull();
   });
 });

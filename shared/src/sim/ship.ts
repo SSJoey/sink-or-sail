@@ -12,14 +12,15 @@ const finite = (v: Vec): Vec => (Number.isFinite(v.x) && Number.isFinite(v.y) ? 
  * Point-to-steer: the bow turns toward the stick at the turn rate, and the stick's length sets speed.
  * Boost drives the ship ahead at boosted top speed whatever the stick's length.
  * Velocity eases toward the heading through `grip`, which is what makes the ship drift.
+ * `speedFactor` scales the top speed (a reef slows a ship to half).
  */
-export function steerShip(ship: Ship, pilot: PilotInput, boosting: boolean, dt: number): Ship {
+export function steerShip(ship: Ship, pilot: PilotInput, boosting: boolean, dt: number, speedFactor = 1): Ship {
   const { maxSpeed, turnRate, grip } = TUNING.ship;
   const stick = clampLength(finite(pilot.steer), 1);
   const throttle = length(stick);
 
   const heading = throttle > 0 ? turnToward(ship.heading, angleOf(stick), turnRate * dt) : ship.heading;
-  const speed = boosting ? maxSpeed * TUNING.boost.speedMultiplier : maxSpeed * throttle;
+  const speed = (boosting ? maxSpeed * TUNING.boost.speedMultiplier : maxSpeed * throttle) * speedFactor;
   const wanted = scale(fromAngle(heading), speed);
   const catchUp = 1 - Math.exp(-grip * dt);
   const vel = add(ship.vel, scale(sub(wanted, ship.vel), catchUp));

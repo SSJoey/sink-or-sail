@@ -12,8 +12,9 @@ import { mergeGunner, mergePilot, type TouchControls } from "./touchControls.ts"
 /** What the scene needs from the game: the frame to draw, the local seat, and where to report state. */
 export interface SceneLink {
   frame(): Frame | null;
-  /** The match's islands (Stage 2 layouts). */
+  /** The match's islands (Stage 2 layouts) and reefs (none with hazards off). */
   islands(): readonly Polygon[];
+  reefs(): readonly Polygon[];
   seat(): { crew: number; role: Role } | null;
   /** Phone controls; merged with keyboard and mouse. */
   touch: TouchControls;
@@ -25,6 +26,8 @@ export interface SceneLink {
 
 const ISLAND_SAND = 0xd9c48a;
 const ISLAND_EDGE = 0x8a7a4a;
+const REEF_WATER = 0x5fb3c9;
+const REEF_EDGE = 0xd9f2f7;
 const HULL_EDGE = 0x1b1b1b;
 const SHIELD = 0x9be7ff;
 const PACK_FILL = 0x0b2545;
@@ -95,6 +98,7 @@ export class GameScene extends Phaser.Scene {
     const g = this.g;
     g.clear();
 
+    for (const reef of this.link.reefs()) this.reef(reef);
     for (const island of this.link.islands()) this.polygon(island, ISLAND_SAND, ISLAND_EDGE);
     this.drawPacks(frame?.packs ?? new Map());
     if (!frame) return;
@@ -283,6 +287,21 @@ export class GameScene extends Phaser.Scene {
       g.lineStyle(3, SHIELD, 0.9);
       g.strokeCircle(ship.x, ship.y, TUNING.ship.radius + 8);
     }
+  }
+
+  /** A reef: lighter, shallow water with a dotted edge, so it doesn't read as an island. */
+  private reef(points: readonly Vec[]): void {
+    const g = this.g;
+    g.fillStyle(REEF_WATER, 0.55);
+    g.beginPath();
+    g.moveTo(points[0]!.x, points[0]!.y);
+    for (const p of points.slice(1)) g.lineTo(p.x, p.y);
+    g.closePath();
+    g.fillPath();
+    g.lineStyle(2, REEF_EDGE, 0.9);
+    points.forEach((p, i) => {
+      for (const [a, b] of dashes(p, points[(i + 1) % points.length]!, 4, 6)) g.lineBetween(a.x, a.y, b.x, b.y);
+    });
   }
 
   private polygon(points: readonly Vec[], fill: number, edge: number, alpha = 1): void {

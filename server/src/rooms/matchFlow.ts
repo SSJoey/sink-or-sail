@@ -1,4 +1,4 @@
-import { GAME_MODES, Phase, RANDOM_LAYOUT, TUNING, isLayoutId, type GameMode, type LayoutId } from "@sink-or-sail/shared";
+import { GAME_MODES, Phase, RANDOM_LAYOUT, TUNING, isLayoutId, isReefAmount, type GameMode, type LayoutId, type ReefAmount } from "@sink-or-sail/shared";
 
 /** Only the host starts a match, and only when none is on. */
 export function canStart(sessionId: string, hostId: string, phase: string): boolean {
@@ -82,4 +82,16 @@ export function readLives(message: unknown): number | null {
 export function readLayout(message: unknown): LayoutId | typeof RANDOM_LAYOUT | null {
   const layout = onlyKey(message, "layout");
   return layout === RANDOM_LAYOUT || isLayoutId(layout) ? layout : null;
+}
+
+/** The reefs setting from a SetReefs message ({ reefs: "none" | "few" | "all" }); null if not valid. */
+export function readReefs(message: unknown): ReefAmount | null {
+  const reefs = onlyKey(message, "reefs");
+  return isReefAmount(reefs) ? reefs : null;
+}
+
+/** The setting from an on/off message ({ on: boolean }), as for Packs and Hazards; null if not valid. */
+export function readOnOff(message: unknown): boolean | null {
+  const on = onlyKey(message, "on");
+  return typeof on === "boolean" ? on : null;
 }

@@ -326,6 +326,25 @@ Asked for by the user before the combined playtest: 3 ship slots now, Frigates o
   - **Log and summary:** match start has `layout` and `layoutRandom`; the summary header ends with the layout's name and "(Random)" when picked by Random; logs from before layouts read as One Island.
 - **Question 2 (names):** keep the names as shown: One Island, Twin Isles, The Strait, Four Rocks, Crossroads, The Wall, The Ring, Archipelago, Slalom.
 
+### 2026-10-26 — Stage 2 slice 3 plan: Hazards toggle and reefs
+
+- **Question 1 (reef placement):** reefs hand-placed per layout, mirrored both ways, at least a ship's length clear of every start, respawn and pack spot (2 and 3 ships), not touching islands. Pictures shown and **kept as shown**: One Island 4 (off the island's corners), Twin Isles 5 (middle of the lane, four near the corners), The Strait 4 (either side of the channel's entrances), Four Rocks 5 (middle, four on the flanks), Crossroads 3 (crossing, one in front of each start), The Wall 2 (long, in front of both faces), The Ring 6 (one in each gap), Archipelago 4 (round the middle rock), Slalom 4 (the gates beside the middle column). Sizes about 90 × 70 (The Wall's 90 × 240, Twin Isles' middle 180 × 110).
+  - **Host setting for the amount of reefs** (user's choice over a separate on/off checkbox or only the Hazards toggle): a dropdown None / Few / All. **Default: All.** **Few** keeps (confirmed): a diagonal pair (top-left and bottom-right) where reefs come in fours (One Island, The Strait, Archipelago, Slalom); the middle reef on Twin Isles, Four Rocks and Crossroads; the left and right gaps on The Ring; both reefs on The Wall (same as All). **Hazards off means no reefs** whatever the Reefs setting; the dropdown is greyed out then.
+- **Question 2 (One Island):** **One Island gets reefs too** (the 4 shown). With hazards on (the default), a default match now has reefs; with packs and hazards off it still plays exactly as Stage 0.
+- **Question 3 (slowdown):** on a reef a ship's top speed is **50%** of normal, boosted or not (`tuning.ts`).
+- **Question 4 (damage):** **5% of full health on entering** a reef; leaving and coming back hits again.
+- **Question 5:** respawn protection blocks reef damage; a raised shield doesn't help.
+- **Question 6 (banner):** "Wrecked on a reef" ("Out: wrecked on a reef" in Last Afloat); no crew gets the sinking.
+- **Question 7:** a ship is on a reef when its **centre** is over it.
+- **Built (2026-10-26):**
+  - **Layouts:** each carries `reefs` (All) and `fewReefs`; `reefsFor(layout, amount)`. Checks added: reefs mirrored both ways, every reef at least 68 (a ship's length plus a little) from every start, respawn and pack spot (2 and 3 ships), not touching islands, Few part of All and the same from either 2-ship start.
+  - **Simulation:** `createWorld({ hazards, reefs })`, hazards off by default (so Stage 0 and 1 play as before); the world has `hazardsOn` and the match's `reefs`; ships carry `onReef`. A ship whose centre enters a reef takes 5% (`reefHit`, not while protected) and steers at half top speed while on it (`steerShip`'s new `speedFactor`, applied from the step after entering). Sinking on a reef: cause `reef`, no credit.
+  - **Room:** `setHazards` ({ on }) and `setReefs` ({ reefs }), host only, between matches; synced `hazardsEnabled` (default on), `reefs` (default "all") and `matchReefs` (what the match has, "none" with hazards off).
+  - **Client:** reefs drawn as lighter shallow water with a dotted edge, under islands, ships and packs. Host: "Hazards on" checkbox and Reefs dropdown (greyed out with hazards off); others see "Hazards: on · Reefs: All" or "Hazards: off". Banner "Wrecked on a reef".
+  - **Log and summary:** match start has `hazardsOn` and `reefs`; new `reefHit` line (ship, crew, damage). Summary header ends "Hazards on, reefs Few" or "Hazards off"; with hazards on a "Reef hits (damage)" column.
+  - **Existing browser tests now play with reefs** (hazards on is the room default): One Island's reefs sit off the island's corners, clear of the pack spots, but a test ship circling near the EMP spot can cross them.
+  - **Browser tests under load (watch item):** 16 browser tests now. Full runs after this slice: 7 runs, 4 with one failure each (3-ship game view slow to appear twice, EMP test twice; once the reef test, before it moved from The Wall to Twin Isles' longer reef). Tried turning hazards off in the pack and EMP tests: the EMP test still failed 2 of 4 runs, so that was put back (no test changed for it).
+
 ## Later
 
 - **(2026-10-25, Stage 5) Ship types**, discussed with the user ahead of Stage 5 (not to build before then):

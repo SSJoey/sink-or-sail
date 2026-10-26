@@ -5,6 +5,7 @@ import {
   DEFAULT_LAYOUT,
   RANDOM_LAYOUT,
   isLayoutId,
+  isReefAmount,
   randomLayout,
   type LayoutId,
   JoinError,
@@ -33,7 +34,7 @@ import {
 import { LOG_DIR, fixedSeed } from "../config.ts";
 import { controlLine, matchEndLine, matchMs, matchStartLine, playerLine, positionLines, seatLine, simEventLines, type LogLine, type Roster } from "../log/events.ts";
 import { MatchLog, fileSink, logFileName, type LogSink } from "../log/matchLog.ts";
-import { canChangeSeat, canEndMatch, canPause, canResume, canSetPacks, canStart, crewHasShip, everyCrewManned, nextHost, readLayout, readLives, readMode, shipCount } from "./matchFlow.ts";
+import { canChangeSeat, canEndMatch, canPause, canResume, canSetPacks, canStart, crewHasShip, everyCrewManned, nextHost, readLayout, readOnOff, readReefs, readLives, readMode, shipCount } from "./matchFlow.ts";
 import { generateUniqueCode } from "./roomCode.ts";
 import { isNameTaken, leaveSeat, takeSeat, type SeatMap } from "./seats.ts";
 import { CrewState, Player } from "./state.ts";
@@ -171,6 +172,18 @@ export class CrewRoom extends Room<{ state: CrewState }> {
       if (lives !== null) this.state.lives = lives;
     });
 
+    this.onMessage(ClientMessage.SetHazards, (client, message: unknown) => {
+      if (!canSetPacks(client.sessionId, this.state.hostId, this.state.phase)) return;
+      const on = readOnOff(message);
+      if (on !== null) this.state.hazardsEnabled = on;
+    });
+
+    this.onMessage(ClientMessage.SetReefs, (client, message: unknown) => {
+      if (!canSetPacks(client.sessionId, this.state.hostId, this.state.phase)) return;
+      const reefs = readReefs(message);
+      if (reefs) this.state.reefs = reefs;
+    });
+
     this.onMessage(ClientMessage.SetLayout, (client, message: unknown) => {
       if (!canSetPacks(client.sessionId, this.state.hostId, this.state.phase)) return;
       const layout = readLayout(message);
@@ -244,12 +257,15 @@ export class CrewRoom extends Room<{ state: CrewState }> {
     const layoutRandom = this.state.layout === RANDOM_LAYOUT;
     const layout = layoutRandom ? randomLayout(seed, this.previousLayout) : isLayoutId(this.state.layout) ? this.state.layout : DEFAULT_LAYOUT;
     this.previousLayout = layout;
-    this.world = createWorld({ packs: packsOn, seed, ships, mode, lives: lives ?? undefined, layout });
+    const hazardsOn = this.state.hazardsEnabled;
+    const reefs = hazardsOn && isReefAmount(this.state.reefs) ? this.state.reefs : "none";
+    this.world = createWorld({ packs: packsOn, seed, ships, mode, lives: lives ?? undefined, layout, hazards: hazardsOn, reefs });
+    this.state.matchReefs = reefs;
     this.state.matchMode = mode;
     this.state.matchLayout = layout;
     this.roster = this.buildRoster();
     this.log = new MatchLog(this.logSinkFor(logFileName(new Date(), this.roomId)), { onError: (error) => this.logErrors(error) });
-    this.logLine(matchStartLine(this.roomId, this.roster, { packsOn, seed, mode, lives, layout, layoutRandom }));
+    this.logLine(matchStartLine(this.roomId, this.roster, { packsOn, seed, mode, lives, layout, layoutRandom, hazardsOn, reefs }));
     for (const line of positionLines(this.world)) this.logLine(line);
     this.nextPositionAt = 1;
     this.latestInput.clear();
