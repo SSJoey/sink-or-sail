@@ -83,6 +83,36 @@ export const TUNING = {
     /** A ship respawning in the storm comes back this far inside the circle, toward the middle. */
     respawnInset: 60,
   },
+  /** Stage 2 hazard timer (approved 2026-10-26): dynamic hazards, with hazards on, in both modes. */
+  hazards: {
+    /** Match seconds to the first signal. */
+    firstAt: 30,
+    /** Seconds from a hazard being gone to the next signal: between these, drawn with the seed. */
+    minGap: 30,
+    maxGap: 50,
+    /** Hazards on the sea at once (signalled and fading ones included). */
+    maxActive: 1,
+    /** Seconds a hazard's spot is signalled before it acts. */
+    signalTime: 3,
+    /** A hazard appears this far from a ship picked with the seed... */
+    distanceFromShip: 250,
+    /** ...with its edge at least this far from every ship. */
+    clearance: 50,
+    /** With no clear spot (or no ship afloat), the timer tries again after this many seconds. */
+    retryAfter: 1,
+  },
+  /** Stage 2 moving storm (approved 2026-10-26): pushes ships whose centre is inside; hides what's in it. No damage. */
+  movingStorm: {
+    radius: 120,
+    /** Drift speed, in a straight line toward where the picked ship was when it was signalled. */
+    speed: 50,
+    /** Seconds it acts, then it fades out over `fadeTime` (also when its centre leaves the sea). */
+    lifetime: 16,
+    fadeTime: 1,
+    /** Speed a ship inside is carried along the storm's direction: slower than the drift, so the storm swallows
+     *  a waiting ship and slowly passes over it (changed from 70, 2026-10-26: at 70 waiting ships rode its front edge). */
+    push: 40,
+  },
   /** Stage 2: Last Afloat (approved 2026-10-26). */
   lastAfloat: {
     /** Lives per ship unless the host picks another number; each sinking costs one, and at 0 the crew is out. */

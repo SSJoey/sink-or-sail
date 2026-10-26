@@ -30,3 +30,13 @@ export function fixedStormTimes(env: Record<string, string | undefined>): StormT
   const closedAt = Number(env.STORM_CLOSED_AT);
   return Number.isFinite(startsAt) && Number.isFinite(closedAt) && startsAt >= 0 && closedAt > startsAt ? { startsAt, closedAt } : null;
 }
+
+/**
+ * HAZARDS_FIRST_AT (match seconds, or "never") sets when the first dynamic hazard comes, for the browser tests
+ * only; undefined (the tuning value) unless it is "never" (null: none) or a number, not negative.
+ */
+export function firstHazardAt(env: Record<string, string | undefined>): number | null | undefined {
+  if (env.HAZARDS_FIRST_AT === "never") return null;
+  const at = Number(env.HAZARDS_FIRST_AT);
+  return env.HAZARDS_FIRST_AT !== undefined && Number.isFinite(at) && at >= 0 ? at : undefined;
+}

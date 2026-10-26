@@ -2,6 +2,7 @@ import { TUNING } from "../tuning.ts";
 import { DEFAULT_LAYOUT, LAYOUTS, reefsFor, type LayoutId, type ReefAmount } from "./layouts.ts";
 import { SEA_CENTRE } from "./map.ts";
 import { PACK_CHANCES } from "./packs.ts";
+import { hazardSeed } from "./hazards.ts";
 import { DEFAULT_STORM_TIMES } from "./storm.ts";
 import { placeWrecks } from "./wrecks.ts";
 import type { GameMode, Ship, StormTimes, World } from "./types.ts";
@@ -26,6 +27,8 @@ export interface WorldOptions {
   reefs?: ReefAmount;
   /** The closing storm's times (Last Afloat with hazards on); default `TUNING.closingStorm`. */
   storm?: StormTimes;
+  /** With hazards on: match seconds to the first dynamic hazard (default `TUNING.hazards.firstAt`); null for none. */
+  firstHazardAt?: number | null;
 }
 
 export function createWorld(options: WorldOptions = {}): World {
@@ -78,6 +81,11 @@ export function createWorld(options: WorldOptions = {}): World {
     wrecks: options.hazards ? placeWrecks(layout.wrecks, packsOn, seed, PACK_CHANCES) : [],
     wreckPacks: [],
     storm: mode === "lastAfloat" && options.hazards ? (options.storm ?? DEFAULT_STORM_TIMES) : null,
+    hazards: [],
+    nextHazardId: 0,
+    nextHazardIn: options.hazards ? (options.firstHazardAt === undefined ? TUNING.hazards.firstAt : options.firstHazardAt) : null,
+    hazardRng: hazardSeed(seed),
+    hazardContacts: [],
     packsOn,
     rng: seed,
     packs: [],

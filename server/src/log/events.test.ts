@@ -78,6 +78,7 @@ describe("match start and end", () => {
       reefs: "none",
       wrecks: [],
       storm: null,
+      firstHazardAt: null,
       tuning: TUNING,
     });
   });
@@ -245,6 +246,25 @@ describe("Stage 2: Last Afloat lines", () => {
     expect(lines({ type: "stormStarted" })).toEqual([{ t: 1234, type: "stormStarted" }]);
     expect(lines({ type: "stormClosed" })).toEqual([{ t: 1234, type: "stormClosed" }]);
     expect(lines({ type: "stormDamage", ship: 0, damage: 5 })).toEqual([{ t: 1234, type: "stormDamage", ship: 0, crew, damage: 5 }]);
+  });
+
+  it("records when the first dynamic hazard comes at match start, and logs hazard and moving-storm lines", () => {
+    expect(matchStartLine("KWPZ", roster, { packsOn: true, seed: 1, mode: "sinkCount", lives: null, hazardsOn: true, firstHazardAt: 30 }).firstHazardAt).toBe(30);
+    expect(matchStartLine("KWPZ", roster, { packsOn: true, seed: 1, mode: "sinkCount", lives: null }).firstHazardAt).toBeNull();
+    expect(lines({ type: "hazardSignalled", hazard: 2, kind: "movingStorm", pos: { x: 400.04, y: 300 }, heading: 1.23456 })).toEqual([
+      { t: 1234, type: "hazardSignalled", hazard: 2, kind: "movingStorm", x: 400, y: 300, heading: 1.235 },
+    ]);
+    expect(lines({ type: "hazardStarted", hazard: 2, kind: "movingStorm" })).toEqual([{ t: 1234, type: "hazardStarted", hazard: 2, kind: "movingStorm" }]);
+    expect(lines({ type: "hazardEnded", hazard: 2, kind: "movingStorm", reason: "edge" })).toEqual([{ t: 1234, type: "hazardEnded", hazard: 2, kind: "movingStorm", reason: "edge" }]);
+    expect(lines({ type: "stormEntered", ship: 0, hazard: 2 })).toEqual([{ t: 1234, type: "stormEntered", ship: 0, crew, hazard: 2 }]);
+    expect(lines({ type: "stormLeft", ship: 0, hazard: 2 })).toEqual([{ t: 1234, type: "stormLeft", ship: 0, crew, hazard: 2 }]);
+  });
+
+  it("adds each hazard on the sea to the once-a-second lines", () => {
+    const world = createWorld({ hazards: true });
+    world.time = 12;
+    world.hazards = [{ id: 2, kind: "movingStorm", pos: { x: 400.04, y: 300 }, heading: 0, phase: "active", timeLeft: 5 }];
+    expect(positionLines(world).filter((l) => l.type === "hazard")).toEqual([{ t: 12000, type: "hazard", hazard: 2, kind: "movingStorm", phase: "active", x: 400, y: 300 }]);
   });
 
   it("records the layout at match start, and whether Random picked it", () => {

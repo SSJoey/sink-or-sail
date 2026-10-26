@@ -1,10 +1,11 @@
 import * as Phaser from "phaser";
-import { PACK_LETTERS, SEA_CENTRE, TUNING, packButtonLit, rolePack, type PackType, type Polygon, type Role, type Vec, type WreckSpot } from "@sink-or-sail/shared";
+import { PACK_LETTERS, SEA_CENTRE, TUNING, circleOverlapsPolygon, packButtonLit, rolePack, wreckHull, type PackType, type Polygon, type Role, type Vec, type WreckSpot } from "@sink-or-sail/shared";
 import { CREW_STYLES } from "./crews.ts";
 import { ShipEffects, type ShipEffect } from "./effects.ts";
 import { EmpRings } from "./empRing.ts";
 import { aimGuide, dashes, hullPoints, turretEnd } from "./hull.ts";
-import type { Frame, MineView, PackView, ShipView, WreckView } from "./interpolation.ts";
+import { cloudAlpha, hiddenByStorms } from "./hazardLook.ts";
+import type { Frame, HazardView, MineView, PackView, ShipView, WreckView } from "./interpolation.ts";
 import { blinkVisible, packBlinkVisible } from "./matchText.ts";
 import { gunnerFromMouse, pilotFromKeys } from "./laptopInput.ts";
 import { mergeGunner, mergePilot, type TouchControls } from "./touchControls.ts";
@@ -41,6 +42,8 @@ const WRECK_EDGE = 0x2b1a0e;
 const STORM_CLOUD = 0x2b2f3a;
 const STORM_EDGE = 0x9aa3b5;
 const STORM_FLASH = 0xff4d4d;
+const MOVING_STORM_CLOUD = 0x3b4150;
+const MOVING_STORM_SWIRL = 0xc9d1e0;
 
 export class GameScene extends Phaser.Scene {
   private g!: Phaser.GameObjects.Graphics;
@@ -118,25 +121,31 @@ export class GameScene extends Phaser.Scene {
     // The storm covers the sea, islands and wrecks; packs, mines and ships stay clear on top of it.
     const stormRadius = this.link.stormRadius();
     if (stormRadius !== null) this.drawStorm(stormRadius);
-    this.drawPacks(frame?.packs ?? new Map());
+    this.drawPacks(frame?.packs ?? new Map(), frame?.hazards ?? new Map());
     if (!frame) return;
     this.drawMines(frame.mines);
 
-    if (ownCrew !== null) {
-      const own = frame.ships[ownCrew];
-      if (own && !own.sunk) this.drawAimGuide(own);
-    }
-
-    frame.ships.forEach((ship, crew) => {
+    const drawOne = (ship: ShipView, crew: number) => {
       const effect = effects[crew];
       const flash = effect?.flashing ? 0xffffff : stormFlashes[crew] ? STORM_FLASH : null;
       if (!ship.sunk) this.drawShip(ship, crew, flash, 1);
       else if (effect?.sinkAlpha) this.drawShip(ship, crew, null, effect.sinkAlpha);
+    };
+    frame.ships.forEach((ship, crew) => {
+      if (crew !== ownCrew) drawOne(ship, crew);
     });
+    for (const torpedo of frame.torpedoes.values()) this.drawTorpedo(torpedo.x, torpedo.y, torpedo.angle);
 
+    // Stage 2 moving storms cover everything above, with islands, reefs and wrecks showing faintly through.
+    // Shots stay visible on top (like tracers), and so do your own ship and its aiming guide.
+    this.drawMovingStorms(frame);
     g.fillStyle(0xffffff, 1);
     for (const shot of frame.shots.values()) g.fillCircle(shot.x, shot.y, 4);
-    for (const torpedo of frame.torpedoes.values()) this.drawTorpedo(torpedo.x, torpedo.y, torpedo.angle);
+    if (ownCrew !== null) {
+      const own = frame.ships[ownCrew];
+      if (own && !own.sunk) this.drawAimGuide(own);
+      if (own) drawOne(own, ownCrew);
+    }
 
     // EMP rings: grow from the firing ship, then fade.
     for (const ring of this.empRings.active(performance.now())) {
@@ -151,7 +160,7 @@ export class GameScene extends Phaser.Scene {
    * Glowing spots pulse; packs on the water show their shape and letter (M circle, T capsule, E diamond, H square),
    * and blink in their last seconds before they disappear.
    */
-  private drawPacks(packs: Map<string, PackView>): void {
+  private drawPacks(packs: Map<string, PackView>, hazards: Map<string, HazardView>): void {
     const g = this.g;
     const r = TUNING.packs.radius;
     const pulse = (Math.sin(performance.now() / 150) + 1) / 2;
@@ -162,7 +171,8 @@ export class GameScene extends Phaser.Scene {
         continue;
       }
       const visible = packBlinkVisible(pack.lifeLeft);
-      this.packLetters.get(id)?.setVisible(visible);
+      // Letters are drawn above everything, so one under a moving storm is hidden here.
+      this.packLetters.get(id)?.setVisible(visible && !hiddenByStorms(pack, hazards));
       if (!visible) continue;
       g.fillStyle(PACK_FILL, 0.9);
       g.lineStyle(2, 0xffffff, 1);
@@ -374,6 +384,71 @@ export class GameScene extends Phaser.Scene {
       const a = (i / 90) * Math.PI * 2;
       const b = ((i + 1) / 90) * Math.PI * 2;
       g.lineBetween(x + S.endRadius * Math.cos(a), y + S.endRadius * Math.sin(a), x + S.endRadius * Math.cos(b), y + S.endRadius * Math.sin(b));
+    }
+  }
+
+  /**
+   * Stage 2 moving storms. Signalled: a pulsing dashed ring where it will form, with an arrow the way it will move.
+   * Active: a dark, billowing cloud with slowly turning swirls; it fades out at the end. Islands, reefs and standing
+   * wrecks under a cloud show faintly through it as outlines.
+   */
+  private drawMovingStorms(frame: Frame): void {
+    const g = this.g;
+    const R = TUNING.movingStorm.radius;
+    const now = performance.now();
+    const t = now / 1000;
+    const pulse = (Math.sin(now / 150) + 1) / 2;
+    const clouds: { x: number; y: number; alpha: number }[] = [];
+    for (const h of frame.hazards.values()) {
+      if (h.kind !== "movingStorm") continue;
+      if (h.phase === "signalled") {
+        g.lineStyle(3, 0xffffff, 0.35 + 0.5 * pulse);
+        for (let i = 0; i < 48; i += 2) {
+          const a = (i / 48) * Math.PI * 2 + t * 0.5;
+          const b = ((i + 1) / 48) * Math.PI * 2 + t * 0.5;
+          g.lineBetween(h.x + R * Math.cos(a), h.y + R * Math.sin(a), h.x + R * Math.cos(b), h.y + R * Math.sin(b));
+        }
+        const dir = { x: Math.cos(h.heading), y: Math.sin(h.heading) };
+        const tip = { x: h.x + dir.x * 60, y: h.y + dir.y * 60 };
+        g.lineBetween(h.x - dir.x * 30, h.y - dir.y * 30, tip.x, tip.y);
+        g.fillStyle(0xffffff, 0.35 + 0.5 * pulse);
+        g.fillTriangle(tip.x + dir.x * 14, tip.y + dir.y * 14, tip.x - dir.y * 12, tip.y + dir.x * 12, tip.x + dir.y * 12, tip.y - dir.x * 12);
+        continue;
+      }
+      const alpha = cloudAlpha(h);
+      if (alpha <= 0) continue;
+      clouds.push({ x: h.x, y: h.y, alpha });
+      g.fillStyle(MOVING_STORM_CLOUD, 0.96 * alpha);
+      g.fillCircle(h.x, h.y, R);
+      // A billowing edge: puffs around the rim that swell and shrink.
+      for (let i = 0; i < 14; i++) {
+        const a = (i / 14) * Math.PI * 2 + t * 0.25;
+        const r = R - 8 + 6 * Math.sin(t * 1.3 + i * 1.7);
+        g.fillCircle(h.x + r * Math.cos(a), h.y + r * Math.sin(a), 20 + 4 * Math.sin(t * 2 + i));
+      }
+      g.lineStyle(2, MOVING_STORM_SWIRL, 0.35 * alpha);
+      for (let k = 0; k < 3; k++) {
+        const start = t * 0.9 + k * 2.1;
+        g.beginPath();
+        g.arc(h.x, h.y, R * (0.3 + 0.22 * k), start, start + 2.2);
+        g.strokePath();
+      }
+    }
+    if (clouds.length === 0) return;
+    const under = (shape: Polygon) => clouds.some((c) => circleOverlapsPolygon(c, R + 24, shape) !== null);
+    const faint = Math.max(...clouds.map((c) => c.alpha)) * 0.45;
+    const spots = this.link.wrecks();
+    const wrecks = [...frame.wrecks.keys()].flatMap((id) => (spots[Number(id)] ? [wreckHull(spots[Number(id)]!)] : []));
+    for (const [shapes, colour] of [[this.link.islands(), ISLAND_SAND], [this.link.reefs(), REEF_EDGE], [wrecks, WRECK_WOOD]] as const) {
+      g.lineStyle(2, colour, faint);
+      for (const shape of shapes) {
+        if (!under(shape)) continue;
+        g.beginPath();
+        g.moveTo(shape[0]!.x, shape[0]!.y);
+        for (const p of shape.slice(1)) g.lineTo(p.x, p.y);
+        g.closePath();
+        g.strokePath();
+      }
     }
   }
 

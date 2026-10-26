@@ -43,6 +43,13 @@ export function simEventLines(t: number, events: readonly SimEvent[], roster: Ro
       case "stormStarted": lines.push({ t, type: "stormStarted" }); break;
       case "stormClosed": lines.push({ t, type: "stormClosed" }); break;
       case "stormDamage": lines.push({ t, type: "stormDamage", ...crew(e.ship), damage: r1(e.damage) }); break;
+      case "hazardSignalled":
+        lines.push({ t, type: "hazardSignalled", hazard: e.hazard, kind: e.kind, x: r1(e.pos.x), y: r1(e.pos.y), heading: Math.round(e.heading * 1000) / 1000 });
+        break;
+      case "hazardStarted": lines.push({ t, type: "hazardStarted", hazard: e.hazard, kind: e.kind }); break;
+      case "hazardEnded": lines.push({ t, type: "hazardEnded", hazard: e.hazard, kind: e.kind, reason: e.reason }); break;
+      case "stormEntered": lines.push({ t, type: "stormEntered", ...crew(e.ship), hazard: e.hazard }); break;
+      case "stormLeft": lines.push({ t, type: "stormLeft", ...crew(e.ship), hazard: e.hazard }); break;
       case "respawned": lines.push({ t, type: "respawn", ...crew(e.ship), x: r1(e.pos.x), y: r1(e.pos.y) }); break;
       case "bump": lines.push({ t, type: "bump", ships: e.ships, damage: [r1(e.damage[0]), r1(e.damage[1])] }); break;
       case "packSignalled": lines.push({ t, type: "packSignalled", pack: e.pack, spot: e.spot, packType: e.packType }); break;
@@ -86,6 +93,8 @@ export function matchStartLine(room: string, roster: Roster, match: {
   wrecks?: readonly Wreck[];
   /** Stage 2: the closing storm's times, or null for none. */
   storm?: StormTimes | null;
+  /** Stage 2: match seconds to the first dynamic hazard, or null for none. */
+  firstHazardAt?: number | null;
 }): LogLine {
   return {
     t: 0,
@@ -102,6 +111,7 @@ export function matchStartLine(room: string, roster: Roster, match: {
     reefs: match.reefs ?? "none",
     wrecks: (match.wrecks ?? []).map((w) => ({ wreck: w.id, x: r1(w.pos.x), y: r1(w.pos.y), pack: w.pack })),
     storm: match.storm ?? null,
+    firstHazardAt: match.firstHazardAt ?? null,
     tuning: TUNING,
   };
 }
@@ -123,9 +133,14 @@ export function matchEndLine(world: World, winner: number | null, endedEarly: bo
   };
 }
 
-/** The once-a-second snapshot of every ship. */
+/** The once-a-second snapshot of every ship, then of every hazard on the sea. */
 export function positionLines(world: World): LogLine[] {
   const t = matchMs(world.time);
+  const hazards = world.hazards.map((h) => ({ t, type: "hazard", hazard: h.id, kind: h.kind, phase: h.phase, x: r1(h.pos.x), y: r1(h.pos.y) }));
+  return [...shipPositions(world, t), ...hazards];
+}
+
+function shipPositions(world: World, t: number): LogLine[] {
   return world.ships.map((s) => ({
     t,
     type: "position",

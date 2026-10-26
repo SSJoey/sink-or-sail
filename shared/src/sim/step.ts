@@ -12,6 +12,7 @@ import { NO_INPUT, type Mine, type Ship, type ShipInput, type Shot, type SimEven
 import { add, distance, scale } from "./vec.ts";
 import { circleOverlapsPolygon, pointInPolygon } from "./geometry.ts";
 import { ramDamage, touchingWreck, wreckContactKey, wreckDamage } from "./wrecks.ts";
+import { pushByStorms, stormContacts, updateHazards } from "./hazards.ts";
 import { inStorm, respawnInside, stormRadius, stormTicks } from "./storm.ts";
 import { aimTurret, fireGun, moveShot } from "./weapons.ts";
 
@@ -25,7 +26,7 @@ const contactKey = (a: number, b: number) => (a < b ? `${a}:${b}` : `${b}:${a}`)
  * `inputs[shipId]` is that ship's crew input; a missing entry means no input.
  *
  * Order: sunk ships count down and respawn → afloat ships aim, use energy, steer and fire →
- * ship-vs-ship bumps → ramming wrecks → islands, wrecks and sea edge → reefs → packs → mines →
+ * ship-vs-ship bumps → ramming wrecks → dynamic hazards move and push ships → islands, wrecks and sea edge → reefs → packs → mines →
  * shots and torpedoes move and hit → packs from wrecks destroyed this step → match timer.
  */
 export function step(world: World, inputs: readonly (ShipInput | undefined)[], dt: number): { world: World; events: SimEvent[] } {
@@ -238,6 +239,16 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
     }
   }
 
+  // Stage 2 dynamic hazards: they move (and the timer signals the next); active moving storms carry ships inside.
+  const hazardUpdate = world.hazards.length > 0 || world.nextHazardIn !== null ? updateHazards(world, ships, dt) : null;
+  const hazards = hazardUpdate?.hazards ?? world.hazards;
+  if (hazardUpdate) {
+    events.push(...hazardUpdate.events);
+    for (let i = 0; i < ships.length; i++) {
+      if (!ships[i]!.sunk) ships[i] = pushByStorms(ships[i]!, hazards, dt);
+    }
+  }
+
   // The islands, wrecks and the sea edge win over ship pushes, so nothing ends up inside them.
   const blocking = solids();
   for (let i = 0; i < ships.length; i++) {
@@ -402,6 +413,21 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
     }
   }
 
+  // Stage 2: ships entering and leaving moving storms (leaving also when the storm ends or the ship sinks).
+  let hazardContacts = world.hazardContacts;
+  if (hazardUpdate || hazardContacts.length > 0) {
+    hazardContacts = stormContacts(ships, hazards);
+    const contact = (key: string) => key.split(":").map(Number) as [number, number];
+    for (const key of hazardContacts.filter((k) => !world.hazardContacts.includes(k))) {
+      const [ship, hazard] = contact(key);
+      events.push({ type: "stormEntered", ship, hazard });
+    }
+    for (const key of world.hazardContacts.filter((k) => !hazardContacts.includes(k))) {
+      const [ship, hazard] = contact(key);
+      events.push({ type: "stormLeft", ship, hazard });
+    }
+  }
+
   const time = world.time + dt;
   const next: World = {
     ...world,
@@ -409,6 +435,8 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
     nextPackId,
     wrecks,
     wreckPacks,
+    ...(hazardUpdate && { hazards, nextHazardId: hazardUpdate.nextHazardId, nextHazardIn: hazardUpdate.nextHazardIn, hazardRng: hazardUpdate.hazardRng }),
+    hazardContacts,
     time,
     ships,
     shots: survivingShots,

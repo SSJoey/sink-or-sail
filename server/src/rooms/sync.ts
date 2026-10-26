@@ -1,5 +1,5 @@
 import { Phase, TUNING, stormRadius, timeLeft, type SimEvent, type World } from "@sink-or-sail/shared";
-import { MineState, PackState, ShipState, ShotState, WreckState, type CrewState } from "./state.ts";
+import { HazardState, MineState, PackState, ShipState, ShotState, WreckState, type CrewState } from "./state.ts";
 
 /** Copies the simulation world into the synced room state. Colyseus sends only what changed. */
 export function syncWorld(state: CrewState, world: World): void {
@@ -72,6 +72,26 @@ export function syncWorld(state: CrewState, world: World): void {
       synced.health = wreck.health;
       synced.hasPack = wreck.pack !== null;
     } else state.wrecks.set(id, new WreckState({ health: wreck.health, hasPack: wreck.pack !== null }));
+  }
+
+  const liveHazards = new Set(world.hazards.map((hazard) => String(hazard.id)));
+  for (const id of [...state.hazards.keys()]) {
+    if (!liveHazards.has(id)) state.hazards.delete(id);
+  }
+  for (const hazard of world.hazards) {
+    const id = String(hazard.id);
+    const synced = state.hazards.get(id);
+    if (synced) {
+      // (A new match reuses the ids, so everything is copied.)
+      synced.kind = hazard.kind;
+      synced.phase = hazard.phase;
+      synced.x = hazard.pos.x;
+      synced.y = hazard.pos.y;
+      synced.heading = hazard.heading;
+      synced.timeLeft = hazard.timeLeft;
+    } else {
+      state.hazards.set(id, new HazardState({ kind: hazard.kind, phase: hazard.phase, x: hazard.pos.x, y: hazard.pos.y, heading: hazard.heading, timeLeft: hazard.timeLeft }));
+    }
   }
 
   const liveTorpedoes = new Set(world.torpedoes.map((torpedo) => String(torpedo.id)));

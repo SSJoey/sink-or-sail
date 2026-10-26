@@ -74,6 +74,20 @@ export const WreckState = schema({
 }, "WreckState");
 export type WreckState = SchemaType<typeof WreckState>;
 
+/** Stage 2: a dynamic hazard on the sea (only the moving storm so far). */
+export const HazardState = schema({
+  kind: t.string(),
+  /** "signalled", "active" or "fading". */
+  phase: t.string(),
+  x: t.float32(),
+  y: t.float32(),
+  /** The way it moves (radians). */
+  heading: t.float32(),
+  /** Seconds left in its phase (clients fade a fading storm out with it). */
+  timeLeft: t.float32(),
+}, "HazardState");
+export type HazardState = SchemaType<typeof HazardState>;
+
 export const MineState = schema({
   x: t.float32(),
   y: t.float32(),
@@ -124,6 +138,8 @@ export const CrewState = schema({
   packs: t.map(PackState),
   /** Stage 2: wrecks still standing, keyed by their index in the layout's wrecks. */
   wrecks: t.map(WreckState),
+  /** Stage 2: dynamic hazards on the sea, keyed by hazard id. */
+  hazards: t.map(HazardState),
   /** Keyed by mine id. */
   mines: t.map(MineState),
   /** Keyed by torpedo id. */

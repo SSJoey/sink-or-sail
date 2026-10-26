@@ -72,6 +72,21 @@ export interface Wreck {
   pack: PackType | null;
 }
 
+/** Stage 2 dynamic hazards (on the hazard timer). Only the moving storm so far; the whirlpool and kraken join later. */
+export type HazardKind = "movingStorm";
+/** Signalled: its spot shows, it doesn't move or act. Active: it moves and acts. Fading: it still moves but no longer acts. */
+export type HazardPhase = "signalled" | "active" | "fading";
+export interface Hazard {
+  id: number;
+  kind: HazardKind;
+  pos: Vec;
+  /** The way it moves (radians). */
+  heading: number;
+  phase: HazardPhase;
+  /** Seconds left in the current phase. */
+  timeLeft: number;
+}
+
 /** When the closing storm starts closing and reaches its final circle (match seconds). */
 export interface StormTimes {
   startsAt: number;
@@ -168,6 +183,15 @@ export interface World {
   wreckPacks: WreckPack[];
   /** Stage 2: the closing storm's times (Last Afloat with hazards on), or null for no storm. */
   storm: StormTimes | null;
+  /** Stage 2 dynamic hazards: the ones on the sea, and the timer (seconds to the next signal, counting only while
+   *  fewer than the most allowed are on the sea; null for none this match: hazards off, or turned off for a test). */
+  hazards: Hazard[];
+  nextHazardId: number;
+  nextHazardIn: number | null;
+  /** The hazard timer's own seeded generator state, so packs are the same with hazards on or off. */
+  hazardRng: number;
+  /** Ships inside an active moving storm, as "ship:hazard". */
+  hazardContacts: string[];
   /** Stage 1: packs spawn only when on (set for the whole match). */
   packsOn: boolean;
   /** Seeded generator state; the same seed gives the same packs. */
@@ -208,6 +232,13 @@ export type SimEvent =
   | { type: "stormStarted" }
   | { type: "stormClosed" }
   | { type: "stormDamage"; ship: number; damage: number }
+  /** Stage 2 dynamic hazards: signalled (where, and the way it will move), started acting, and stopped acting (then it fades). */
+  | { type: "hazardSignalled"; hazard: number; kind: HazardKind; pos: Vec; heading: number }
+  | { type: "hazardStarted"; hazard: number; kind: HazardKind }
+  | { type: "hazardEnded"; hazard: number; kind: HazardKind; reason: "time" | "edge" }
+  /** A ship's centre entered or left an active moving storm (leaving includes the storm ending and the ship sinking). */
+  | { type: "stormEntered"; ship: number; hazard: number }
+  | { type: "stormLeft"; ship: number; hazard: number }
   | { type: "respawned"; ship: number; pos: Vec }
   /** "lastAfloat": one ship (or none) left in a Last Afloat match; "time": the clock ran out. */
   | { type: "matchEnded"; winner: number | null; reason: "time" | "lastAfloat" }

@@ -57,6 +57,18 @@ export interface WreckView {
   hasPack: boolean;
 }
 
+/** Stage 2: a dynamic hazard on the sea (only the moving storm so far). */
+export interface HazardView {
+  kind: string;
+  /** "signalled", "active" or "fading". */
+  phase: string;
+  x: number;
+  y: number;
+  heading: number;
+  /** Seconds left in its phase. */
+  timeLeft: number;
+}
+
 export interface ShotView {
   x: number;
   y: number;
@@ -72,6 +84,7 @@ export interface Snapshot {
   mines: Map<string, MineView>;
   torpedoes: Map<string, ShotView>;
   wrecks: Map<string, WreckView>;
+  hazards: Map<string, HazardView>;
 }
 
 export type Frame = Omit<Snapshot, "t">;
@@ -101,6 +114,16 @@ function blendMoving(a: Map<string, ShotView>, b: Map<string, ShotView>, k: numb
   for (const [id, item] of b) {
     const before = a.get(id);
     out.set(id, before ? { x: lerp(before.x, item.x, k), y: lerp(before.y, item.y, k), angle: item.angle } : item);
+  }
+  return out;
+}
+
+/** Hazards move: blend the position of those in both snapshots; everything else from the newer one. */
+function blendHazards(a: Map<string, HazardView>, b: Map<string, HazardView>, k: number): Map<string, HazardView> {
+  const out = new Map<string, HazardView>();
+  for (const [id, item] of b) {
+    const before = a.get(id);
+    out.set(id, before ? { ...item, x: lerp(before.x, item.x, k), y: lerp(before.y, item.y, k) } : item);
   }
   return out;
 }
@@ -141,6 +164,6 @@ export class SnapshotBuffer {
       return before ? blendShip(before, ship, k) : ship;
     });
     // Packs, mines and wrecks don't move: take them from the newer snapshot.
-    return { ships, shots: blendMoving(a.shots, b.shots, k), packs: b.packs, mines: b.mines, torpedoes: blendMoving(a.torpedoes, b.torpedoes, k), wrecks: b.wrecks };
+    return { ships, shots: blendMoving(a.shots, b.shots, k), packs: b.packs, mines: b.mines, torpedoes: blendMoving(a.torpedoes, b.torpedoes, k), wrecks: b.wrecks, hazards: blendHazards(a.hazards, b.hazards, k) };
   }
 }

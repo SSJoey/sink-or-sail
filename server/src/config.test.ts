@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { GAME_NAME } from "@sink-or-sail/shared";
-import { DEFAULT_PORT, fixedSeed, fixedStormTimes, resolvePort } from "./config.ts";
+import { DEFAULT_PORT, firstHazardAt, fixedSeed, fixedStormTimes, resolvePort } from "./config.ts";
 
 describe("server config", () => {
   it("can import from the shared package", () => {
@@ -41,5 +41,18 @@ describe("STORM_STARTS_AT and STORM_CLOSED_AT (browser tests only)", () => {
     expect(fixedStormTimes({ STORM_STARTS_AT: "x", STORM_CLOSED_AT: "12" })).toBeNull();
     expect(fixedStormTimes({ STORM_STARTS_AT: "-1", STORM_CLOSED_AT: "12" })).toBeNull();
     expect(fixedStormTimes({ STORM_STARTS_AT: "12", STORM_CLOSED_AT: "12" })).toBeNull();
+  });
+});
+
+describe("HAZARDS_FIRST_AT (browser tests only)", () => {
+  it("sets when the first dynamic hazard comes, or turns them off with \"never\"", () => {
+    expect(firstHazardAt({ HAZARDS_FIRST_AT: "2" })).toBe(2);
+    expect(firstHazardAt({ HAZARDS_FIRST_AT: "never" })).toBeNull();
+  });
+
+  it("is ignored (the tuning value) when unset, not a number or negative", () => {
+    expect(firstHazardAt({})).toBeUndefined();
+    expect(firstHazardAt({ HAZARDS_FIRST_AT: "soon" })).toBeUndefined();
+    expect(firstHazardAt({ HAZARDS_FIRST_AT: "-1" })).toBeUndefined();
   });
 });

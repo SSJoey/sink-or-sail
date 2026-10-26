@@ -226,6 +226,24 @@ describe("the closing storm in the synced state", () => {
   });
 });
 
+describe("moving storms in the synced state", () => {
+  it("shows each hazard's kind, phase, place and heading, and drops it when gone", () => {
+    const state = new CrewState();
+    const world = createWorld({ hazards: true });
+    world.hazards = [{ id: 3, kind: "movingStorm", pos: { x: 400, y: 300 }, heading: 1.5, phase: "signalled", timeLeft: 2 }];
+    syncWorld(state, world);
+    const synced = state.hazards.get("3")!;
+    expect([synced.kind, synced.phase, synced.x, synced.y]).toEqual(["movingStorm", "signalled", 400, 300]);
+    expect(synced.heading).toBeCloseTo(1.5);
+    world.hazards = [{ ...world.hazards[0]!, pos: { x: 410, y: 300 }, phase: "fading", timeLeft: 0.5 }];
+    syncWorld(state, world);
+    expect([state.hazards.get("3")!.phase, state.hazards.get("3")!.x, state.hazards.get("3")!.timeLeft]).toEqual(["fading", 410, 0.5]);
+    world.hazards = [];
+    syncWorld(state, world);
+    expect(state.hazards.size).toBe(0);
+  });
+});
+
 describe("mines in the synced state", () => {
   it("shows each mine's place, owner and whether it is armed", () => {
     const state = new CrewState();
