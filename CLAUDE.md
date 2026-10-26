@@ -9,7 +9,7 @@ Full design: `docs/design.md` (exported from the "Sink or Sail — Game Design" 
 - **Stage 0 is built** (all 10 slices).
 - **Stage 1 is built and committed** (8 slices: pack basics and health, mine, torpedo, EMP, summary script additions, home network play; slice 7, changes after the check matches: unpicked packs disappear, leaving a seat, two pack slots; slice 8, a third ship: up to 3 crews and 6 players, Frigates only). Slice 6 ran five packs-on check matches in Docker over the Wi-Fi, two of them with 4 players. The **combined playtest is deferred, still owed** (2026-10-26).
 - **Stage 2 is planned** (2026-10-26). **Slice 1 is built and committed** (2026-10-26, `57029bf`): mode choice and Last Afloat. **Slice 2 is built and committed** (2026-10-26): nine island layouts, a host Layout dropdown with Random.
-- **Tests now:** 590 unit tests and 14 browser tests, type-check clean. Browser runs still fail sometimes under load (see the watch item).
+- **Tests now:** 659 unit tests (plus 1 skipped: the mirror check for One Island, which is today's irregular island) and 15 browser tests, type-check clean. Browser runs still fail sometimes under load (see the watch item).
 - **Next:** Stage 2 slice 3 (Hazards toggle and reefs), starting with its own plan and a go-ahead.
 
 Every decision, with its date, is in `NOTES.md`.
