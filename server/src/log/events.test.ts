@@ -77,6 +77,7 @@ describe("match start and end", () => {
       hazardsOn: false,
       reefs: "none",
       wrecks: [],
+      storm: null,
       tuning: TUNING,
     });
   });
@@ -237,6 +238,13 @@ describe("Stage 2: Last Afloat lines", () => {
     expect(lines({ type: "wreckDestroyed", wreck: 2, by: null })).toEqual([{ t: 1234, type: "wreckDestroyed", wreck: 2, ship: null, crew: null }]);
     expect(lines({ type: "wreckPackReleased", wreck: 2, pack: 7, packType: "emp" })).toEqual([{ t: 1234, type: "wreckPackReleased", wreck: 2, pack: 7, packType: "emp" }]);
     expect(lines({ type: "packExpired", pack: 7, spot: null, packType: "emp" })).toEqual([{ t: 1234, type: "packExpired", pack: 7, spot: null, packType: "emp" }]);
+  });
+
+  it("records the closing storm's times at match start (null without one), and logs storm lines", () => {
+    expect(matchStartLine("KWPZ", roster, { packsOn: true, seed: 1, mode: "lastAfloat", lives: 2, hazardsOn: true, storm: { startsAt: 60, closedAt: 300 } }).storm).toEqual({ startsAt: 60, closedAt: 300 });
+    expect(lines({ type: "stormStarted" })).toEqual([{ t: 1234, type: "stormStarted" }]);
+    expect(lines({ type: "stormClosed" })).toEqual([{ t: 1234, type: "stormClosed" }]);
+    expect(lines({ type: "stormDamage", ship: 0, damage: 5 })).toEqual([{ t: 1234, type: "stormDamage", ship: 0, crew, damage: 5 }]);
   });
 
   it("records the layout at match start, and whether Random picked it", () => {

@@ -42,6 +42,10 @@
       #touch.emp .touch-btn { opacity: 0.25; }
       .overlay-text { position: absolute; left: 50%; transform: translateX(-50%); pointer-events: none; text-shadow: 0 2px 6px rgba(0,0,0,0.6); text-align: center; }
       #countdown { top: 35%; font-size: 96px; font-weight: bold; }
+      /* Stage 2 closing storm: a small status line at the top of the sea; the banner moves down below it. */
+      #storm-status { top: 56px; font-size: 16px; font-weight: bold; }
+      #storm-status.in-storm { color: #ff6b6b; }
+      #storm-status:not([hidden]) ~ #banner { top: 92px; }
       #banner { top: 64px; font-size: 22px; font-weight: bold; background: rgba(11,37,69,0.85); padding: 8px 16px; border-radius: 8px; }
       #scoreboard { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); background: rgba(11,37,69,0.95); padding: 16px 24px; border-radius: 12px; text-align: center; min-width: 280px; }
       #scoreboard h2 { margin: 0 0 8px; }
@@ -116,6 +120,7 @@
         <button id="btn-pack" class="touch-btn" data-button="pack" hidden>Pack</button>
       </div>
       <div id="countdown" class="overlay-text" hidden></div>
+      <div id="storm-status" class="overlay-text" hidden></div>
       <div id="banner" class="overlay-text" hidden></div>
       <div id="scoreboard" hidden>
         <div id="result"></div>

@@ -1,4 +1,5 @@
 import { fileURLToPath } from "node:url";
+import type { StormTimes } from "@sink-or-sail/shared";
 
 export const DEFAULT_PORT = 2567;
 
@@ -17,4 +18,15 @@ export function resolvePort(env: Record<string, string | undefined>): number {
 export function fixedSeed(env: Record<string, string | undefined>): number | null {
   const seed = Number(env.MATCH_SEED);
   return env.MATCH_SEED !== undefined && Number.isInteger(seed) && seed >= 0 ? seed : null;
+}
+
+/**
+ * STORM_STARTS_AT and STORM_CLOSED_AT (match seconds) make the closing storm close sooner, for the browser tests
+ * only; null (the tuning values) unless both are set, not negative, with closing after starting.
+ */
+export function fixedStormTimes(env: Record<string, string | undefined>): StormTimes | null {
+  if (env.STORM_STARTS_AT === undefined || env.STORM_CLOSED_AT === undefined) return null;
+  const startsAt = Number(env.STORM_STARTS_AT);
+  const closedAt = Number(env.STORM_CLOSED_AT);
+  return Number.isFinite(startsAt) && Number.isFinite(closedAt) && startsAt >= 0 && closedAt > startsAt ? { startsAt, closedAt } : null;
 }

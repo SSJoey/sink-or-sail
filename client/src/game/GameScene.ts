@@ -1,5 +1,5 @@
 import * as Phaser from "phaser";
-import { PACK_LETTERS, TUNING, packButtonLit, rolePack, type PackType, type Polygon, type Role, type Vec, type WreckSpot } from "@sink-or-sail/shared";
+import { PACK_LETTERS, SEA_CENTRE, TUNING, packButtonLit, rolePack, type PackType, type Polygon, type Role, type Vec, type WreckSpot } from "@sink-or-sail/shared";
 import { CREW_STYLES } from "./crews.ts";
 import { ShipEffects, type ShipEffect } from "./effects.ts";
 import { EmpRings } from "./empRing.ts";
@@ -18,6 +18,8 @@ export interface SceneLink {
   reefs(): readonly Polygon[];
   /** The match layout's wreck spots (the frame says which still stand). */
   wrecks(): readonly WreckSpot[];
+  /** Stage 2: the closing storm's safe-circle radius now, or null for a match without the storm. */
+  stormRadius(): number | null;
   seat(): { crew: number; role: Role } | null;
   /** Phone controls; merged with keyboard and mouse. */
   touch: TouchControls;
@@ -36,6 +38,9 @@ const SHIELD = 0x9be7ff;
 const PACK_FILL = 0x0b2545;
 const WRECK_WOOD = 0x5a3b22;
 const WRECK_EDGE = 0x2b1a0e;
+const STORM_CLOUD = 0x2b2f3a;
+const STORM_EDGE = 0x9aa3b5;
+const STORM_FLASH = 0xff4d4d;
 
 export class GameScene extends Phaser.Scene {
   private g!: Phaser.GameObjects.Graphics;
@@ -49,6 +54,8 @@ export class GameScene extends Phaser.Scene {
   private readonly effects = new ShipEffects(TUNING.client.hitFlashMs, TUNING.client.sinkFadeMs);
   private readonly empRings = new EmpRings();
   private readonly wreckFlashes = new WreckFlashes(TUNING.client.hitFlashMs);
+  /** Storm hits flash the hull red (tracked like gun hits, on the ship's storm-hit count). */
+  private readonly stormEffects = new ShipEffects(TUNING.client.hitFlashMs, TUNING.client.sinkFadeMs);
 
   private readonly link: SceneLink;
 
@@ -72,8 +79,9 @@ export class GameScene extends Phaser.Scene {
     const seat = this.link.seat();
     const now = performance.now();
     const effects = frame ? frame.ships.map((ship, id) => this.effects.update(id, ship, now)) : [];
+    const stormFlashes = frame ? frame.ships.map((ship, id) => this.stormEffects.update(id, { hits: ship.stormHits, sunk: ship.sunk }, now).flashing) : [];
     if (frame) this.empRings.update(frame.ships, now);
-    this.draw(frame, seat?.crew ?? null, effects);
+    this.draw(frame, seat?.crew ?? null, effects, stormFlashes);
     this.link.setInput(this.readInput(frame, seat));
     this.link.drawn(frame, effects);
   }
@@ -100,13 +108,16 @@ export class GameScene extends Phaser.Scene {
     return { ...input, pack: lit && !!input.pack };
   }
 
-  private draw(frame: Frame | null, ownCrew: number | null, effects: ShipEffect[]): void {
+  private draw(frame: Frame | null, ownCrew: number | null, effects: ShipEffect[], stormFlashes: boolean[]): void {
     const g = this.g;
     g.clear();
 
     for (const reef of this.link.reefs()) this.reef(reef);
     for (const island of this.link.islands()) this.polygon(island, ISLAND_SAND, ISLAND_EDGE);
     if (frame) this.drawWrecks(frame.wrecks);
+    // The storm covers the sea, islands and wrecks; packs, mines and ships stay clear on top of it.
+    const stormRadius = this.link.stormRadius();
+    if (stormRadius !== null) this.drawStorm(stormRadius);
     this.drawPacks(frame?.packs ?? new Map());
     if (!frame) return;
     this.drawMines(frame.mines);
@@ -118,8 +129,9 @@ export class GameScene extends Phaser.Scene {
 
     frame.ships.forEach((ship, crew) => {
       const effect = effects[crew];
-      if (!ship.sunk) this.drawShip(ship, crew, effect?.flashing ?? false, 1);
-      else if (effect?.sinkAlpha) this.drawShip(ship, crew, false, effect.sinkAlpha);
+      const flash = effect?.flashing ? 0xffffff : stormFlashes[crew] ? STORM_FLASH : null;
+      if (!ship.sunk) this.drawShip(ship, crew, flash, 1);
+      else if (effect?.sinkAlpha) this.drawShip(ship, crew, null, effect.sinkAlpha);
     });
 
     g.fillStyle(0xffffff, 1);
@@ -286,8 +298,8 @@ export class GameScene extends Phaser.Scene {
     g.lineBetween(c.x, c.y + 6, c.x, c.y + 16);
   }
 
-  /** `fade` < 1 while a sunk ship fades out; protection makes the ship see-through and blink. */
-  private drawShip(ship: ShipView, crew: number, flashing: boolean, fade: number): void {
+  /** `flash` is the hit-flash colour (white for a hit, red for the storm), or null; `fade` < 1 while a sunk ship fades out; protection makes the ship see-through and blink. */
+  private drawShip(ship: ShipView, crew: number, flash: number | null, fade: number): void {
     const g = this.g;
     const style = CREW_STYLES[crew] ?? CREW_STYLES[0];
     const protectedAlpha = blinkVisible(ship.protection, TUNING.client.protectionBlinkHz) ? 0.6 : 0.2;
@@ -304,7 +316,7 @@ export class GameScene extends Phaser.Scene {
 
     // EMP'd: grey hull with flickering blue sparks.
     const disabled = ship.disabled > 0;
-    this.polygon(hullPoints(ship, ship.heading), flashing ? 0xffffff : disabled ? 0x8a8a8a : style.colour, HULL_EDGE, alpha);
+    this.polygon(hullPoints(ship, ship.heading), flash ?? (disabled ? 0x8a8a8a : style.colour), HULL_EDGE, alpha);
     if (disabled) this.drawSparks(ship, alpha);
 
     // Crew flag near the stern: ● for crew 1, ■ for crew 2.
@@ -322,6 +334,46 @@ export class GameScene extends Phaser.Scene {
     if (ship.shielding) {
       g.lineStyle(3, SHIELD, 0.9);
       g.strokeCircle(ship.x, ship.y, TUNING.ship.radius + 8);
+    }
+  }
+
+  /**
+   * The closing storm: dark cloud over the sea outside the safe circle, with a jagged, shifting edge, and the
+   * final circle as a faint dashed line (shown all match, so crews know where to head).
+   */
+  private drawStorm(radius: number): void {
+    const g = this.g;
+    const { x, y } = SEA_CENTRE;
+    const S = TUNING.closingStorm;
+    // A filled ring from the circle out past every corner, in segments that don't overlap (so the shade is even).
+    const outer = S.startRadius + 40;
+    const segments = 72;
+    g.fillStyle(STORM_CLOUD, 0.55);
+    for (let i = 0; i < segments; i++) {
+      const a = (i / segments) * Math.PI * 2;
+      const b = ((i + 1) / segments) * Math.PI * 2;
+      const inA = { x: x + radius * Math.cos(a), y: y + radius * Math.sin(a) };
+      const inB = { x: x + radius * Math.cos(b), y: y + radius * Math.sin(b) };
+      const outA = { x: x + outer * Math.cos(a), y: y + outer * Math.sin(a) };
+      const outB = { x: x + outer * Math.cos(b), y: y + outer * Math.sin(b) };
+      g.fillTriangle(inA.x, inA.y, outA.x, outA.y, outB.x, outB.y);
+      g.fillTriangle(inA.x, inA.y, outB.x, outB.y, inB.x, inB.y);
+    }
+    const t = performance.now() / 400;
+    g.lineStyle(3, STORM_EDGE, 0.8);
+    g.beginPath();
+    for (let i = 0; i <= 72; i++) {
+      const a = (i / 72) * Math.PI * 2;
+      const r = radius + 6 * Math.sin(a * 9 + t) + 4 * Math.sin(a * 23 - t * 1.7);
+      if (i === 0) g.moveTo(x + r * Math.cos(a), y + r * Math.sin(a));
+      else g.lineTo(x + r * Math.cos(a), y + r * Math.sin(a));
+    }
+    g.strokePath();
+    g.lineStyle(2, 0xffffff, 0.35);
+    for (let i = 0; i < 90; i += 2) {
+      const a = (i / 90) * Math.PI * 2;
+      const b = ((i + 1) / 90) * Math.PI * 2;
+      g.lineBetween(x + S.endRadius * Math.cos(a), y + S.endRadius * Math.sin(a), x + S.endRadius * Math.cos(b), y + S.endRadius * Math.sin(b));
     }
   }
 

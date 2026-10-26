@@ -69,6 +69,20 @@ export const TUNING = {
     /** Ramming a wreck: the ship takes a normal bump for its speed, the wreck this many times that. */
     ramFactor: 3,
   },
+  /** Stage 2 closing storm (approved 2026-10-26): Last Afloat with hazards on only. */
+  closingStorm: {
+    /** Match seconds when the circle starts closing (1:00 in) and reaches its final size (5:00 in), shrinking smoothly. */
+    startsAt: 60,
+    closedAt: 300,
+    /** The safe circle around the middle of the sea: from just covering the corners down to the final size. */
+    startRadius: 918,
+    endRadius: 300,
+    /** Fraction of full health lost each tick by a ship whose centre is outside the circle (protection blocks it; a shield doesn't). */
+    damage: 0.05,
+    tickSeconds: 1,
+    /** A ship respawning in the storm comes back this far inside the circle, toward the middle. */
+    respawnInset: 60,
+  },
   /** Stage 2: Last Afloat (approved 2026-10-26). */
   lastAfloat: {
     /** Lives per ship unless the host picks another number; each sinking costs one, and at 0 the crew is out. */

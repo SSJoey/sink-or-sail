@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Phase, TUNING } from "@sink-or-sail/shared";
-import { blinkVisible, countdownLabel, outBanner, packBlinkVisible, pausedText, resultLine, respawnText, resultTitle, scoreRows, sinkBanner } from "./matchText.ts";
+import { blinkVisible, countdownLabel, outBanner, packBlinkVisible, pausedText, resultLine, respawnText, resultTitle, scoreRows, sinkBanner, stormText } from "./matchText.ts";
 
 const D = TUNING.match.duration;
 
@@ -108,6 +108,7 @@ describe("Stage 2: Last Afloat texts", () => {
     expect(sinkBanner(-1, "ownMine")).toBe("Sunk by your own mine");
     expect(sinkBanner(-1, "reef")).toBe("Wrecked on a reef");
     expect(sinkBanner(-1, "wreck")).toBe("Wrecked on a shipwreck");
+    expect(sinkBanner(-1, "storm")).toBe("Lost to the storm");
     // Nobody credited (a ship's own blast from a mine it shot): as in Stage 1.
     expect(sinkBanner(-1, "shot")).toBe("Sunk!");
   });
@@ -118,6 +119,7 @@ describe("Stage 2: Last Afloat texts", () => {
     expect(outBanner(-1, "ownMine")).toBe("Out: sunk by your own mine");
     expect(outBanner(-1, "reef")).toBe("Out: wrecked on a reef");
     expect(outBanner(-1, "wreck")).toBe("Out: wrecked on a shipwreck");
+    expect(outBanner(-1, "storm")).toBe("Out: lost to the storm");
     expect(outBanner(-1, "shot")).toBe("Out");
   });
 
@@ -127,5 +129,21 @@ describe("Stage 2: Last Afloat texts", () => {
     expect(resultLine({ ...row, sinkings: 2 }, { livesLeft: 1, out: false })).toBe("● Crew 1: 1 life left · 2 sinkings (Joey & Sam)");
     expect(resultLine(row, { livesLeft: 3, out: false })).toBe("● Crew 1: 3 lives left · 1 sinking (Joey & Sam)");
     expect(resultLine({ ...row, sinkings: 0 }, { livesLeft: 0, out: true })).toBe("● Crew 1: out · 0 sinkings (Joey & Sam)");
+  });
+});
+
+describe("Stage 2: the closing storm's status line", () => {
+  const times = { startsAt: 60, closedAt: 300 };
+  it("counts down to the storm, then says it's closing, then closed", () => {
+    expect(stormText(0, times, false)).toBe("Storm in 1:00");
+    expect(stormText(17.2, times, false)).toBe("Storm in 0:43");
+    expect(stormText(59.5, times, false)).toBe("Storm in 0:01");
+    expect(stormText(60, times, false)).toBe("Storm closing");
+    expect(stormText(299, times, false)).toBe("Storm closing");
+    expect(stormText(300, times, false)).toBe("Storm closed");
+  });
+
+  it("tells a crew whose ship is outside the circle", () => {
+    expect(stormText(120, times, true)).toBe("In the storm!");
   });
 });

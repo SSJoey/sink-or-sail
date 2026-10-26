@@ -3,7 +3,7 @@ import { join } from "node:path";
 import { defineConfig } from "@playwright/test";
 
 const PORT = 2577;
-/** Second test server, for the EMP test (its own MATCH_SEED). */
+/** Second test server, for the EMP test (its own MATCH_SEED) and the closing-storm test (a sooner storm). */
 export const EMP_PORT = 2578;
 
 export default defineConfig({
@@ -29,12 +29,13 @@ export default defineConfig({
     },
     {
       // A second server for the EMP test: with seed 8 the first pack is an EMP at (800, 150), between the crews.
-      // It serves the client built by the first server's command.
+      // It serves the client built by the first server's command. STORM_STARTS_AT / STORM_CLOSED_AT make Last
+      // Afloat's closing storm close from 0:02 to 0:12 (for the storm test; the EMP test plays Sink Count).
       command: `PORT=${EMP_PORT} npm start`,
       url: `http://localhost:${EMP_PORT}`,
       reuseExistingServer: false,
       timeout: 60_000,
-      env: { LOG_DIR: join(tmpdir(), "sink-or-sail-test-logs"), MATCH_SEED: "8" },
+      env: { LOG_DIR: join(tmpdir(), "sink-or-sail-test-logs"), MATCH_SEED: "8", STORM_STARTS_AT: "2", STORM_CLOSED_AT: "12" },
     },
   ],
 });

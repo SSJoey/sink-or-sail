@@ -370,6 +370,28 @@ Asked for by the user before the combined playtest: 3 ship slots now, Frigates o
   - **Browser test** `e2e/wrecks.spec.ts`: on One Island with seed 367 wreck 1 at (1150, 125) holds a mine; the Crew 2 laptop gunner shoots it to pieces and the Crew 2 pilot sails over the mine. Its first wait (for the game view) is 15 s, because under load the game view took over 5 s to appear in 2 of its first 3 full runs.
   - **Browser tests under load (watch item):** 17 browser tests now. Full runs after this slice: 5 runs, every one with a failure: the EMP test (3 runs), the 3-ship game view slow to appear (1), the new wreck test's game view (2, before its longer wait) and once the laptop mine-pack test, whose ship overshot the mine under load and sailed over the torpedo spot instead (its log shows no wreck contact). The failing tests pass when run on their own.
 
+### 2026-10-26 — Stage 2 slice 5 plan: closing storm
+
+- **Question 1 (timing):** closes from 1:00 into the match (clock 6:00) to the small circle at 5:00 (clock 2:00), shrinking smoothly; stays at that size until the 7:00 limit.
+- **Question 2 (shape):** a circle centred on the middle of the sea, radius 918 (covers the corners) down to **300**. "OK for now, we can fine tune."
+- **Question 3:** a) 5 health (5% of full) every second for a ship whose centre is outside the circle; a shield doesn't help.
+- **Question 4:** a) a ship respawning while its corner is in the storm comes back pulled in toward the middle until 60 inside the circle, clear of islands and wrecks; respawn protection also blocks storm damage.
+- **Question 5:** a) the storm only comes with Hazards on; with Hazards off, Last Afloat plays as before (time limit only).
+- **Question 6:** dark grey storm outside the circle with a jagged edge; the final circle as a faint dashed line from the match start; a small status line at the top of the sea ("Storm in 0:42", "Storm closing", "Storm closed"), not in the top bar; a) your hull flashes red with each tick and "In the storm!" shows.
+- **Question 7:** a) packs keep spawning at their usual spots, inside the storm too.
+- **Question 8:** mines and torpedoes are unaffected by the storm.
+- **Points 9–10** (log and summary, tuning names): as proposed.
+- **Browser test:** a test-only setting on a test server (environment variables, like `MATCH_SEED`) makes the storm close sooner, so the test can see storm damage. Real games are unaffected.
+- **Built (2026-10-26):**
+  - **Tuning:** `closingStorm` { startsAt 60, closedAt 300, startRadius 918, endRadius 300, damage 0.05, tickSeconds 1, respawnInset 60 }.
+  - **Simulation** (`sim/storm.ts`): the world carries `storm` (its times, or null), set for Last Afloat with hazards on. The radius shrinks linearly between the two times. Every whole second after it starts closing, each ship afloat and not protected whose centre is outside the circle takes 5 (`stormDamage`); sinking is cause `storm`, no credit, and costs a life. `stormStarted` and `stormClosed` mark the two times. While the storm closes, a respawning ship's chosen corner is pulled in toward the middle until 60 inside the circle, then further in until clear of islands and wrecks (checked on every layout, from every corner, at every size).
+  - **Test-only setting:** `STORM_STARTS_AT` and `STORM_CLOSED_AT` (both needed) set the storm's times; the second test server (port 2578) uses 2 and 12. The EMP test on that server plays Sink Count, so it has no storm.
+  - **Room:** synced `matchStorm`, `stormStartsAt`, `stormClosedAt`, `stormRadius`; each ship's `stormHits` (for the red flash).
+  - **Client:** the storm as an even dark shade outside the circle with a shifting jagged edge (drawn over the sea, islands and wrecks; packs, mines and ships stay on top so packs in the storm can be seen), the final circle as a faint dashed line all match; storm hits flash the hull red. Status line at the top of the sea ("Storm in 0:42", "Storm closing", "Storm closed", or "In the storm!" in red while your ship is outside); while it shows, the sink banner sits a little lower, below it. Banner "Lost to the storm" ("Out: lost to the storm").
+  - **Log and summary:** match start records `storm` (its times, or null); `stormStarted`, `stormClosed`, `stormDamage` (ship, crew, damage) lines. A "Storm damage" column for a match with the storm; "storm" shows in "Sunk by".
+  - **Browser test** `e2e/storm.spec.ts` (port 2578): a Last Afloat match with hazards on; the status line goes from "Storm in…" to "Storm closing" to "In the storm!" for a ship left at its start, and its health drops.
+  - **Browser tests under load (watch item):** 18 browser tests now. Full runs after this slice: 4 runs. Run 1: the reef test (its position samples under load jumped right over the reef stretch, giving a NaN speed). Run 2: the new storm test (its middle check allowed 5 s; the page still showed "Storm in 0:01" then; now 15 s). Run 3: the Last Afloat test: the enemy ship circled its target for about 50 s before the steering helper gave up, so the host's shots never reached it. On the way it bumped One Island's wrecks 1 and 0 (wrecks came in slice 4), so the wrecks near that test's route may add to the load problem. Not changed: it's an existing test (asked the user). Run 4: all 18 passed.
+
 ## Later
 
 - **(2026-10-25, Stage 5) Ship types**, discussed with the user ahead of Stage 5 (not to build before then):

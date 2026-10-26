@@ -29,6 +29,8 @@ export interface ShipView {
   out: boolean;
   /** What sank it last (a SinkCause), "" for nothing yet. */
   sunkCause: string;
+  /** Stage 2: closing-storm hits taken (each flashes the hull red). */
+  stormHits: number;
 }
 
 export interface PackView {

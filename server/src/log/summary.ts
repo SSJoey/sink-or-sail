@@ -31,6 +31,8 @@ export interface CrewSummary {
   /** Stage 2: wrecks this crew destroyed, and how many of those released a pack. */
   wrecksDestroyed: number;
   wreckPacksReleased: number;
+  /** Stage 2: health lost to the closing storm. */
+  stormDamage: number;
 }
 
 /** Stage 2: Last Afloat figures for one crew. */
@@ -90,6 +92,8 @@ export interface MatchSummary {
   /** Stage 2: hazards on (logs from before hazards: off) and the reefs setting ("none" with hazards off). */
   hazardsOn: boolean;
   reefs: string;
+  /** Stage 2: the match had the closing storm (Last Afloat with hazards on). */
+  stormOn: boolean;
   /** "time", "lastAfloat" or "endedEarly"; null if the log doesn't say. */
   endReason: string | null;
   crews: CrewSummary[];
@@ -178,6 +182,7 @@ export function summarise(lines: readonly Line[]): MatchSummary {
       reefDamage: Math.round(mine("reefHit").reduce((sum, l) => sum + (l.damage as number), 0) * 10) / 10,
       wrecksDestroyed: mine("wreckDestroyed").length,
       wreckPacksReleased: lines.filter((l) => l.type === "wreckPackReleased" && mine("wreckDestroyed").some((d) => d.wreck === l.wreck)).length,
+      stormDamage: Math.round(mine("stormDamage").reduce((sum, l) => sum + (l.damage as number), 0) * 10) / 10,
     };
   });
 
@@ -198,6 +203,7 @@ export function summarise(lines: readonly Line[]): MatchSummary {
     layoutRandom: start?.layoutRandom === true,
     hazardsOn: start?.hazardsOn === true,
     reefs: start?.hazardsOn === true && typeof start?.reefs === "string" ? start.reefs : "none",
+    stormOn: typeof start?.storm === "object" && start.storm !== null,
     crews: summaries,
     lastAfloat: mode === "lastAfloat" ? lastAfloatFigures(lines, crews, scores, winner, endT, afloat) : null,
     packs: packsOn ? crews.map((c) => packFigures(lines, c.ship)) : null,
@@ -325,8 +331,9 @@ export function formatSummary(s: MatchSummary): string {
     `${r1(c.averageSurvivalSeconds)} s (${c.lives})`,
     Object.entries(c.sunkBy).map(([cause, n]) => `${cause} ${n}`).join(" · ") || "—",
     ...(s.hazardsOn ? [`${c.reefHits} (${r1(c.reefDamage)})`, `${c.wrecksDestroyed} (${c.wreckPacksReleased})`] : []),
+    ...(s.stormOn ? [r1(c.stormDamage)] : []),
   ]);
-  const head = ["Crew", "Pilot & Gunner", "Sinkings", "Shots", "Hits", "Blocked", "Accuracy", "Energy boost / shield", "Empty bar", "Avg survival (lives)", "Sunk by", ...(s.hazardsOn ? ["Reef hits (damage)", "Wrecks destroyed (packs released)"] : [])];
+  const head = ["Crew", "Pilot & Gunner", "Sinkings", "Shots", "Hits", "Blocked", "Accuracy", "Energy boost / shield", "Empty bar", "Avg survival (lives)", "Sunk by", ...(s.hazardsOn ? ["Reef hits (damage)", "Wrecks destroyed (packs released)"] : []), ...(s.stormOn ? ["Storm damage"] : [])];
   const out = [header, "", ...table(head, rows)];
   if (s.lastAfloat) {
     const laRows = s.lastAfloat.map((c) => [`Crew ${c.ship + 1}`, ordinal(c.place), `${r1(c.afloatSeconds)} s`, String(c.livesUsed)]);

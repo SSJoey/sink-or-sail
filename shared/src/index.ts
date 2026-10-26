@@ -10,6 +10,7 @@ export * from "./sim/types.ts";
 export * from "./sim/map.ts";
 export * from "./sim/layouts.ts";
 export * from "./sim/wrecks.ts";
+export * from "./sim/storm.ts";
 export * from "./sim/match.ts";
 export * from "./sim/step.ts";
 export * from "./sim/random.ts";

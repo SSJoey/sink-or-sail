@@ -1,10 +1,16 @@
-import { Phase, TUNING, timeLeft, type SimEvent, type World } from "@sink-or-sail/shared";
+import { Phase, TUNING, stormRadius, timeLeft, type SimEvent, type World } from "@sink-or-sail/shared";
 import { MineState, PackState, ShipState, ShotState, WreckState, type CrewState } from "./state.ts";
 
 /** Copies the simulation world into the synced room state. Colyseus sends only what changed. */
 export function syncWorld(state: CrewState, world: World): void {
   state.phase = world.over ? Phase.Over : Phase.Running;
   state.timeLeft = timeLeft(world);
+  state.matchStorm = world.storm !== null;
+  if (world.storm) {
+    state.stormStartsAt = world.storm.startsAt;
+    state.stormClosedAt = world.storm.closedAt;
+    state.stormRadius = stormRadius(world.storm, world.time);
+  }
 
   while (state.ships.length < world.ships.length) state.ships.push(new ShipState());
   // A 2-ship match after a 3-ship one drops the third ship.
@@ -131,6 +137,11 @@ export function applyEvents(state: CrewState, events: readonly SimEvent[]): void
         // A ship hurt ramming a wreck flashes like a bump.
         const rammer = event.by === null ? undefined : ship(event.by);
         if (rammer && (event.shipDamage ?? 0) > 0) rammer.hits++;
+        break;
+      }
+      case "stormDamage": {
+        const target = ship(event.ship);
+        if (target) target.stormHits++;
         break;
       }
       case "sunk": {

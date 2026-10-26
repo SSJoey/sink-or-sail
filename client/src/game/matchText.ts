@@ -18,6 +18,7 @@ export function sinkBanner(sunkBy: number, cause = ""): string {
   if (cause === "ownMine") return "Sunk by your own mine";
   if (cause === "reef") return "Wrecked on a reef";
   if (cause === "wreck") return "Wrecked on a shipwreck";
+  if (cause === "storm") return "Lost to the storm";
   if (sunkBy < 0) return "Sunk!";
   const crew = crewLabel(sunkBy);
   switch (cause) {
@@ -33,6 +34,19 @@ export function sinkBanner(sunkBy: number, cause = ""): string {
 export function outBanner(sunkBy: number, cause: string): string {
   const text = sinkBanner(sunkBy, cause);
   return text === "Sunk!" ? "Out" : `Out: ${text[0]!.toLowerCase()}${text.slice(1)}`;
+}
+
+/**
+ * Stage 2 closing storm, the line at the top of the sea: "Storm in 0:42" (whole seconds, rounded up), then
+ * "Storm closing", then "Storm closed"; "In the storm!" while the crew's ship is outside the circle.
+ */
+export function stormText(elapsed: number, times: { startsAt: number; closedAt: number }, ownInStorm: boolean): string {
+  if (ownInStorm) return "In the storm!";
+  if (elapsed < times.startsAt) {
+    const left = Math.ceil(times.startsAt - elapsed - 1e-9);
+    return `Storm in ${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`;
+  }
+  return elapsed < times.closedAt ? "Storm closing" : "Storm closed";
 }
 
 export const respawnText = (respawnIn: number) => `Back in ${Math.max(1, Math.ceil(respawnIn))}`;

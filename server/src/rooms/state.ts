@@ -36,6 +36,8 @@ export const ShipState = schema({
   disabled: t.float32().default(0),
   /** EMPs this ship has fired this match; clients draw the ring when it goes up. */
   empsFired: t.uint16().default(0),
+  /** Stage 2: closing-storm hits taken (clients flash the hull red on each). */
+  stormHits: t.uint16().default(0),
   /** Last Afloat: sinkings the ship can still take; -1 in Sink Count. */
   livesLeft: t.int8().default(-1),
   /** Last Afloat: sunk on its last life, gone for the rest of the match. */
@@ -113,6 +115,11 @@ export const CrewState = schema({
   reefs: t.string().default("all"),
   /** The reefs of the current (or last) match: "none" with hazards off. Clients draw the layout's reefs from it. */
   matchReefs: t.string().default("none"),
+  /** Stage 2 closing storm: whether the current (or last) match has one, its times (match seconds) and the safe circle's radius now. */
+  matchStorm: t.boolean().default(false),
+  stormStartsAt: t.float32(),
+  stormClosedAt: t.float32(),
+  stormRadius: t.float32(),
   /** Keyed by pack id (packs released from wrecks too). */
   packs: t.map(PackState),
   /** Stage 2: wrecks still standing, keyed by their index in the layout's wrecks. */

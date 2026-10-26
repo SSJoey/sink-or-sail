@@ -26,7 +26,7 @@ export function snapshotFromState(state: GameStateView, t: number): Snapshot {
       sinkings: s.sinkings, sunkBy: s.sunkBy, hits: s.hits,
       pilotPack: slot(s.pilotPack), gunnerPack: slot(s.gunnerPack),
       disabled: s.disabled, empsFired: s.empsFired,
-      livesLeft: s.livesLeft, out: s.out, sunkCause: s.sunkCause,
+      livesLeft: s.livesLeft, out: s.out, sunkCause: s.sunkCause, stormHits: s.stormHits,
     });
   }
   const shots = new Map<string, ShotView>();

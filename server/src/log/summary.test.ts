@@ -44,8 +44,8 @@ describe("summarise", () => {
 
   it("gives the exact per-crew numbers", () => {
     expect(summary.crews).toEqual([
-      { ship: 0, pilot: "Ann", gunner: "Bob", sinkings: 0, shots: 3, hits: 1, blocked: 1, accuracy: 1 / 3, boostEnergy: 50.5, shieldEnergy: 0, emptySeconds: 2, averageSurvivalSeconds: 13.5, lives: 2, sunkBy: {}, reefHits: 0, reefDamage: 0, wrecksDestroyed: 0, wreckPacksReleased: 0 },
-      { ship: 1, pilot: "Cat", gunner: null, sinkings: 1, shots: 1, hits: 0, blocked: 0, accuracy: 0, boostEnergy: 0, shieldEnergy: 30, emptySeconds: 5, averageSurvivalSeconds: 30, lives: 1, sunkBy: {}, reefHits: 0, reefDamage: 0, wrecksDestroyed: 0, wreckPacksReleased: 0 },
+      { ship: 0, pilot: "Ann", gunner: "Bob", sinkings: 0, shots: 3, hits: 1, blocked: 1, accuracy: 1 / 3, boostEnergy: 50.5, shieldEnergy: 0, emptySeconds: 2, averageSurvivalSeconds: 13.5, lives: 2, sunkBy: {}, reefHits: 0, reefDamage: 0, wrecksDestroyed: 0, wreckPacksReleased: 0, stormDamage: 0 },
+      { ship: 1, pilot: "Cat", gunner: null, sinkings: 1, shots: 1, hits: 0, blocked: 0, accuracy: 0, boostEnergy: 0, shieldEnergy: 30, emptySeconds: 5, averageSurvivalSeconds: 30, lives: 1, sunkBy: {}, reefHits: 0, reefDamage: 0, wrecksDestroyed: 0, wreckPacksReleased: 0, stormDamage: 0 },
     ]);
   });
 
@@ -436,5 +436,33 @@ describe("Stage 2: wrecks in the summary", () => {
     expect(text).toContain("Wrecks destroyed (packs released)");
     expect(text).toMatch(/^Crew 1 .* 2 \(1\)$/m);
     expect(formatSummary(summarise(parseLog(sampleText)))).not.toContain("Wrecks destroyed");
+  });
+});
+
+describe("Stage 2: the closing storm in the summary", () => {
+  const crew = { pilot: "Ann", gunner: "Bob" };
+  const cat = { pilot: "Cat", gunner: null };
+  const lines = [
+    { t: 0, type: "matchStart", room: "STRM", crews: [{ ship: 0, ...crew }, { ship: 1, ...cat }], packsOn: false, seed: 1, mode: "lastAfloat", lives: 1, layout: "oneIsland", hazardsOn: true, reefs: "all", wrecks: [], storm: { startsAt: 60, closedAt: 300 }, tuning: {} },
+    { t: 60000, type: "stormStarted" },
+    { t: 180000, type: "stormDamage", ship: 1, crew: cat, damage: 5 },
+    { t: 181000, type: "stormDamage", ship: 1, crew: cat, damage: 5 },
+    { t: 182000, type: "stormDamage", ship: 0, crew, damage: 5 },
+    { t: 190000, type: "sunk", ship: 1, crew: cat, by: null, cause: "storm", livesLeft: 0 },
+    { t: 190000, type: "crewOut", ship: 1, crew: cat },
+    { t: 190000, type: "matchEnd", winner: 0, endedEarly: false, reason: "lastAfloat", scores: [] },
+  ];
+
+  it("adds up each crew's storm damage", () => {
+    expect(summarise(lines).crews.map((c) => c.stormDamage)).toEqual([5, 10]);
+    expect(summarise(lines).stormOn).toBe(true);
+    expect(summarise(parseLog(sampleText)).stormOn).toBe(false);
+  });
+
+  it("prints a Storm damage column only for a match with the storm", () => {
+    const text = formatSummary(summarise(lines));
+    expect(text).toContain("Storm damage");
+    expect(text).toMatch(/^Crew 2 .*storm 1 .* 10$/m);
+    expect(formatSummary(summarise(parseLog(sampleText)))).not.toContain("Storm damage");
   });
 });

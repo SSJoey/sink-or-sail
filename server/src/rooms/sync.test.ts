@@ -206,6 +206,26 @@ describe("wrecks in the synced state", () => {
   });
 });
 
+describe("the closing storm in the synced state", () => {
+  it("shows whether the match has a storm, its times and the circle's size now", () => {
+    const state = new CrewState();
+    const world = createWorld({ mode: "lastAfloat", hazards: true, storm: { startsAt: 10, closedAt: 20 } });
+    world.time = 15;
+    syncWorld(state, world);
+    expect([state.matchStorm, state.stormStartsAt, state.stormClosedAt]).toEqual([true, 10, 20]);
+    expect(state.stormRadius).toBeCloseTo((TUNING.closingStorm.startRadius + TUNING.closingStorm.endRadius) / 2, 1);
+    syncWorld(state, createWorld({ mode: "lastAfloat" }));
+    expect(state.matchStorm).toBe(false);
+  });
+
+  it("counts each storm hit on a ship (for its red flash)", () => {
+    const state = new CrewState();
+    syncWorld(state, createWorld({ mode: "lastAfloat", hazards: true }));
+    applyEvents(state, [{ type: "stormDamage", ship: 1, damage: 5 }, { type: "stormDamage", ship: 1, damage: 5 }]);
+    expect(state.ships.map((s) => [s.stormHits, s.hits])).toEqual([[0, 0], [2, 0]]);
+  });
+});
+
 describe("mines in the synced state", () => {
   it("shows each mine's place, owner and whether it is armed", () => {
     const state = new CrewState();

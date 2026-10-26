@@ -1,4 +1,4 @@
-import { DEFAULT_LAYOUT, TUNING, type GameMode, type LayoutId, type ReefAmount, type Role, type Seat, type SimEvent, type World, type Wreck } from "@sink-or-sail/shared";
+import { DEFAULT_LAYOUT, TUNING, type GameMode, type LayoutId, type ReefAmount, type Role, type Seat, type SimEvent, type StormTimes, type World, type Wreck } from "@sink-or-sail/shared";
 
 /** Who crews each ship (index = ship id); null for an empty seat. */
 export type Roster = { pilot: string | null; gunner: string | null }[];
@@ -40,6 +40,9 @@ export function simEventLines(t: number, events: readonly SimEvent[], roster: Ro
         break;
       case "wreckDestroyed": lines.push({ t, type: "wreckDestroyed", wreck: e.wreck, ...credited(e.by) }); break;
       case "wreckPackReleased": lines.push({ t, type: "wreckPackReleased", wreck: e.wreck, pack: e.pack, packType: e.packType }); break;
+      case "stormStarted": lines.push({ t, type: "stormStarted" }); break;
+      case "stormClosed": lines.push({ t, type: "stormClosed" }); break;
+      case "stormDamage": lines.push({ t, type: "stormDamage", ...crew(e.ship), damage: r1(e.damage) }); break;
       case "respawned": lines.push({ t, type: "respawn", ...crew(e.ship), x: r1(e.pos.x), y: r1(e.pos.y) }); break;
       case "bump": lines.push({ t, type: "bump", ships: e.ships, damage: [r1(e.damage[0]), r1(e.damage[1])] }); break;
       case "packSignalled": lines.push({ t, type: "packSignalled", pack: e.pack, spot: e.spot, packType: e.packType }); break;
@@ -81,6 +84,8 @@ export function matchStartLine(room: string, roster: Roster, match: {
   packsOn: boolean; seed: number; mode: GameMode; lives: number | null; layout?: LayoutId; layoutRandom?: boolean; hazardsOn?: boolean; reefs?: ReefAmount;
   /** Stage 2: the match's wrecks (none with hazards off). */
   wrecks?: readonly Wreck[];
+  /** Stage 2: the closing storm's times, or null for none. */
+  storm?: StormTimes | null;
 }): LogLine {
   return {
     t: 0,
@@ -96,6 +101,7 @@ export function matchStartLine(room: string, roster: Roster, match: {
     hazardsOn: match.hazardsOn ?? false,
     reefs: match.reefs ?? "none",
     wrecks: (match.wrecks ?? []).map((w) => ({ wreck: w.id, x: r1(w.pos.x), y: r1(w.pos.y), pack: w.pack })),
+    storm: match.storm ?? null,
     tuning: TUNING,
   };
 }

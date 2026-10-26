@@ -36,7 +36,7 @@ export const GAME_MODES = ["sinkCount", "lastAfloat"] as const;
 export type GameMode = (typeof GAME_MODES)[number];
 
 /** What sank a ship. A mine set off by a shot or a torpedo counts as that weapon; "ownMine" is a ship's own mine it sailed into. */
-export type SinkCause = "shot" | "mine" | "ownMine" | "torpedo" | "bump" | "reef" | "wreck";
+export type SinkCause = "shot" | "mine" | "ownMine" | "torpedo" | "bump" | "reef" | "wreck" | "storm";
 
 /** A pack on the map. While `signalLeft` > 0 its spot is glowing and it can't be picked up yet. */
 export interface Pack {
@@ -70,6 +70,12 @@ export interface Wreck {
   health: number;
   /** The pack it releases when destroyed, or null (drawn with the seed at the match start; none with packs off). */
   pack: PackType | null;
+}
+
+/** When the closing storm starts closing and reaches its final circle (match seconds). */
+export interface StormTimes {
+  startsAt: number;
+  closedAt: number;
 }
 
 /** What damaged a wreck. */
@@ -160,6 +166,8 @@ export interface World {
   /** Stage 2: wrecks still standing (none with hazards off), and packs released from destroyed ones. */
   wrecks: Wreck[];
   wreckPacks: WreckPack[];
+  /** Stage 2: the closing storm's times (Last Afloat with hazards on), or null for no storm. */
+  storm: StormTimes | null;
   /** Stage 1: packs spawn only when on (set for the whole match). */
   packsOn: boolean;
   /** Seeded generator state; the same seed gives the same packs. */
@@ -196,6 +204,10 @@ export type SimEvent =
   | { type: "wreckHit"; wreck: number; by: number | null; weapon: WreckWeapon; damage: number; shipDamage?: number }
   | { type: "wreckDestroyed"; wreck: number; by: number | null }
   | { type: "wreckPackReleased"; wreck: number; pack: number; packType: PackType }
+  /** Stage 2 closing storm: it starts closing, reaches its final circle, and hurts a ship outside the circle (each tick). */
+  | { type: "stormStarted" }
+  | { type: "stormClosed" }
+  | { type: "stormDamage"; ship: number; damage: number }
   | { type: "respawned"; ship: number; pos: Vec }
   /** "lastAfloat": one ship (or none) left in a Last Afloat match; "time": the clock ran out. */
   | { type: "matchEnded"; winner: number | null; reason: "time" | "lastAfloat" }

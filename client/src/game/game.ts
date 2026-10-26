@@ -1,6 +1,6 @@
 import * as Phaser from "phaser";
 import type { Room } from "@colyseus/sdk";
-import { ClientMessage, DEFAULT_LAYOUT, LAYOUTS, Phase, TUNING, isLayoutId, isReefAmount, reefsFor, rolePack, type PackType, type Role } from "@sink-or-sail/shared";
+import { ClientMessage, DEFAULT_LAYOUT, LAYOUTS, Phase, TUNING, inStorm, isLayoutId, isReefAmount, reefsFor, rolePack, type PackType, type Role } from "@sink-or-sail/shared";
 import { CREW_STYLES } from "./crews.ts";
 import { GameScene } from "./GameScene.ts";
 import type { ShipEffect } from "./effects.ts";
@@ -9,7 +9,7 @@ import { startInputSender } from "./inputSender.ts";
 import { PackLatch } from "./packLatch.ts";
 import { gunnerPackBuzz } from "./packBuzz.ts";
 import { SnapshotBuffer, type Frame } from "./interpolation.ts";
-import { countdownLabel, outBanner, pausedText, resultLine, respawnText, resultTitle, scoreRows, sinkBanner } from "./matchText.ts";
+import { countdownLabel, outBanner, pausedText, resultLine, respawnText, resultTitle, scoreRows, sinkBanner, stormText } from "./matchText.ts";
 import { blockGestures, goFullscreenLandscape, isPortrait, isTouchFirst } from "./phone.ts";
 import { snapshotFromState, type GameStateView } from "./snapshot.ts";
 import { layoutText } from "../lobby/settings.ts";
@@ -41,6 +41,11 @@ export interface RoomStateView extends GameStateView {
   hazardsEnabled: boolean;
   reefs: string;
   matchReefs: string;
+  /** Stage 2 closing storm: whether the match has one, its times and the safe circle's radius now. */
+  matchStorm: boolean;
+  stormStartsAt: number;
+  stormClosedAt: number;
+  stormRadius: number;
   phase: string;
   pausedBy: string;
   countdown: number;
@@ -84,6 +89,7 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
   const rotate = byId("rotate");
   const countdown = byId("countdown");
   const banner = byId("banner");
+  const stormStatus = byId("storm-status");
   const scoreboard = byId("scoreboard");
   const paused = byId("paused");
   screen.hidden = false;
@@ -116,6 +122,10 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
     islands: () => {
       const id = (room.state as RoomStateView).matchLayout;
       return LAYOUTS[isLayoutId(id) ? id : DEFAULT_LAYOUT].islands;
+    },
+    stormRadius: () => {
+      const state = room.state as RoomStateView;
+      return state.matchStorm ? state.stormRadius : null;
     },
     wrecks: () => {
       const id = (room.state as RoomStateView).matchLayout;
@@ -151,6 +161,8 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
         .map((p) => `${p.type}@${Math.round(p.x)},${Math.round(p.y)}`)
         .join(";");
       canvasHost.dataset.mines = String(frame?.mines.size ?? 0);
+      if (own) canvasHost.dataset.ownHealth = String(Math.round(own.health));
+      showStormStatus(state, own ?? null, stormStatus);
       // Wrecks still standing as "id:health:pack;…" (pack 1 when it holds one), for the browser smoke tests.
       canvasHost.dataset.wrecks = [...(frame?.wrecks ?? new Map())].map(([id, w]) => `${id}:${Math.round(w.health)}:${w.hasPack ? 1 : 0}`).join(";");
       canvasHost.dataset.torpedoes = String(frame?.torpedoes.size ?? 0);
@@ -195,6 +207,7 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
       delete canvasHost.dataset.ownY;
       delete canvasHost.dataset.packs;
       delete canvasHost.dataset.mines;
+      delete canvasHost.dataset.ownHealth;
       delete canvasHost.dataset.wrecks;
       delete canvasHost.dataset.torpedoes;
       delete canvasHost.dataset.disabled;
@@ -202,6 +215,7 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
       rotate.hidden = true;
       countdown.hidden = true;
       banner.hidden = true;
+      stormStatus.hidden = true;
       scoreboard.hidden = true;
       paused.hidden = true;
       screen.hidden = true;
@@ -273,6 +287,18 @@ function showMatchOverlays(
   const over = state.phase === Phase.Over;
   if (over && els.scoreboard.hidden) renderResult(byId("result"), state);
   els.scoreboard.hidden = !over;
+}
+
+/** Stage 2 closing storm: the status line at the top of the sea, while a match with the storm is on. */
+function showStormStatus(state: RoomStateView, own: { x: number; y: number; sunk: boolean } | null, el: HTMLElement): void {
+  const on = state.matchStorm && (state.phase === Phase.Countdown || state.phase === Phase.Running || state.phase === Phase.Paused);
+  el.hidden = !on;
+  if (!on) return;
+  const elapsed = TUNING.lastAfloat.duration - state.timeLeft;
+  const outside = own !== null && !own.sunk && inStorm(own, state.stormRadius);
+  const text = stormText(elapsed, { startsAt: state.stormStartsAt, closedAt: state.stormClosedAt }, outside);
+  if (el.textContent !== text) el.textContent = text;
+  el.classList.toggle("in-storm", outside);
 }
 
 function updateHud(frame: Frame | null, seat: { crew: number; role: Role } | null, timeLeft: number, lastAfloat: boolean): void {

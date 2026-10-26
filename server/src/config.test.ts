@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { GAME_NAME } from "@sink-or-sail/shared";
-import { DEFAULT_PORT, fixedSeed, resolvePort } from "./config.ts";
+import { DEFAULT_PORT, fixedSeed, fixedStormTimes, resolvePort } from "./config.ts";
 
 describe("server config", () => {
   it("can import from the shared package", () => {
@@ -27,5 +27,19 @@ describe("MATCH_SEED", () => {
     expect(fixedSeed({})).toBeNull();
     expect(fixedSeed({ MATCH_SEED: "abc" })).toBeNull();
     expect(fixedSeed({ MATCH_SEED: "-1" })).toBeNull();
+  });
+});
+
+describe("STORM_STARTS_AT and STORM_CLOSED_AT (browser tests only)", () => {
+  it("set the closing storm's times when both are given, in order", () => {
+    expect(fixedStormTimes({ STORM_STARTS_AT: "2", STORM_CLOSED_AT: "12" })).toEqual({ startsAt: 2, closedAt: 12 });
+  });
+
+  it("are ignored unless both are numbers, not negative, with closing after starting", () => {
+    expect(fixedStormTimes({})).toBeNull();
+    expect(fixedStormTimes({ STORM_STARTS_AT: "2" })).toBeNull();
+    expect(fixedStormTimes({ STORM_STARTS_AT: "x", STORM_CLOSED_AT: "12" })).toBeNull();
+    expect(fixedStormTimes({ STORM_STARTS_AT: "-1", STORM_CLOSED_AT: "12" })).toBeNull();
+    expect(fixedStormTimes({ STORM_STARTS_AT: "12", STORM_CLOSED_AT: "12" })).toBeNull();
   });
 });

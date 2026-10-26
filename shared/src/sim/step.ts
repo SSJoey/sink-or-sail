@@ -12,6 +12,7 @@ import { NO_INPUT, type Mine, type Ship, type ShipInput, type Shot, type SimEven
 import { add, distance, scale } from "./vec.ts";
 import { circleOverlapsPolygon, pointInPolygon } from "./geometry.ts";
 import { ramDamage, touchingWreck, wreckContactKey, wreckDamage } from "./wrecks.ts";
+import { inStorm, respawnInside, stormRadius, stormTicks } from "./storm.ts";
 import { aimTurret, fireGun, moveShot } from "./weapons.ts";
 
 /** Guards timer comparisons against float drift from adding dt many times. */
@@ -100,7 +101,9 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
         continue;
       }
       const enemies = ships.filter((s) => s.id !== ship.id && !s.sunk).map((s) => s.pos);
-      ship = respawnShip(ship, chooseSpawn(SPAWN_POINTS, enemies));
+      const spot = chooseSpawn(SPAWN_POINTS, enemies);
+      // Stage 2: while the storm closes, a ship comes back inside the circle.
+      ship = respawnShip(ship, world.storm ? respawnInside(spot, stormRadius(world.storm, world.time), solids()) : spot);
       events.push({ type: "respawned", ship: ship.id, pos: ship.pos });
       ships[i] = ship;
       continue;
@@ -255,6 +258,26 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
       ships[i] = hurt.ship;
       events.push({ type: "reefHit", ship: ship.id, damage });
       if (hurt.sank) sink(i, null, "reef");
+    }
+  }
+
+  // Stage 2 closing storm: it signals starting and closing; each tick, ships outside the circle (not protected) are hurt.
+  if (world.storm) {
+    const { startsAt, closedAt } = world.storm;
+    const to = world.time + dt;
+    if (world.time < startsAt - EPSILON && to >= startsAt - EPSILON) events.push({ type: "stormStarted" });
+    if (world.time < closedAt - EPSILON && to >= closedAt - EPSILON) events.push({ type: "stormClosed" });
+    if (stormTicks(world.storm, world.time, to) > 0) {
+      const radius = stormRadius(world.storm, to);
+      for (let i = 0; i < ships.length; i++) {
+        const ship = ships[i]!;
+        if (ship.sunk || ship.protection > 0 || !inStorm(ship.pos, radius)) continue;
+        const damage = TUNING.ship.maxHealth * TUNING.closingStorm.damage;
+        const hurt = damageShip(ship, damage);
+        ships[i] = hurt.ship;
+        events.push({ type: "stormDamage", ship: ship.id, damage });
+        if (hurt.sank) sink(i, null, "storm");
+      }
     }
   }
 

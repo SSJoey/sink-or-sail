@@ -31,7 +31,7 @@ import {
   type ShipInput,
   type World,
 } from "@sink-or-sail/shared";
-import { LOG_DIR, fixedSeed } from "../config.ts";
+import { LOG_DIR, fixedSeed, fixedStormTimes } from "../config.ts";
 import { controlLine, matchEndLine, matchMs, matchStartLine, playerLine, positionLines, seatLine, simEventLines, type LogLine, type Roster } from "../log/events.ts";
 import { MatchLog, fileSink, logFileName, type LogSink } from "../log/matchLog.ts";
 import { canChangeSeat, canEndMatch, canPause, canResume, canSetPacks, canStart, crewHasShip, everyCrewManned, nextHost, readLayout, readOnOff, readReefs, readLives, readMode, shipCount } from "./matchFlow.ts";
@@ -259,13 +259,15 @@ export class CrewRoom extends Room<{ state: CrewState }> {
     this.previousLayout = layout;
     const hazardsOn = this.state.hazardsEnabled;
     const reefs = hazardsOn && isReefAmount(this.state.reefs) ? this.state.reefs : "none";
-    this.world = createWorld({ packs: packsOn, seed, ships, mode, lives: lives ?? undefined, layout, hazards: hazardsOn, reefs });
+    // STORM_STARTS_AT / STORM_CLOSED_AT: a sooner closing storm, for the browser tests only.
+    const storm = fixedStormTimes(process.env) ?? undefined;
+    this.world = createWorld({ packs: packsOn, seed, ships, mode, lives: lives ?? undefined, layout, hazards: hazardsOn, reefs, storm });
     this.state.matchReefs = reefs;
     this.state.matchMode = mode;
     this.state.matchLayout = layout;
     this.roster = this.buildRoster();
     this.log = new MatchLog(this.logSinkFor(logFileName(new Date(), this.roomId)), { onError: (error) => this.logErrors(error) });
-    this.logLine(matchStartLine(this.roomId, this.roster, { packsOn, seed, mode, lives, layout, layoutRandom, hazardsOn, reefs, wrecks: this.world.wrecks }));
+    this.logLine(matchStartLine(this.roomId, this.roster, { packsOn, seed, mode, lives, layout, layoutRandom, hazardsOn, reefs, wrecks: this.world.wrecks, storm: this.world.storm }));
     for (const line of positionLines(this.world)) this.logLine(line);
     this.nextPositionAt = 1;
     this.latestInput.clear();
