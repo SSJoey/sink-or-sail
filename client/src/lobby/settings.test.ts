@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { TUNING } from "@sink-or-sail/shared";
-import { LIFE_CHOICES, livesShown, settingsText } from "./settings.ts";
+import { LAYOUT_CHOICES, LIFE_CHOICES, layoutText, livesShown, settingsText } from "./settings.ts";
 
 describe("room-screen match settings (Stage 2)", () => {
   it("tells non-hosts the mode, and the lives with Last Afloat", () => {
@@ -15,5 +15,21 @@ describe("room-screen match settings (Stage 2)", () => {
 
   it(`offers ${TUNING.lastAfloat.minLives} to ${TUNING.lastAfloat.maxLives} lives`, () => {
     expect(LIFE_CHOICES).toEqual([1, 2, 3, 4, 5]);
+  });
+});
+
+describe("layout setting (Stage 2)", () => {
+  it("offers the nine layouts by name, then Random", () => {
+    expect(LAYOUT_CHOICES.map((c) => c.label)).toEqual(["One Island", "Twin Isles", "The Strait", "Four Rocks", "Crossroads", "The Wall", "The Ring", "Archipelago", "Slalom", "Random"]);
+    expect(LAYOUT_CHOICES.at(-1)!.value).toBe("random");
+    expect(LAYOUT_CHOICES[0]!.value).toBe("oneIsland");
+  });
+
+  it("names the layout; with Random, also the one in use once a match has picked it", () => {
+    expect(layoutText("slalom", null)).toBe("Layout: Slalom");
+    expect(layoutText("random", null)).toBe("Layout: Random");
+    expect(layoutText("random", "wall")).toBe("Layout: Random → The Wall");
+    expect(layoutText("slalom", "slalom")).toBe("Layout: Slalom");
+    expect(layoutText("nonsense", null)).toBe("Layout: One Island");
   });
 });

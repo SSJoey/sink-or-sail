@@ -2,6 +2,11 @@ import { join } from "node:path";
 import { Room, ServerError, ErrorCode, type Client } from "@colyseus/core";
 import {
   ClientMessage,
+  DEFAULT_LAYOUT,
+  RANDOM_LAYOUT,
+  isLayoutId,
+  randomLayout,
+  type LayoutId,
   JoinError,
   MAX_MESSAGES_PER_SECOND,
   Phase,
@@ -28,7 +33,7 @@ import {
 import { LOG_DIR, fixedSeed } from "../config.ts";
 import { controlLine, matchEndLine, matchMs, matchStartLine, playerLine, positionLines, seatLine, simEventLines, type LogLine, type Roster } from "../log/events.ts";
 import { MatchLog, fileSink, logFileName, type LogSink } from "../log/matchLog.ts";
-import { canChangeSeat, canEndMatch, canPause, canResume, canSetPacks, canStart, crewHasShip, everyCrewManned, nextHost, readLives, readMode, shipCount } from "./matchFlow.ts";
+import { canChangeSeat, canEndMatch, canPause, canResume, canSetPacks, canStart, crewHasShip, everyCrewManned, nextHost, readLayout, readLives, readMode, shipCount } from "./matchFlow.ts";
 import { generateUniqueCode } from "./roomCode.ts";
 import { isNameTaken, leaveSeat, takeSeat, type SeatMap } from "./seats.ts";
 import { CrewState, Player } from "./state.ts";
@@ -75,6 +80,8 @@ export class CrewRoom extends Room<{ state: CrewState }> {
   /** Match time (s) of the next once-a-second position lines. */
   private nextPositionAt = 0;
   /** A new seed for each match's random generator (written to the log so a match can be replayed). */
+  /** The last match's layout, which Random never picks again. */
+  private previousLayout: LayoutId | null = null;
   seedForMatch: () => number = () => fixedSeed(process.env) ?? Math.floor(Math.random() * 2 ** 32);
 
   async onCreate(): Promise<void> {
@@ -164,6 +171,12 @@ export class CrewRoom extends Room<{ state: CrewState }> {
       if (lives !== null) this.state.lives = lives;
     });
 
+    this.onMessage(ClientMessage.SetLayout, (client, message: unknown) => {
+      if (!canSetPacks(client.sessionId, this.state.hostId, this.state.phase)) return;
+      const layout = readLayout(message);
+      if (layout) this.state.layout = layout;
+    });
+
     this.onMessage(ClientMessage.EndMatch, (client) => {
       if (canEndMatch(client.sessionId, this.state.hostId, this.state.phase)) this.endMatchNow(client.sessionId);
     });
@@ -227,11 +240,16 @@ export class CrewRoom extends Room<{ state: CrewState }> {
     const ships = shipCount(this.seatedCrews());
     const mode = this.state.mode === "lastAfloat" ? "lastAfloat" : "sinkCount";
     const lives = mode === "lastAfloat" ? this.state.lives : null;
-    this.world = createWorld({ packs: packsOn, seed, ships, mode, lives: lives ?? undefined });
+    // Random picks with the match's seed, never the room's previous layout.
+    const layoutRandom = this.state.layout === RANDOM_LAYOUT;
+    const layout = layoutRandom ? randomLayout(seed, this.previousLayout) : isLayoutId(this.state.layout) ? this.state.layout : DEFAULT_LAYOUT;
+    this.previousLayout = layout;
+    this.world = createWorld({ packs: packsOn, seed, ships, mode, lives: lives ?? undefined, layout });
     this.state.matchMode = mode;
+    this.state.matchLayout = layout;
     this.roster = this.buildRoster();
     this.log = new MatchLog(this.logSinkFor(logFileName(new Date(), this.roomId)), { onError: (error) => this.logErrors(error) });
-    this.logLine(matchStartLine(this.roomId, this.roster, { packsOn, seed, mode, lives }));
+    this.logLine(matchStartLine(this.roomId, this.roster, { packsOn, seed, mode, lives, layout, layoutRandom }));
     for (const line of positionLines(this.world)) this.logLine(line);
     this.nextPositionAt = 1;
     this.latestInput.clear();

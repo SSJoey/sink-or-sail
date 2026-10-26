@@ -6,7 +6,7 @@
     <title>Sink or Sail</title>
     <style>
       body { margin: 0; padding: 16px; font: 18px/1.4 sans-serif; background: #1d4f91; color: #fff; }
-      input, button { font: inherit; padding: 8px 12px; margin: 4px 0; }
+      input, button, select { font: inherit; padding: 8px 12px; margin: 4px 0; }
       button { min-width: 44px; min-height: 44px; }
       [hidden] { display: none !important; }
       #seats button { display: block; width: 100%; max-width: 320px; text-align: left; }
@@ -78,6 +78,10 @@
         <label id="lives-host" hidden>Lives <select id="lives-select"></select></label>
       </p>
       <p id="mode-status"></p>
+      <p>
+        <label id="layout-host" hidden>Layout <select id="layout-select"></select></label>
+        <span id="layout-status"></span>
+      </p>
       <p><button id="start">Start match</button> <span id="match"></span></p>
       <p><button id="leave">Leave room</button></p>
     </section>

@@ -1,4 +1,4 @@
-import { GAME_MODES, Phase, TUNING, type GameMode } from "@sink-or-sail/shared";
+import { GAME_MODES, Phase, RANDOM_LAYOUT, TUNING, isLayoutId, type GameMode, type LayoutId } from "@sink-or-sail/shared";
 
 /** Only the host starts a match, and only when none is on. */
 export function canStart(sessionId: string, hostId: string, phase: string): boolean {
@@ -76,4 +76,10 @@ export function readLives(message: unknown): number | null {
   const lives = onlyKey(message, "lives");
   const { minLives, maxLives } = TUNING.lastAfloat;
   return typeof lives === "number" && Number.isInteger(lives) && lives >= minLives && lives <= maxLives ? lives : null;
+}
+
+/** The layout setting from a SetLayout message ({ layout }): a layout id or "random"; null if not valid. */
+export function readLayout(message: unknown): LayoutId | typeof RANDOM_LAYOUT | null {
+  const layout = onlyKey(message, "layout");
+  return layout === RANDOM_LAYOUT || isLayoutId(layout) ? layout : null;
 }

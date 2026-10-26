@@ -613,6 +613,52 @@ describe("mode and lives (Stage 2)", () => {
   });
 });
 
+describe("island layouts (Stage 2)", () => {
+  it("is One Island by default; only the host changes it, between matches; malformed is ignored", async () => {
+    const { room, pilot, gunner } = await crewedRoom();
+    expect(room.state.layout).toBe("oneIsland");
+    gunner.send(ClientMessage.SetLayout, { layout: "slalom" });
+    for (const bad of [null, "slalom", { layout: "atlantis" }, { layout: "slalom", extra: 1 }]) pilot.send(ClientMessage.SetLayout, bad);
+    await sleep(150);
+    expect(room.state.layout).toBe("oneIsland");
+    pilot.send(ClientMessage.SetLayout, { layout: "slalom" });
+    await waitFor(() => room.state.layout === "slalom");
+  });
+
+  it("starts the match on the chosen layout and tells clients which one", async () => {
+    const { room, pilot } = await crewedRoom();
+    room.countdownSeconds = 0.1;
+    pilot.send(ClientMessage.SetLayout, { layout: "wall" });
+    await waitFor(() => room.state.layout === "wall");
+    pilot.send(ClientMessage.Start);
+    await waitFor(() => room.state.phase === Phase.Running);
+    expect(room.world!.layout).toBe("wall");
+    expect(room.state.matchLayout).toBe("wall");
+    pilot.send(ClientMessage.SetLayout, { layout: "ring" });
+    await sleep(150);
+    expect(room.state.layout).toBe("wall");
+  });
+
+  it("Random never picks the previous match's layout, even with the same seed", async () => {
+    const { room, pilot } = await crewedRoom();
+    room.countdownSeconds = 0.1;
+    room.seedForMatch = () => 42;
+    pilot.send(ClientMessage.SetLayout, { layout: "random" });
+    await waitFor(() => room.state.layout === "random");
+    const picked: string[] = [];
+    for (let i = 0; i < 3; i++) {
+      pilot.send(ClientMessage.Start);
+      await waitFor(() => room.state.phase === Phase.Running);
+      picked.push(room.state.matchLayout);
+      expect(room.world!.layout).toBe(room.state.matchLayout);
+      pilot.send(ClientMessage.EndMatch);
+      await waitFor(() => room.state.phase === Phase.Over);
+    }
+    expect(picked[1]).not.toBe(picked[0]);
+    expect(picked[2]).not.toBe(picked[1]);
+  });
+});
+
 describe("mines (Stage 1)", () => {
   /** Puts a mine in Crew 1's slot, in open water facing east. */
   const loadMine = (room: CrewRoom) => {

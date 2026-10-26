@@ -1,13 +1,13 @@
 import { TUNING } from "../tuning.ts";
 import { bumpDamage, canBeDamaged, damageShip, traceShot } from "./combat.ts";
 import { updateEnergy } from "./energy.ts";
-import { ISLAND, SPAWN_POINTS } from "./map.ts";
+import { SPAWN_POINTS } from "./map.ts";
 import { blastMine, canDropAt, dropSpot, isArmed, updateMines } from "./mines.ts";
 import { pickUpPacks, updatePacks } from "./packs.ts";
 import { launchTorpedo, outsideSea, torpedoDamage } from "./torpedoes.ts";
 import { matchDuration, matchResult } from "./match.ts";
 import { chooseSpawn, respawnShip } from "./respawn.ts";
-import { keepInSea, pushOutOfIsland, separateShips, steerShip } from "./ship.ts";
+import { keepInSea, pushOutOfIslands, separateShips, steerShip } from "./ship.ts";
 import { NO_INPUT, type Mine, type Ship, type ShipInput, type Shot, type SimEvent, type SinkCause, type Torpedo, type World } from "./types.ts";
 import { add, distance, scale } from "./vec.ts";
 import { aimTurret, fireGun, moveShot } from "./weapons.ts";
@@ -124,7 +124,7 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
     // Stage 1: the pilot's Pack button drops a loaded mine behind the stern (if that spot is clear).
     if (world.packsOn && !disabled && input.pilot.pack && ship.pilotPack === "mine") {
       const pos = dropSpot(ship);
-      if (canDropAt(pos, ISLAND)) {
+      if (canDropAt(pos, world.islands)) {
         const mine: Mine = { id: nextMineId++, owner: ship.id, pos, age: 0 };
         droppedMines.push(mine);
         ship = { ...ship, pilotPack: null };
@@ -193,9 +193,9 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
     }
   }
 
-  // The island and the sea edge win over ship pushes, so nothing ends up inside them.
+  // The islands and the sea edge win over ship pushes, so nothing ends up inside them.
   for (let i = 0; i < ships.length; i++) {
-    if (!ships[i]!.sunk) ships[i] = keepInSea(pushOutOfIsland(ships[i]!, ISLAND));
+    if (!ships[i]!.sunk) ships[i] = keepInSea(pushOutOfIslands(ships[i]!, world.islands));
   }
 
   // Stage 1 packs: the spawn clock runs, then ships take packs they touch (so a clock restarted by a
@@ -238,7 +238,7 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
   const survivingShots: Shot[] = [];
   for (const shot of shots) {
     const moved = moveShot(shot, dt);
-    const trace = traceShot(shot.owner, moved.from, moved.to, ships, ISLAND, mines.filter(isArmed));
+    const trace = traceShot(shot.owner, moved.from, moved.to, ships, world.islands, mines.filter(isArmed));
     if (trace.kind === "mine") {
       const mine = mines.find((m) => m.id === trace.mine)!;
       mines = mines.filter((m) => m.id !== trace.mine);
@@ -267,7 +267,7 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
   const runningTorpedoes: Torpedo[] = [];
   for (const torpedo of torpedoes) {
     const to = add(torpedo.pos, scale(torpedo.vel, dt));
-    const trace = traceShot(torpedo.owner, torpedo.pos, to, ships, ISLAND, mines.filter(isArmed));
+    const trace = traceShot(torpedo.owner, torpedo.pos, to, ships, world.islands, mines.filter(isArmed));
     if (trace.kind === "ship") {
       const index = ships.findIndex((s) => s.id === trace.target);
       const { damage, shieldHalved } = torpedoDamage(ships[index]!);

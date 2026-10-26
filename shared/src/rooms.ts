@@ -46,7 +46,12 @@ export const ClientMessage = {
   SetMode: "setMode",
   /** Stage 2: Last Afloat lives for the next match: { lives: 1–5 } (host only, between matches). */
   SetLives: "setLives",
+  /** Stage 2: the island layout for the next match: { layout: a LayoutId or "random" } (host only, between matches). */
+  SetLayout: "setLayout",
 } as const;
+
+/** The host's layout setting: a layout, or Random (picked at each match start). */
+export const RANDOM_LAYOUT = "random";
 
 /** Match phase shown to clients. */
 export const Phase = {

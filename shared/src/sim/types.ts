@@ -1,3 +1,5 @@
+import type { Polygon } from "./geometry.ts";
+import type { LayoutId } from "./layouts.ts";
 import type { Vec } from "./vec.ts";
 
 export interface PilotInput {
@@ -121,12 +123,15 @@ export interface World {
   over: boolean;
   /** Stage 2: set for the whole match. */
   mode: GameMode;
+  /** Stage 2: the match's island layout and its islands (One Island by default). */
+  layout: LayoutId;
+  islands: readonly Polygon[];
   /** Stage 1: packs spawn only when on (set for the whole match). */
   packsOn: boolean;
   /** Seeded generator state; the same seed gives the same packs. */
   rng: number;
   packs: Pack[];
-  /** Where packs can spawn: PACK_SPOTS with 2 ships, PACK_SPOTS_3 with 3. */
+  /** Where packs can spawn: the layout's 2-ship or 3-ship pack spots. */
   packSpots: readonly Vec[];
   nextPackId: number;
   /** Seconds until the next spot is signalled; null while waiting (a pack is glowing, or the map is full). */

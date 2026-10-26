@@ -1,5 +1,5 @@
 import * as Phaser from "phaser";
-import { ISLAND, PACK_LETTERS, TUNING, packButtonLit, rolePack, type PackType, type Role, type Vec } from "@sink-or-sail/shared";
+import { PACK_LETTERS, TUNING, packButtonLit, rolePack, type PackType, type Polygon, type Role, type Vec } from "@sink-or-sail/shared";
 import { CREW_STYLES } from "./crews.ts";
 import { ShipEffects, type ShipEffect } from "./effects.ts";
 import { EmpRings } from "./empRing.ts";
@@ -12,6 +12,8 @@ import { mergeGunner, mergePilot, type TouchControls } from "./touchControls.ts"
 /** What the scene needs from the game: the frame to draw, the local seat, and where to report state. */
 export interface SceneLink {
   frame(): Frame | null;
+  /** The match's islands (Stage 2 layouts). */
+  islands(): readonly Polygon[];
   seat(): { crew: number; role: Role } | null;
   /** Phone controls; merged with keyboard and mouse. */
   touch: TouchControls;
@@ -93,7 +95,7 @@ export class GameScene extends Phaser.Scene {
     const g = this.g;
     g.clear();
 
-    this.polygon(ISLAND, ISLAND_SAND, ISLAND_EDGE);
+    for (const island of this.link.islands()) this.polygon(island, ISLAND_SAND, ISLAND_EDGE);
     this.drawPacks(frame?.packs ?? new Map());
     if (!frame) return;
     this.drawMines(frame.mines);

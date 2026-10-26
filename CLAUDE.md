@@ -8,9 +8,9 @@ Full design: `docs/design.md` (exported from the "Sink or Sail — Game Design" 
 
 - **Stage 0 is built** (all 10 slices).
 - **Stage 1 is built and committed** (8 slices: pack basics and health, mine, torpedo, EMP, summary script additions, home network play; slice 7, changes after the check matches: unpicked packs disappear, leaving a seat, two pack slots; slice 8, a third ship: up to 3 crews and 6 players, Frigates only). Slice 6 ran five packs-on check matches in Docker over the Wi-Fi, two of them with 4 players. The **combined playtest is deferred, still owed** (2026-10-26).
-- **Stage 2 is planned** (2026-10-26) and **slice 1 is built and committed** (2026-10-26, `57029bf`): mode choice and Last Afloat.
+- **Stage 2 is planned** (2026-10-26). **Slice 1 is built and committed** (2026-10-26, `57029bf`): mode choice and Last Afloat. **Slice 2 is built and committed** (2026-10-26): nine island layouts, a host Layout dropdown with Random.
 - **Tests now:** 590 unit tests and 14 browser tests, type-check clean. Browser runs still fail sometimes under load (see the watch item).
-- **Next:** Stage 2 slice 2 (island layouts), starting with its own plan and a go-ahead.
+- **Next:** Stage 2 slice 3 (Hazards toggle and reefs), starting with its own plan and a go-ahead.
 
 Every decision, with its date, is in `NOTES.md`.
 
@@ -53,10 +53,10 @@ Every decision, with its date, is in `NOTES.md`.
 **Stage 2 is planned** (2026-10-26, see "Current goal: Stage 2" below; answers in `NOTES.md`) and under way (slice 1 done). The Stage 1 combined playtest (`docs/playtest.md`) is deferred, still owed; the decisions waiting on it stay as planned (ship types Stage 5, beeps Stage 4, the Pack-button watch item).
 
 **Where things are:**
-- `shared/src/`: `tuning.ts` (every gameplay and client number; CLAUDE.md's "`shared/tuning.ts`"), `rooms.ts` (room rules, message names), `input.ts` (input validation), `packRules.ts` (who uses each pack, labels, when the Pack button is lit), `sim/` (pure, deterministic simulation; `step()` returns the new world plus events; `packs.ts`, `mines.ts`, `torpedoes.ts`, `random.ts` seeded generator, `map.ts` spawn spots; `fixtures/stage0-run.json` is the Stage 0 reference recording that packs-off play must match).
+- `shared/src/`: `tuning.ts` (every gameplay and client number; CLAUDE.md's "`shared/tuning.ts`"), `rooms.ts` (room rules, message names), `input.ts` (input validation), `packRules.ts` (who uses each pack, labels, when the Pack button is lit), `sim/` (pure, deterministic simulation; `layouts.ts` the nine island layouts and Random; `step()` returns the new world plus events; `packs.ts`, `mines.ts`, `torpedoes.ts`, `random.ts` seeded generator, `map.ts` spawn spots; `fixtures/stage0-run.json` is the Stage 0 reference recording that packs-off play must match).
 - `server/src/`: `rooms/CrewRoom.ts` (room: codes, seats, host, match flow, 20 Hz loop), `rooms/matchFlow.ts`, `rooms/sync.ts`, `log/` (match event log, `summary.ts`).
 - `client/src/`: `lobby/` (plain HTML room screen, packs toggle, `seatButtons.ts` take/leave rules, `settings.ts` mode and lives), `game/` (Phaser scene, interpolation, laptop and touch controls, top bar, overlays, pack latch, EMP ring, pickup buzz).
-- `e2e/`: Playwright smoke tests (laptop, emulated phone, pause/exit, stale page, leave seat, `packs.spec.ts` mine and torpedo, `emp.spec.ts`, `threeShips.spec.ts`, `lastAfloat.spec.ts`; shared `helpers.ts`).
+- `e2e/`: Playwright smoke tests (laptop, emulated phone, pause/exit, stale page, leave seat, `packs.spec.ts` mine and torpedo, `emp.spec.ts`, `threeShips.spec.ts`, `lastAfloat.spec.ts`, `layouts.spec.ts`; shared `helpers.ts`).
 - `docs/playtest.md`: the combined playtest guide and notes sheets.
 
 **Commands:** `npm test` (Vitest, then Playwright smoke tests with the installed Chrome), `npm run test:unit`, `npm run typecheck`, `npm run build`, `npm start` (port 2567), `npm run summary -- logs/<file>.jsonl`. Docker: `sudo docker compose up --build -d`, **in a normal terminal**; the `!` prompt has no terminal, so `sudo` can't ask for the password.
@@ -76,7 +76,7 @@ Every decision, with its date, is in `NOTES.md`.
 
 | Stage | What's in it | Question it answers |
 | --- | --- | --- |
-| 2 · The sea fights back | Reefs, wrecks, whirlpool, kraken, moving and closing storm, ghosts, Last Afloat, a few hand-made, mirrored island layouts (1–4 islands), picked by the host or Random | Do hazards and ghosts keep sunk crews involved? |
+| 2 · The sea fights back | Reefs, wrecks, whirlpool, kraken, moving and closing storm, ghosts, Last Afloat, a few hand-made, mirrored island layouts (1–4 islands, or many small rocks), picked by the host or Random | Do hazards and ghosts keep sunk crews involved? |
 | 3 · Full lobby | All lobby screens, bots (including a bot partner for a solo player), results and awards, spectator view (also usable by a host who only hosts and doesn't play), a **simple** lifebar for each ship, changing your name in the lobby before a match | Can a group get playing within 30 seconds? |
 | 4 · Polish and online | Sea-chart art, sound, countdown beeps (1:00 warning, last 10 s) unless moved earlier, tuning, cloud hosting, a **styled** lifebar to match the art, flames, smoke or visible damage on a ship whose health drops below 25% of full | Is it ready for people outside the house? |
 | 5 · More ships | Up to 10 ships (20 players; 3 ships already from Stage 1 slice 8), Fleet Battle, rooms and seats, 10 crew colours with symbols, map size scaling with the number of ships, a camera that follows your ship and a minimap on larger maps, more start, respawn and pack spots, respawn away from all enemies; **five ship types** (Frigate, Cutter, Ironclad, Gunboat, Long gun) differing in health, size (which sets speed and turning), rate of fire, damage, gun range and energy, picked by the pilot before each match (details and starting values in `NOTES.md`, "Later"); island layouts that scale with map size and the number of ships | Does the game hold up with up to 10 ships? |
@@ -96,7 +96,7 @@ Everything in Stages 0 and 1 stays as it is. Stage 2 adds:
 - **Mode choice:** the host picks **Sink Count** (default) or **Last Afloat** in the room screen; host only, applies from the next match (like the Packs toggle).
 - **Last Afloat:** free-for-all; each ship has **lives** (host picks 1–5 in the room screen, shown only with Last Afloat; default 2 in `tuning.ts`). Between lives a sunk ship respawns as in Sink Count (3 s countdown, safe spot, 2 s protection). A ship with no lives left is out, and its crew becomes a ghost (until slice 9, it watches). The last ship afloat wins.
 - **How Last Afloat ends:** the **closing storm** closes in from the map edge after a set time to a small safe circle; ships outside it lose health steadily. A **hard time limit** ends the match if more than one ship is still afloat: most lives left wins, then most health; otherwise a draw. The closing storm is Last Afloat only.
-- **Island layouts:** a few hand-made, mirrored layouts of 1–4 islands (small rocks up to today's island), each with its own start, respawn and pack spots, checked automatically (open water, clear of islands, far enough apart, reachable by a Frigate). The host picks one or **Random**; applies from the next match. **Today's single-island map stays the default.** Mirrored for 2 ships; how layouts handle 3 ships is settled in the layouts slice.
+- **Island layouts** (built in slice 2): nine hand-made layouts in `shared/src/sim/layouts.ts`, of 1–4 islands or many small rocks (limit lifted 2026-10-26): One Island (today's map, the default), Twin Isles, The Strait, Four Rocks, Crossroads, The Wall, The Ring, Archipelago, Slalom. All but One Island are mirrored left↔right and top↕bottom. Each has its own 2-ship and hand-placed, roughly fair 3-ship starts and pack spots; all use the four corner respawn spots. Checked automatically: open water, channels at least 70 wide (a Frigate fits; in Stage 5 bigger types may not fit every channel), every spot reachable by a Frigate, 3-ship fairness. The host picks one or **Random** (seeded, never the previous match's layout).
 - **Hazards on / off:** a host-only toggle in the room screen, **default on**, applies from the next match. With packs and hazards off on the default map, a match plays exactly as Stage 0.
 - **Hazards, in both modes:**
 
@@ -142,7 +142,7 @@ Fleet Battle, bots, spectator view, awards, a results screen beyond the simple s
 Same rules as before: plan, go-ahead, build with tests, summary, stop. Each slice is end-to-end (simulation, server, client, log and tests).
 
 1. **Mode choice and Last Afloat:** the mode and lives settings, lives and respawn, out at zero (watching until slice 9), last ship afloat wins, the 7:00 time limit and tie-break (moved here from slice 5, 2026-10-26), the "Sunk by…" banner with the Stage 1 causes, log and summary.
-2. **Island layouts:** a few hand-made, mirrored layouts with their own checked spots; host picks or Random; the default stays today's map.
+2. **Island layouts:** nine hand-made layouts (One Island stays the default) with their own checked spots; host picks or Random.
 3. **Hazards toggle and reefs.**
 4. **Shipwrecks.**
 5. **Closing storm** (Last Afloat), on top of slice 1's time limit and tie-break.

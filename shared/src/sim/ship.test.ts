@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { TUNING } from "../tuning.ts";
 import { circleOverlapsPolygon } from "./geometry.ts";
 import { ISLAND } from "./map.ts";
-import { keepInSea, pushOutOfIsland, separateShips, steerShip } from "./ship.ts";
+import { keepInSea, pushOutOfIslands, separateShips, steerShip } from "./ship.ts";
 import { testShip } from "./testShip.ts";
 import type { Ship } from "./types.ts";
 import { angleOf, length } from "./vec.ts";
@@ -99,28 +99,28 @@ describe("keepInSea", () => {
   });
 });
 
-describe("pushOutOfIsland", () => {
+describe("pushOutOfIslands", () => {
   it("moves a ship that overlaps the island back to its edge, and removes motion into it", () => {
     // Island's left vertex is at (660, 420); approach from the west.
-    const ship = pushOutOfIsland(testShip({ pos: { x: 650, y: 420 }, vel: { x: 100, y: 0 } }), ISLAND);
+    const ship = pushOutOfIslands(testShip({ pos: { x: 650, y: 420 }, vel: { x: 100, y: 0 } }), [ISLAND]);
     expect(circleOverlapsPolygon(ship.pos, radius - 0.001, ISLAND)).toBeNull();
     expect(ship.vel.x).toBeLessThanOrEqual(0.001);
   });
 
   it("keeps motion along the island's edge so the ship slides", () => {
-    const ship = pushOutOfIsland(testShip({ pos: { x: 790, y: 330 }, vel: { x: 50, y: 50 } }), ISLAND);
+    const ship = pushOutOfIslands(testShip({ pos: { x: 790, y: 330 }, vel: { x: 50, y: 50 } }), [ISLAND]);
     expect(Math.abs(ship.vel.x)).toBeGreaterThan(20);
   });
 
   it("leaves a ship that is clear of the island alone", () => {
     const ship = testShip();
-    expect(pushOutOfIsland(ship, ISLAND)).toEqual(ship);
+    expect(pushOutOfIslands(ship, [ISLAND])).toEqual(ship);
   });
 
   it("never lets a ship sail into the island", () => {
     let ship = testShip({ pos: { x: 500, y: 450 } });
     for (let i = 0; i < 200; i++) {
-      ship = pushOutOfIsland(steerShip(ship, { steer: { x: 1, y: 0.05 }, boost: true }, true, DT), ISLAND);
+      ship = pushOutOfIslands(steerShip(ship, { steer: { x: 1, y: 0.05 }, boost: true }, true, DT), [ISLAND]);
       expect(circleOverlapsPolygon(ship.pos, radius - 0.5, ISLAND)).toBeNull();
     }
   });

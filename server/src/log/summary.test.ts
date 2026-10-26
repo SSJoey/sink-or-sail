@@ -363,6 +363,14 @@ describe("Stage 2: Last Afloat in the summary", () => {
     expect(summary.crews.map((c) => c.sunkBy)).toEqual([{}, { shot: 1, mine: 1 }, { ownMine: 1, bump: 1 }]);
   });
 
+  it("reads and prints the layout (logs from before layouts are One Island)", () => {
+    expect(summary.layout).toBe("One Island");
+    const lines = LAST_AFLOAT.map((l) => (l.type === "matchStart" ? { ...l, layout: "slalom", layoutRandom: true } : l));
+    const text = formatSummary(summarise(lines));
+    expect(text).toContain("· Last Afloat, 2 lives · Slalom (Random)");
+    expect(formatSummary(summarise(parseLog(sampleText)))).toContain("· Sink Count · One Island");
+  });
+
   it("prints the mode in the header, a Last Afloat table and a Sunk by column", () => {
     const text = formatSummary(summary);
     expect(text).toContain("Room LAST · 1:30 · Crew 1 wins · Packs on · Last Afloat, 2 lives");

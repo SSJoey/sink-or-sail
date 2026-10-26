@@ -1,5 +1,7 @@
 // Turns a match log (JSON Lines) into per-crew numbers for tuning and playtest notes.
 
+import { LAYOUTS, isLayoutId } from "@sink-or-sail/shared";
+
 export type Line = { t: number; type: string } & Record<string, unknown>;
 
 export interface CrewSummary {
@@ -76,6 +78,9 @@ export interface MatchSummary {
   mode: "sinkCount" | "lastAfloat";
   /** Last Afloat's lives per ship; null in Sink Count. */
   lives: number | null;
+  /** Stage 2: the layout's name ("One Island" for logs from before layouts), and whether Random picked it. */
+  layout: string;
+  layoutRandom: boolean;
   /** "time", "lastAfloat" or "endedEarly"; null if the log doesn't say. */
   endReason: string | null;
   crews: CrewSummary[];
@@ -176,6 +181,8 @@ export function summarise(lines: readonly Line[]): MatchSummary {
     mode,
     lives: mode === "lastAfloat" ? ((start?.lives as number | undefined) ?? null) : null,
     endReason: (end?.reason as string | undefined) ?? null,
+    layout: LAYOUTS[isLayoutId(start?.layout) ? start.layout : "oneIsland"].name,
+    layoutRandom: start?.layoutRandom === true,
     crews: summaries,
     lastAfloat: mode === "lastAfloat" ? lastAfloatFigures(lines, crews, scores, winner, endT, afloat) : null,
     packs: packsOn ? crews.map((c) => packFigures(lines, c.ship)) : null,
@@ -289,7 +296,7 @@ const r1 = (n: number) => String(Math.round(n * 10) / 10);
 export function formatSummary(s: MatchSummary): string {
   // Players know the crews as Crew 1 and Crew 2; the log's ship ids start at 0.
   const result = !s.complete ? "Log ends before the match did" : s.winner === null ? "Draw" : `Crew ${s.winner + 1} wins`;
-  const header = `Room ${s.room ?? "?"} · ${clock(s.durationSeconds)} · ${result}${s.endedEarly ? " (ended early by the host)" : ""} · Packs ${s.packsOn ? "on" : "off"} · ${modeText(s)}`;
+  const header = `Room ${s.room ?? "?"} · ${clock(s.durationSeconds)} · ${result}${s.endedEarly ? " (ended early by the host)" : ""} · Packs ${s.packsOn ? "on" : "off"} · ${modeText(s)} · ${s.layout}${s.layoutRandom ? " (Random)" : ""}`;
   const rows = s.crews.map((c) => [
     `Crew ${c.ship + 1}`,
     [c.pilot, c.gunner].map((n) => n ?? "—").join(" & "),

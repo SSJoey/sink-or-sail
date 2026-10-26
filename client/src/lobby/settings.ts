@@ -1,4 +1,4 @@
-import { TUNING } from "@sink-or-sail/shared";
+import { DEFAULT_LAYOUT, LAYOUTS, LAYOUT_IDS, RANDOM_LAYOUT, TUNING, isLayoutId } from "@sink-or-sail/shared";
 
 /** The host's lives dropdown: every whole number in the allowed range. */
 export const LIFE_CHOICES: readonly number[] = Array.from(
@@ -12,3 +12,17 @@ export const livesShown = (mode: string) => mode === "lastAfloat";
 /** What non-hosts see of the next match's mode (and lives). */
 export const settingsText = (mode: string, lives: number) =>
   livesShown(mode) ? `Mode: Last Afloat · Lives: ${lives}` : "Mode: Sink Count";
+
+/** The host's layout dropdown: every layout by name, then Random. */
+export const LAYOUT_CHOICES: readonly { value: string; label: string }[] = [
+  ...LAYOUT_IDS.map((id) => ({ value: id, label: LAYOUTS[id].name })),
+  { value: RANDOM_LAYOUT, label: "Random" },
+];
+
+const layoutName = (id: string) => LAYOUTS[isLayoutId(id) ? id : DEFAULT_LAYOUT].name;
+
+/** "Layout: Slalom", or "Layout: Random", with the layout Random picked once a match has one (`inUse`). */
+export function layoutText(setting: string, inUse: string | null): string {
+  if (setting !== RANDOM_LAYOUT) return `Layout: ${layoutName(setting)}`;
+  return inUse ? `Layout: Random → ${layoutName(inUse)}` : "Layout: Random";
+}

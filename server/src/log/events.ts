@@ -1,4 +1,4 @@
-import { TUNING, type GameMode, type Role, type Seat, type SimEvent, type World } from "@sink-or-sail/shared";
+import { DEFAULT_LAYOUT, TUNING, type GameMode, type LayoutId, type Role, type Seat, type SimEvent, type World } from "@sink-or-sail/shared";
 
 /** Who crews each ship (index = ship id); null for an empty seat. */
 export type Roster = { pilot: string | null; gunner: string | null }[];
@@ -69,7 +69,7 @@ export function simEventLines(t: number, events: readonly SimEvent[], roster: Ro
   return lines;
 }
 
-export function matchStartLine(room: string, roster: Roster, match: { packsOn: boolean; seed: number; mode: GameMode; lives: number | null }): LogLine {
+export function matchStartLine(room: string, roster: Roster, match: { packsOn: boolean; seed: number; mode: GameMode; lives: number | null; layout?: LayoutId; layoutRandom?: boolean }): LogLine {
   return {
     t: 0,
     type: "matchStart",
@@ -79,6 +79,8 @@ export function matchStartLine(room: string, roster: Roster, match: { packsOn: b
     seed: match.seed,
     mode: match.mode,
     lives: match.lives,
+    layout: match.layout ?? DEFAULT_LAYOUT,
+    layoutRandom: match.layoutRandom ?? false,
     tuning: TUNING,
   };
 }

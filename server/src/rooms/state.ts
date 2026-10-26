@@ -96,6 +96,10 @@ export const CrewState = schema({
   lives: t.uint8().default(TUNING.lastAfloat.lives),
   /** The mode of the current (or last) match, which the game view draws by. */
   matchMode: t.string().default("sinkCount"),
+  /** Room setting for the next match: a layout id or "random" (host only, Stage 2). */
+  layout: t.string().default("oneIsland"),
+  /** The layout of the current (or last) match, which clients draw. */
+  matchLayout: t.string().default("oneIsland"),
   /** Keyed by pack id. */
   packs: t.map(PackState),
   /** Keyed by mine id. */

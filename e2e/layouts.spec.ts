@@ -1,0 +1,34 @@
+import { expect, test } from "@playwright/test";
+import { join } from "./helpers.ts";
+
+test("layouts: the host picks Slalom and every page draws it; Random then picks a different one", async ({ browser }) => {
+  const page = async () => (await browser.newContext()).newPage();
+  const host = await page();
+  await join(host, "Host");
+  const code = (await host.textContent("#code"))!;
+  const other = await page();
+  await join(other, "Other", code);
+  await host.getByRole("button", { name: /Crew 1 · Pilot — free/ }).click();
+  await other.getByRole("button", { name: /Crew 2 · Pilot — free/ }).click();
+
+  await host.selectOption("#layout-select", "slalom");
+  await expect(other.locator("#layout-status")).toHaveText("Layout: Slalom");
+  await host.click("#start");
+  await expect(host.locator("#banner")).toHaveText("Layout: Slalom");
+  for (const p of [host, other]) await expect(p.locator("#game")).toHaveAttribute("data-layout", "slalom");
+
+  host.once("dialog", (dialog) => void dialog.accept());
+  await host.click("#hud-exit");
+  await expect(host.locator("#result")).toContainText("Layout: Slalom");
+  await host.click("#back-to-room");
+
+  // Random never repeats the last layout, so the next match isn't Slalom.
+  await host.selectOption("#layout-select", "random");
+  await expect(other.locator("#layout-status")).toHaveText(/^Layout: Random/);
+  await host.click("#start");
+  await expect(host.locator("#banner")).toHaveText(/^Layout: Random → /);
+  await expect(host.locator("#banner")).not.toContainText("Slalom");
+  await expect(host.locator("#game")).not.toHaveAttribute("data-layout", "slalom");
+  const picked = (await host.locator("#game").getAttribute("data-layout"))!;
+  await expect(other.locator("#game")).toHaveAttribute("data-layout", picked);
+});

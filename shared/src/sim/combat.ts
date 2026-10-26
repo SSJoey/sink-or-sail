@@ -36,11 +36,15 @@ export function damageShip(ship: Ship, amount: number): { ship: Ship; sank: bool
 export type ShotTrace = { kind: "none" } | { kind: "island" } | { kind: "ship"; target: number } | { kind: "mine"; mine: number };
 
 /**
- * What a shot's path from→to runs into first: a ship afloat (not its own), the island, one of `mines`
+ * What a shot's path from→to runs into first: a ship afloat (not its own), an island, one of `mines`
  * (pass only armed mines; Stage 1), or nothing.
  */
-export function traceShot(owner: number, from: Vec, to: Vec, ships: readonly Ship[], island: Polygon, mines: readonly Mine[] = []): ShotTrace {
-  let nearest = segmentPolygonHit(from, to, island);
+export function traceShot(owner: number, from: Vec, to: Vec, ships: readonly Ship[], islands: readonly Polygon[], mines: readonly Mine[] = []): ShotTrace {
+  let nearest: number | null = null;
+  for (const island of islands) {
+    const t = segmentPolygonHit(from, to, island);
+    if (t !== null && (nearest === null || t < nearest)) nearest = t;
+  }
   let result: ShotTrace = nearest === null ? { kind: "none" } : { kind: "island" };
   for (const ship of ships) {
     if (ship.id === owner || ship.sunk) continue;

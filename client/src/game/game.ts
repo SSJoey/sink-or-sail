@@ -1,6 +1,6 @@
 import * as Phaser from "phaser";
 import type { Room } from "@colyseus/sdk";
-import { ClientMessage, Phase, TUNING, rolePack, type PackType, type Role } from "@sink-or-sail/shared";
+import { ClientMessage, DEFAULT_LAYOUT, LAYOUTS, Phase, TUNING, isLayoutId, rolePack, type PackType, type Role } from "@sink-or-sail/shared";
 import { CREW_STYLES } from "./crews.ts";
 import { GameScene } from "./GameScene.ts";
 import type { ShipEffect } from "./effects.ts";
@@ -12,6 +12,7 @@ import { SnapshotBuffer, type Frame } from "./interpolation.ts";
 import { countdownLabel, outBanner, pausedText, resultLine, respawnText, resultTitle, scoreRows, sinkBanner } from "./matchText.ts";
 import { blockGestures, goFullscreenLandscape, isPortrait, isTouchFirst } from "./phone.ts";
 import { snapshotFromState, type GameStateView } from "./snapshot.ts";
+import { layoutText } from "../lobby/settings.ts";
 import { TouchControls } from "./touchControls.ts";
 import { createTouchLayer } from "./touchLayer.ts";
 
@@ -33,6 +34,9 @@ export interface RoomStateView extends GameStateView {
   lives: number;
   /** The mode of the current (or last) match. */
   matchMode: string;
+  /** The layout setting ("random" or a layout id) and the current (or last) match's layout. */
+  layout: string;
+  matchLayout: string;
   phase: string;
   pausedBy: string;
   countdown: number;
@@ -105,6 +109,10 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
 
   const scene = new GameScene({
     frame: (): Frame | null => buffer.sample(performance.now() - TUNING.client.interpolationDelayMs),
+    islands: () => {
+      const id = (room.state as RoomStateView).matchLayout;
+      return LAYOUTS[isLayoutId(id) ? id : DEFAULT_LAYOUT].islands;
+    },
     seat,
     touch,
     setInput: (next) => {
@@ -119,6 +127,7 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
       // Read by the browser smoke tests (a canvas has no elements to inspect).
       canvasHost.dataset.ships = String(frame?.ships.filter((s) => !s.sunk).length ?? 0);
       canvasHost.dataset.shots = String(frame?.shots.size ?? 0);
+      canvasHost.dataset.layout = state.matchLayout;
       const own = mine ? frame?.ships[mine.crew] : undefined;
       if (own) {
         canvasHost.dataset.ownX = String(Math.round(own.x));
@@ -195,12 +204,14 @@ export function renderResult(el: HTMLElement, state: RoomStateView): void {
   const lastAfloat = state.matchMode === "lastAfloat";
   const title = document.createElement("h2");
   title.textContent = resultTitle(state.winner);
+  const layout = document.createElement("p");
+  layout.textContent = layoutText(state.layout, state.matchLayout);
   const rows = scoreRows(ships.map((ship) => ship.sinkings), players).map((row, i) => {
     const line = document.createElement("p");
     line.textContent = resultLine(row, lastAfloat ? ships[i] : undefined);
     return line;
   });
-  el.replaceChildren(title, ...rows);
+  el.replaceChildren(title, ...rows, layout);
 }
 
 function showPauseControls(state: RoomStateView, seated: boolean, isHost: boolean, paused: HTMLElement): void {
@@ -230,9 +241,14 @@ function showMatchOverlays(
   if (label !== null && els.countdown.textContent !== label) els.countdown.textContent = label;
 
   const own = ownCrew !== null ? frame?.ships[ownCrew] : undefined;
-  const showBanner = own?.sunk === true && state.phase === Phase.Running;
+  // During the 3-2-1, the banner names the layout (with Random, the one it picked).
+  const countingDown = state.phase === Phase.Countdown;
+  const showBanner = countingDown || (own?.sunk === true && state.phase === Phase.Running);
   els.banner.hidden = !showBanner;
-  if (showBanner && own) {
+  if (countingDown) {
+    const text = layoutText(state.layout, state.matchLayout);
+    if (els.banner.textContent !== text) els.banner.textContent = text;
+  } else if (showBanner && own) {
     // A crew that is out (Last Afloat) keeps its banner until the match ends.
     const text = own.out ? outBanner(own.sunkBy, own.sunkCause) : `${sinkBanner(own.sunkBy, own.sunkCause)} · ${respawnText(own.respawnIn)}`;
     if (els.banner.textContent !== text) els.banner.textContent = text;

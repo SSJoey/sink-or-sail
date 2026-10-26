@@ -18,7 +18,7 @@ import { renderResult, startGame, type GameHandle, type PlayerView, type RoomSta
 import { joinErrorText, rejectedText } from "./messages.ts";
 import { reloadIfNewBuild } from "./newBuild.ts";
 import { leaveSeatShown, seatAction } from "./seatButtons.ts";
-import { LIFE_CHOICES, livesShown, settingsText } from "./settings.ts";
+import { LAYOUT_CHOICES, LIFE_CHOICES, layoutText, livesShown, settingsText } from "./settings.ts";
 import { clearToken, loadToken, saveToken } from "./reconnectToken.ts";
 
 /** The parts of the server's room state the lobby reads. */
@@ -93,6 +93,9 @@ export function startLobby(): void {
     const lives = byId<HTMLSelectElement>("lives-select");
     lives.replaceChildren(...LIFE_CHOICES.map((n) => new Option(String(n), String(n))));
     lives.onchange = () => room.send(ClientMessage.SetLives, { lives: Number(lives.value) });
+    const layout = byId<HTMLSelectElement>("layout-select");
+    layout.replaceChildren(...LAYOUT_CHOICES.map((c) => new Option(c.label, c.value)));
+    layout.onchange = () => room.send(ClientMessage.SetLayout, { layout: layout.value });
   }
 
   function renderRoom(room: Room, state: StateView): void {
@@ -161,6 +164,15 @@ export function startLobby(): void {
     lives.value = String(state.lives);
     lives.disabled = matchOn;
     byId("mode-status").textContent = isHost ? "" : settingsText(state.mode, state.lives);
+
+    // Layout: the host's dropdown; others see the setting. With Random, everyone sees what it picked.
+    byId("layout-host").hidden = !isHost;
+    const layout = byId<HTMLSelectElement>("layout-select");
+    layout.value = state.layout;
+    layout.disabled = matchOn;
+    const picked = phase === Phase.Waiting ? null : state.matchLayout;
+    const layoutLine = layoutText(state.layout, picked);
+    byId("layout-status").textContent = !isHost || (state.layout === "random" && picked) ? layoutLine : "";
     byId("match").textContent = matchOn
       ? "Match on"
       : isHost ? "" : "Waiting for the host to start";

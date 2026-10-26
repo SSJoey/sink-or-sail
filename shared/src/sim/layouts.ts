@@ -1,0 +1,179 @@
+import type { Polygon } from "./geometry.ts";
+import { ISLAND, PACK_SPOTS, PACK_SPOTS_3, SEA_CENTRE, START_POINTS, START_POINTS_3 } from "./map.ts";
+import { randomIndex } from "./random.ts";
+import type { Vec } from "./vec.ts";
+
+// Stage 2 island layouts (approved 2026-10-26). Every layout but One Island (today's map, kept exactly for the
+// Stage 0 recording) is a mirror image left↔right and top↕bottom, so neither 2-ship start is favoured. Every
+// layout uses the four corner respawn spots (SPAWN_POINTS) and keeps the corners clear. The automatic checks
+// in layouts.test.ts hold every layout to the agreed rules.
+
+export const LAYOUT_IDS = ["oneIsland", "twinIsles", "strait", "fourRocks", "crossroads", "wall", "ring", "archipelago", "slalom"] as const;
+export type LayoutId = (typeof LAYOUT_IDS)[number];
+
+export interface Layout {
+  id: LayoutId;
+  name: string;
+  islands: readonly Polygon[];
+  /** 2-ship starts, by ship id (left, right) and pack spots. */
+  starts: readonly Vec[];
+  packSpots: readonly Vec[];
+  /** 3-ship starts, by ship id, and pack spots: hand-placed to be roughly fair. */
+  starts3: readonly Vec[];
+  packSpots3: readonly Vec[];
+}
+
+/** Radius factors for the 8 points of a rock, from east clockwise: irregular, but the same mirrored both ways. */
+const ROCK_SHAPE = [1, 0.8, 0.95, 0.8, 1, 0.8, 0.95, 0.8];
+
+/** A rock or island centred on (x, y), `rx` across and `ry` down from its centre. */
+function rock(x: number, y: number, rx: number, ry = rx): Polygon {
+  return ROCK_SHAPE.map((f, i) => {
+    const a = (i * Math.PI) / 4;
+    return { x: x + rx * f * Math.cos(a), y: y + ry * f * Math.sin(a) };
+  });
+}
+
+const W = 2 * SEA_CENTRE.x;
+const H = 2 * SEA_CENTRE.y;
+
+/** A rock placed in the top-left quarter, plus its mirror images in the other three. */
+const fourWays = (x: number, y: number, rx: number, ry = rx): Polygon[] => [rock(x, y, rx, ry), rock(W - x, y, rx, ry), rock(x, H - y, rx, ry), rock(W - x, H - y, rx, ry)];
+/** A rock on the middle line across (y = middle) or down (x = middle), plus its mirror image. */
+const acrossPair = (x: number, rx: number, ry = rx): Polygon[] => [rock(x, SEA_CENTRE.y, rx, ry), rock(W - x, SEA_CENTRE.y, rx, ry)];
+const downPair = (y: number, rx: number, ry = rx): Polygon[] => [rock(SEA_CENTRE.x, y, rx, ry), rock(SEA_CENTRE.x, H - y, rx, ry)];
+
+/** Spots mirrored the same way as the rocks. */
+const spots4 = (x: number, y: number): Vec[] => [{ x, y }, { x: W - x, y }, { x, y: H - y }, { x: W - x, y: H - y }];
+const spotsAcross = (x: number): Vec[] => [{ x, y: SEA_CENTRE.y }, { x: W - x, y: SEA_CENTRE.y }];
+const spotsDown = (y: number): Vec[] => [{ x: SEA_CENTRE.x, y }, { x: SEA_CENTRE.x, y: H - y }];
+
+/** A point `r` from the middle of the sea, at `degrees` (0 = east, 90 = south, as on screen). */
+const around = (degrees: number, r: number): Vec => ({
+  x: SEA_CENTRE.x + r * Math.cos((degrees * Math.PI) / 180),
+  y: SEA_CENTRE.y + r * Math.sin((degrees * Math.PI) / 180),
+});
+/** 3-ship starts on an equal-sided triangle around the middle: Crew 1 at `first` degrees, then every 120°. */
+const triangle = (first: number, r: number): Vec[] => [0, 120, 240].map((d) => around(first + d, r));
+/** 3-ship pack spots: two at each of three angles 120° apart (`spread` either side), so no crew is favoured. */
+const gapSpots = (first: number, spread: number, r: number): Vec[] =>
+  [0, 120, 240].flatMap((d) => [around(first + d - spread, r), around(first + d + spread, r)]);
+
+const TWO_STARTS = START_POINTS;
+
+export const LAYOUTS: Readonly<Record<LayoutId, Layout>> = {
+  oneIsland: {
+    id: "oneIsland",
+    name: "One Island",
+    islands: [ISLAND],
+    starts: START_POINTS,
+    packSpots: PACK_SPOTS,
+    starts3: START_POINTS_3,
+    packSpots3: PACK_SPOTS_3,
+  },
+  twinIsles: {
+    id: "twinIsles",
+    name: "Twin Isles",
+    islands: downPair(200, 160, 90),
+    starts: TWO_STARTS,
+    packSpots: [...spots4(450, 250), ...spotsAcross(620)],
+    starts3: triangle(180, 430),
+    packSpots3: gapSpots(0, 10, 405),
+  },
+  strait: {
+    id: "strait",
+    name: "The Strait",
+    // The long islands stop short of the left third, leaving room for the 3-ship starts.
+    islands: [...downPair(180, 200, 50), rock(SEA_CENTRE.x, SEA_CENTRE.y, 70, 60)],
+    starts: TWO_STARTS,
+    packSpots: [...spotsDown(62), ...spotsAcross(500), ...spotsDown(310)],
+    starts3: triangle(0, 430),
+    packSpots3: gapSpots(30, 30, 165),
+  },
+  fourRocks: {
+    id: "fourRocks",
+    name: "Four Rocks",
+    islands: [...downPair(220, 65), ...acrossPair(520, 65)],
+    starts: TWO_STARTS,
+    packSpots: [...spots4(650, 330), ...spotsDown(80)],
+    starts3: triangle(150, 420),
+    packSpots3: gapSpots(90, 10, 390),
+  },
+  crossroads: {
+    id: "crossroads",
+    name: "Crossroads",
+    islands: fourWays(560, 250, 150, 90),
+    starts: TWO_STARTS,
+    packSpots: [...spotsAcross(560), ...spotsDown(250), ...spotsDown(90)],
+    starts3: [{ x: 352, y: 791 }, { x: 1248, y: 791 }, { x: 800, y: 123 }],
+    packSpots3: [{ x: 476, y: 438 }, { x: 1124, y: 438 }, { x: 407, y: 97 }, { x: 1193, y: 97 }, { x: 86, y: 435 }, { x: 1514, y: 435 }],
+  },
+  wall: {
+    id: "wall",
+    name: "The Wall",
+    islands: [rock(SEA_CENTRE.x, SEA_CENTRE.y, 70, 300)],
+    starts: TWO_STARTS,
+    packSpots: [...spotsDown(75), ...spots4(500, 300)],
+    starts3: triangle(180, 430),
+    packSpots3: gapSpots(0, 10, 350),
+  },
+  ring: {
+    id: "ring",
+    name: "The Ring",
+    islands: [30, 90, 150, 210, 270, 330].map((d) => {
+      const c = around(d, 300);
+      return rock(c.x, c.y, 70);
+    }),
+    starts: TWO_STARTS,
+    packSpots: [...spotsDown(300), ...spots4(400, 250)],
+    starts3: triangle(180, 430),
+    packSpots3: gapSpots(30, 30, 120),
+  },
+  archipelago: {
+    id: "archipelago",
+    name: "Archipelago",
+    islands: [
+      ...fourWays(450, 120, 40),
+      ...fourWays(250, 330, 35),
+      ...fourWays(640, 250, 38),
+      ...acrossPair(420, 38),
+      ...downPair(290, 35),
+      rock(SEA_CENTRE.x, SEA_CENTRE.y, 55),
+    ],
+    starts: TWO_STARTS,
+    packSpots: [...spots4(560, 360), ...spotsDown(175)],
+    starts3: triangle(150, 360),
+    packSpots3: gapSpots(90, 10, 365),
+  },
+  slalom: {
+    id: "slalom",
+    name: "Slalom",
+    islands: [
+      // Staggered rows: x 480 and 1120 along the top and bottom, the middle column inside, and rows of
+      // four (x 330, 640, 960, 1270); gaps left open for the 3-ship starts.
+      ...fourWays(480, 105, 30),
+      ...downPair(340, 35),
+      ...fourWays(330, 225, 30),
+      ...fourWays(640, 225, 30),
+      ...acrossPair(330, 30),
+      ...acrossPair(640, 30),
+    ],
+    starts: TWO_STARTS,
+    packSpots: [...spots4(640, 105), ...spotsAcross(480)],
+    starts3: triangle(150, 360),
+    packSpots3: gapSpots(90, 10, 365),
+  },
+};
+
+export const DEFAULT_LAYOUT: LayoutId = "oneIsland";
+
+export const isLayoutId = (value: unknown): value is LayoutId => (LAYOUT_IDS as readonly unknown[]).includes(value);
+
+/**
+ * The host's "Random": a layout picked with the match's seed (so the same seed gives the same layout),
+ * never the room's previous one. Uses its own copy of the seed, so the match's packs are unchanged.
+ */
+export function randomLayout(seed: number, previous: LayoutId | null): LayoutId {
+  const choices = LAYOUT_IDS.filter((id) => id !== previous);
+  return choices[randomIndex(seed >>> 0, choices.length).value]!;
+}

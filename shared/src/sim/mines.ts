@@ -11,12 +11,12 @@ export function dropSpot(ship: Ship): Vec {
   return add(ship.pos, scale(fromAngle(ship.heading), -(TUNING.ship.radius + TUNING.mine.radius + 2)));
 }
 
-/** A mine can't be dropped into the island or off the sea. */
-export function canDropAt(pos: Vec, island: Polygon): boolean {
+/** A mine can't be dropped into an island or off the sea. */
+export function canDropAt(pos: Vec, islands: readonly Polygon[]): boolean {
   const r = TUNING.mine.radius;
   const { width, height } = TUNING.sea;
   const inSea = pos.x >= r && pos.x <= width - r && pos.y >= r && pos.y <= height - r;
-  return inSea && circleOverlapsPolygon(pos, r, island) === null;
+  return inSea && islands.every((island) => circleOverlapsPolygon(pos, r, island) === null);
 }
 
 export const isArmed = (mine: Mine) => mine.age >= TUNING.mine.armTime - EPSILON;

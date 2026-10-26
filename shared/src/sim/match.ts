@@ -1,5 +1,6 @@
 import { TUNING } from "../tuning.ts";
-import { PACK_SPOTS, PACK_SPOTS_3, SEA_CENTRE, START_POINTS, START_POINTS_3 } from "./map.ts";
+import { DEFAULT_LAYOUT, LAYOUTS, type LayoutId } from "./layouts.ts";
+import { SEA_CENTRE } from "./map.ts";
 import type { GameMode, Ship, World } from "./types.ts";
 import { angleOf, sub } from "./vec.ts";
 
@@ -14,14 +15,17 @@ export interface WorldOptions {
   mode?: GameMode;
   /** Last Afloat: lives per ship (default `TUNING.lastAfloat.lives`). */
   lives?: number;
+  /** Stage 2: the island layout (default One Island, today's map). */
+  layout?: LayoutId;
 }
 
 export function createWorld(options: WorldOptions = {}): World {
   const packsOn = options.packs ?? false;
   const three = options.ships === 3;
+  const layout = LAYOUTS[options.layout ?? DEFAULT_LAYOUT];
   const mode = options.mode ?? "sinkCount";
   const livesLeft = mode === "lastAfloat" ? (options.lives ?? TUNING.lastAfloat.lives) : null;
-  const ships: Ship[] = (three ? START_POINTS_3 : START_POINTS).map((pos, id) => {
+  const ships: Ship[] = (three ? layout.starts3 : layout.starts).map((pos, id) => {
     const heading = angleOf(sub(SEA_CENTRE, pos));
     return {
       id,
@@ -56,10 +60,12 @@ export function createWorld(options: WorldOptions = {}): World {
     contacts: [],
     over: false,
     mode,
+    layout: layout.id,
+    islands: layout.islands,
     packsOn,
     rng: (options.seed ?? 1) >>> 0,
     packs: [],
-    packSpots: three ? PACK_SPOTS_3 : PACK_SPOTS,
+    packSpots: three ? layout.packSpots3 : layout.packSpots,
     nextPackId: 0,
     nextSignalIn: packsOn ? TUNING.packs.spawnInterval : null,
     mines: [],

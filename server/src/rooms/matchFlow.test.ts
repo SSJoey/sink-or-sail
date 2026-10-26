@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Phase, TUNING } from "@sink-or-sail/shared";
-import { canChangeSeat, canEndMatch, canPause, canResume, canSetPacks, canStart, crewHasShip, everyCrewManned, nextHost, readLives, readMode, shipCount } from "./matchFlow.ts";
+import { canChangeSeat, canEndMatch, canPause, canResume, canSetPacks, canStart, crewHasShip, everyCrewManned, nextHost, readLayout, readLives, readMode, shipCount } from "./matchFlow.ts";
 
 describe("canStart", () => {
   it("lets only the host start, and only when no match is on", () => {
@@ -132,5 +132,14 @@ describe("readMode and readLives (Stage 2)", () => {
     expect(readLives({ lives: 1 })).toBe(1);
     expect(readLives({ lives: 5 })).toBe(5);
     for (const bad of [null, 3, { lives: 0 }, { lives: 6 }, { lives: 2.5 }, { lives: "3" }, { lives: Number.NaN }, { lives: 2, extra: 1 }]) expect(readLives(bad)).toBeNull();
+  });
+});
+
+describe("readLayout (Stage 2)", () => {
+  it("accepts only { layout } with a known layout or random", () => {
+    expect(readLayout({ layout: "slalom" })).toBe("slalom");
+    expect(readLayout({ layout: "oneIsland" })).toBe("oneIsland");
+    expect(readLayout({ layout: "random" })).toBe("random");
+    for (const bad of [null, "slalom", { layout: "atlantis" }, { layout: 3 }, { layout: "slalom", extra: 1 }]) expect(readLayout(bad)).toBeNull();
   });
 });

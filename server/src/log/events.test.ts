@@ -72,6 +72,8 @@ describe("match start and end", () => {
       seed: 7,
       mode: "sinkCount",
       lives: null,
+      layout: "oneIsland",
+      layoutRandom: false,
       tuning: TUNING,
     });
   });
@@ -213,6 +215,10 @@ describe("Stage 1 EMP line", () => {
 describe("Stage 2: Last Afloat lines", () => {
   const crew = { pilot: "Joey", gunner: "Sam" };
   const lines = (e: SimEvent) => simEventLines(1234, [e], roster);
+
+  it("records the layout at match start, and whether Random picked it", () => {
+    expect(matchStartLine("KWPZ", roster, { packsOn: true, seed: 1, mode: "sinkCount", lives: null, layout: "wall", layoutRandom: true })).toMatchObject({ layout: "wall", layoutRandom: true });
+  });
 
   it("records the mode and lives at match start", () => {
     expect(matchStartLine("KWPZ", roster, { packsOn: true, seed: 1, mode: "lastAfloat", lives: 3 })).toMatchObject({ mode: "lastAfloat", lives: 3 });

@@ -41,16 +41,21 @@ export function keepInSea(ship: Ship): Ship {
   return { ...ship, pos: { x, y }, vel: { x: vx, y: vy } };
 }
 
-/** Pushes a ship out of the island and removes the part of its motion heading into it, so it slides. */
-export function pushOutOfIsland(ship: Ship, island: Polygon): Ship {
+/** Pushes a ship out of the islands and removes the part of its motion heading into them, so it slides. */
+export function pushOutOfIslands(ship: Ship, islands: readonly Polygon[]): Ship {
   let { pos, vel } = ship;
-  // A few passes, because leaving one edge near a concave corner can touch another.
+  // A few passes, because leaving one edge near a concave corner (or one rock next to another) can touch another.
   for (let pass = 0; pass < 3; pass++) {
-    const push = circleOverlapsPolygon(pos, TUNING.ship.radius, island);
-    if (!push) break;
-    pos = add(pos, scale(push.normal, push.depth));
-    const into = dot(vel, push.normal);
-    if (into < 0) vel = sub(vel, scale(push.normal, into));
+    let pushed = false;
+    for (const island of islands) {
+      const push = circleOverlapsPolygon(pos, TUNING.ship.radius, island);
+      if (!push) continue;
+      pushed = true;
+      pos = add(pos, scale(push.normal, push.depth));
+      const into = dot(vel, push.normal);
+      if (into < 0) vel = sub(vel, scale(push.normal, into));
+    }
+    if (!pushed) break;
   }
   return pos === ship.pos ? ship : { ...ship, pos, vel };
 }
