@@ -76,6 +76,7 @@ describe("match start and end", () => {
       layoutRandom: false,
       hazardsOn: false,
       reefs: "none",
+      wrecks: [],
       tuning: TUNING,
     });
   });
@@ -221,6 +222,21 @@ describe("Stage 2: Last Afloat lines", () => {
   it("records hazards and reefs at match start, and logs reef hits", () => {
     expect(matchStartLine("KWPZ", roster, { packsOn: true, seed: 1, mode: "sinkCount", lives: null, hazardsOn: true, reefs: "few" })).toMatchObject({ hazardsOn: true, reefs: "few" });
     expect(lines({ type: "reefHit", ship: 0, damage: 5 })).toEqual([{ t: 1234, type: "reefHit", ship: 0, crew, damage: 5 }]);
+  });
+
+  it("records the wrecks at match start (where, and the pack each holds), and logs wreck events", () => {
+    const wrecks = createWorld({ hazards: true, packs: true, seed: 3 }).wrecks.map((w, i) => ({ ...w, pack: i === 1 ? ("emp" as const) : null }));
+    expect(matchStartLine("KWPZ", roster, { packsOn: true, seed: 3, mode: "sinkCount", lives: null, hazardsOn: true, reefs: "all", wrecks }).wrecks).toEqual(
+      wrecks.map((w) => ({ wreck: w.id, x: Math.round(w.pos.x * 10) / 10, y: Math.round(w.pos.y * 10) / 10, pack: w.pack })),
+    );
+    expect(lines({ type: "wreckHit", wreck: 2, by: 0, weapon: "shot", damage: 20 })).toEqual([{ t: 1234, type: "wreckHit", wreck: 2, ship: 0, crew, weapon: "shot", damage: 20 }]);
+    expect(lines({ type: "wreckHit", wreck: 2, by: 0, weapon: "bump", damage: 19.71, shipDamage: 6.57 })).toEqual([
+      { t: 1234, type: "wreckHit", wreck: 2, ship: 0, crew, weapon: "bump", damage: 19.7, shipDamage: 6.6 },
+    ]);
+    expect(lines({ type: "wreckDestroyed", wreck: 2, by: 0 })).toEqual([{ t: 1234, type: "wreckDestroyed", wreck: 2, ship: 0, crew }]);
+    expect(lines({ type: "wreckDestroyed", wreck: 2, by: null })).toEqual([{ t: 1234, type: "wreckDestroyed", wreck: 2, ship: null, crew: null }]);
+    expect(lines({ type: "wreckPackReleased", wreck: 2, pack: 7, packType: "emp" })).toEqual([{ t: 1234, type: "wreckPackReleased", wreck: 2, pack: 7, packType: "emp" }]);
+    expect(lines({ type: "packExpired", pack: 7, spot: null, packType: "emp" })).toEqual([{ t: 1234, type: "packExpired", pack: 7, spot: null, packType: "emp" }]);
   });
 
   it("records the layout at match start, and whether Random picked it", () => {

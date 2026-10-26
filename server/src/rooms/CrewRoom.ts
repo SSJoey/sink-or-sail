@@ -265,7 +265,7 @@ export class CrewRoom extends Room<{ state: CrewState }> {
     this.state.matchLayout = layout;
     this.roster = this.buildRoster();
     this.log = new MatchLog(this.logSinkFor(logFileName(new Date(), this.roomId)), { onError: (error) => this.logErrors(error) });
-    this.logLine(matchStartLine(this.roomId, this.roster, { packsOn, seed, mode, lives, layout, layoutRandom, hazardsOn, reefs }));
+    this.logLine(matchStartLine(this.roomId, this.roster, { packsOn, seed, mode, lives, layout, layoutRandom, hazardsOn, reefs, wrecks: this.world.wrecks }));
     for (const line of positionLines(this.world)) this.logLine(line);
     this.nextPositionAt = 1;
     this.latestInput.clear();

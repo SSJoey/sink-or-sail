@@ -1,4 +1,4 @@
-import { DEFAULT_LAYOUT, TUNING, type GameMode, type LayoutId, type ReefAmount, type Role, type Seat, type SimEvent, type World } from "@sink-or-sail/shared";
+import { DEFAULT_LAYOUT, TUNING, type GameMode, type LayoutId, type ReefAmount, type Role, type Seat, type SimEvent, type World, type Wreck } from "@sink-or-sail/shared";
 
 /** Who crews each ship (index = ship id); null for an empty seat. */
 export type Roster = { pilot: string | null; gunner: string | null }[];
@@ -20,6 +20,8 @@ function actor(roster: Roster, ship: number, role: Role) {
 export function simEventLines(t: number, events: readonly SimEvent[], roster: Roster): LogLine[] {
   const lines: LogLine[] = [];
   const crew = (ship: number) => ({ ship, crew: { ...crewOf(roster, ship) } });
+  /** The crew credited for something, or none. */
+  const credited = (ship: number | null) => (ship === null ? { ship: null, crew: null } : crew(ship));
   for (const e of events) {
     switch (e.type) {
       case "shotFired": lines.push({ t, type: "shotFired", ...actor(roster, e.ship, "gunner") }); break;
@@ -33,6 +35,11 @@ export function simEventLines(t: number, events: readonly SimEvent[], roster: Ro
       case "sunk": lines.push({ t, type: "sunk", ...crew(e.ship), by: e.by, cause: e.cause, ...(e.livesLeft !== undefined && { livesLeft: e.livesLeft }) }); break;
       case "crewOut": lines.push({ t, type: "crewOut", ...crew(e.ship) }); break;
       case "reefHit": lines.push({ t, type: "reefHit", ...crew(e.ship), damage: r1(e.damage) }); break;
+      case "wreckHit":
+        lines.push({ t, type: "wreckHit", wreck: e.wreck, ...credited(e.by), weapon: e.weapon, damage: r1(e.damage), ...(e.shipDamage !== undefined && { shipDamage: r1(e.shipDamage) }) });
+        break;
+      case "wreckDestroyed": lines.push({ t, type: "wreckDestroyed", wreck: e.wreck, ...credited(e.by) }); break;
+      case "wreckPackReleased": lines.push({ t, type: "wreckPackReleased", wreck: e.wreck, pack: e.pack, packType: e.packType }); break;
       case "respawned": lines.push({ t, type: "respawn", ...crew(e.ship), x: r1(e.pos.x), y: r1(e.pos.y) }); break;
       case "bump": lines.push({ t, type: "bump", ships: e.ships, damage: [r1(e.damage[0]), r1(e.damage[1])] }); break;
       case "packSignalled": lines.push({ t, type: "packSignalled", pack: e.pack, spot: e.spot, packType: e.packType }); break;
@@ -70,7 +77,11 @@ export function simEventLines(t: number, events: readonly SimEvent[], roster: Ro
   return lines;
 }
 
-export function matchStartLine(room: string, roster: Roster, match: { packsOn: boolean; seed: number; mode: GameMode; lives: number | null; layout?: LayoutId; layoutRandom?: boolean; hazardsOn?: boolean; reefs?: ReefAmount }): LogLine {
+export function matchStartLine(room: string, roster: Roster, match: {
+  packsOn: boolean; seed: number; mode: GameMode; lives: number | null; layout?: LayoutId; layoutRandom?: boolean; hazardsOn?: boolean; reefs?: ReefAmount;
+  /** Stage 2: the match's wrecks (none with hazards off). */
+  wrecks?: readonly Wreck[];
+}): LogLine {
   return {
     t: 0,
     type: "matchStart",
@@ -84,6 +95,7 @@ export function matchStartLine(room: string, roster: Roster, match: { packsOn: b
     layoutRandom: match.layoutRandom ?? false,
     hazardsOn: match.hazardsOn ?? false,
     reefs: match.reefs ?? "none",
+    wrecks: (match.wrecks ?? []).map((w) => ({ wreck: w.id, x: r1(w.pos.x), y: r1(w.pos.y), pack: w.pack })),
     tuning: TUNING,
   };
 }

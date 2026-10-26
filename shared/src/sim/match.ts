@@ -1,6 +1,8 @@
 import { TUNING } from "../tuning.ts";
 import { DEFAULT_LAYOUT, LAYOUTS, reefsFor, type LayoutId, type ReefAmount } from "./layouts.ts";
 import { SEA_CENTRE } from "./map.ts";
+import { PACK_CHANCES } from "./packs.ts";
+import { placeWrecks } from "./wrecks.ts";
 import type { GameMode, Ship, World } from "./types.ts";
 import { angleOf, sub } from "./vec.ts";
 
@@ -25,6 +27,7 @@ export interface WorldOptions {
 
 export function createWorld(options: WorldOptions = {}): World {
   const packsOn = options.packs ?? false;
+  const seed = (options.seed ?? 1) >>> 0;
   const three = options.ships === 3;
   const layout = LAYOUTS[options.layout ?? DEFAULT_LAYOUT];
   const mode = options.mode ?? "sinkCount";
@@ -69,8 +72,10 @@ export function createWorld(options: WorldOptions = {}): World {
     islands: layout.islands,
     hazardsOn: options.hazards ?? false,
     reefs: options.hazards ? reefsFor(layout.id, options.reefs ?? "all") : [],
+    wrecks: options.hazards ? placeWrecks(layout.wrecks, packsOn, seed, PACK_CHANCES) : [],
+    wreckPacks: [],
     packsOn,
-    rng: (options.seed ?? 1) >>> 0,
+    rng: seed,
     packs: [],
     packSpots: three ? layout.packSpots3 : layout.packSpots,
     nextPackId: 0,

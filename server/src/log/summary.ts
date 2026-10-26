@@ -28,6 +28,9 @@ export interface CrewSummary {
   /** Stage 2: reefs entered with damage, and the damage taken. */
   reefHits: number;
   reefDamage: number;
+  /** Stage 2: wrecks this crew destroyed, and how many of those released a pack. */
+  wrecksDestroyed: number;
+  wreckPacksReleased: number;
 }
 
 /** Stage 2: Last Afloat figures for one crew. */
@@ -173,6 +176,8 @@ export function summarise(lines: readonly Line[]): MatchSummary {
       sunkBy,
       reefHits: mine("reefHit").length,
       reefDamage: Math.round(mine("reefHit").reduce((sum, l) => sum + (l.damage as number), 0) * 10) / 10,
+      wrecksDestroyed: mine("wreckDestroyed").length,
+      wreckPacksReleased: lines.filter((l) => l.type === "wreckPackReleased" && mine("wreckDestroyed").some((d) => d.wreck === l.wreck)).length,
     };
   });
 
@@ -319,9 +324,9 @@ export function formatSummary(s: MatchSummary): string {
     `${r1(c.emptySeconds)} s`,
     `${r1(c.averageSurvivalSeconds)} s (${c.lives})`,
     Object.entries(c.sunkBy).map(([cause, n]) => `${cause} ${n}`).join(" · ") || "—",
-    ...(s.hazardsOn ? [`${c.reefHits} (${r1(c.reefDamage)})`] : []),
+    ...(s.hazardsOn ? [`${c.reefHits} (${r1(c.reefDamage)})`, `${c.wrecksDestroyed} (${c.wreckPacksReleased})`] : []),
   ]);
-  const head = ["Crew", "Pilot & Gunner", "Sinkings", "Shots", "Hits", "Blocked", "Accuracy", "Energy boost / shield", "Empty bar", "Avg survival (lives)", "Sunk by", ...(s.hazardsOn ? ["Reef hits (damage)"] : [])];
+  const head = ["Crew", "Pilot & Gunner", "Sinkings", "Shots", "Hits", "Blocked", "Accuracy", "Energy boost / shield", "Empty bar", "Avg survival (lives)", "Sunk by", ...(s.hazardsOn ? ["Reef hits (damage)", "Wrecks destroyed (packs released)"] : [])];
   const out = [header, "", ...table(head, rows)];
   if (s.lastAfloat) {
     const laRows = s.lastAfloat.map((c) => [`Crew ${c.ship + 1}`, ordinal(c.place), `${r1(c.afloatSeconds)} s`, String(c.livesUsed)]);

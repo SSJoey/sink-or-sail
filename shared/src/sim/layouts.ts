@@ -2,6 +2,7 @@ import type { Polygon } from "./geometry.ts";
 import { ISLAND, PACK_SPOTS, PACK_SPOTS_3, SEA_CENTRE, START_POINTS, START_POINTS_3 } from "./map.ts";
 import { randomIndex } from "./random.ts";
 import type { Vec } from "./vec.ts";
+import type { WreckSpot } from "./wrecks.ts";
 
 // Stage 2 island layouts (approved 2026-10-26). Every layout but One Island (today's map, kept exactly for the
 // Stage 0 recording) is a mirror image left↔right and top↕bottom, so neither 2-ship start is favoured. Every
@@ -24,6 +25,8 @@ export interface Layout {
   /** Stage 2 reefs (slice 3, approved 2026-10-26): every reef ("All"), and the host's "Few" set (part of All). */
   reefs: readonly Polygon[];
   fewReefs: readonly Polygon[];
+  /** Stage 2 shipwrecks (slice 4, approved 2026-10-26), mirrored like the reefs. */
+  wrecks: readonly WreckSpot[];
 }
 
 /** The host's Reefs setting (only with hazards on). */
@@ -71,6 +74,24 @@ const gapSpots = (first: number, spread: number, r: number): Vec[] =>
 
 const TWO_STARTS = START_POINTS;
 
+const DEGREES = Math.PI / 180;
+/** A wreck in the top-left quarter at `degrees`, plus its mirror images (the hull mirrored too). */
+const wrecks4 = (x: number, y: number, degrees: number): WreckSpot[] => {
+  const a = degrees * DEGREES;
+  return [
+    { pos: { x, y }, angle: a },
+    { pos: { x: W - x, y }, angle: Math.PI - a },
+    { pos: { x, y: H - y }, angle: -a },
+    { pos: { x: W - x, y: H - y }, angle: Math.PI + a },
+  ];
+};
+/**
+ * Two wrecks on a middle line, lying along it with their bows toward the middle of the sea, so each is
+ * its own mirror image across that line.
+ */
+const wrecksAcross = (x: number): WreckSpot[] => [{ pos: { x, y: SEA_CENTRE.y }, angle: 0 }, { pos: { x: W - x, y: SEA_CENTRE.y }, angle: Math.PI }];
+const wrecksDown = (y: number): WreckSpot[] => [{ pos: { x: SEA_CENTRE.x, y }, angle: Math.PI / 2 }, { pos: { x: SEA_CENTRE.x, y: H - y }, angle: -Math.PI / 2 }];
+
 // Reefs, hand-placed per layout; "Few" keeps a diagonal pair of a group of four, or the middle reef.
 const ONE_ISLAND_REEFS = fourWays(700, 275, 45, 35);
 const TWIN_MIDDLE = middle(90, 55);
@@ -93,6 +114,7 @@ export const LAYOUTS: Readonly<Record<LayoutId, Layout>> = {
     packSpots3: PACK_SPOTS_3,
     reefs: ONE_ISLAND_REEFS,
     fewReefs: diagonal(ONE_ISLAND_REEFS),
+    wrecks: wrecks4(450, 125, 30),
   },
   twinIsles: {
     id: "twinIsles",
@@ -104,6 +126,7 @@ export const LAYOUTS: Readonly<Record<LayoutId, Layout>> = {
     packSpots3: gapSpots(0, 10, 405),
     reefs: [TWIN_MIDDLE, ...fourWays(330, 300, 55, 40)],
     fewReefs: [TWIN_MIDDLE],
+    wrecks: wrecks4(600, 350, 30),
   },
   strait: {
     id: "strait",
@@ -116,6 +139,7 @@ export const LAYOUTS: Readonly<Record<LayoutId, Layout>> = {
     packSpots3: gapSpots(30, 30, 165),
     reefs: STRAIT_REEFS,
     fewReefs: diagonal(STRAIT_REEFS),
+    wrecks: wrecks4(600, 325, 30),
   },
   fourRocks: {
     id: "fourRocks",
@@ -127,6 +151,7 @@ export const LAYOUTS: Readonly<Record<LayoutId, Layout>> = {
     packSpots3: gapSpots(90, 10, 390),
     reefs: [FOUR_ROCKS_MIDDLE, ...fourWays(275, 325, 45, 35)],
     fewReefs: [FOUR_ROCKS_MIDDLE],
+    wrecks: wrecks4(650, 125, 30),
   },
   crossroads: {
     id: "crossroads",
@@ -138,6 +163,7 @@ export const LAYOUTS: Readonly<Record<LayoutId, Layout>> = {
     packSpots3: [{ x: 476, y: 438 }, { x: 1124, y: 438 }, { x: 407, y: 97 }, { x: 1193, y: 97 }, { x: 86, y: 435 }, { x: 1514, y: 435 }],
     reefs: [CROSSROADS_MIDDLE, ...acrossPair(270, 40, 90)],
     fewReefs: [CROSSROADS_MIDDLE],
+    wrecks: wrecks4(350, 325, 30),
   },
   wall: {
     id: "wall",
@@ -149,6 +175,7 @@ export const LAYOUTS: Readonly<Record<LayoutId, Layout>> = {
     packSpots3: gapSpots(0, 10, 350),
     reefs: WALL_REEFS,
     fewReefs: WALL_REEFS,
+    wrecks: wrecks4(650, 300, 30),
   },
   ring: {
     id: "ring",
@@ -163,6 +190,7 @@ export const LAYOUTS: Readonly<Record<LayoutId, Layout>> = {
     packSpots3: gapSpots(30, 30, 120),
     reefs: [...RING_SIDES, ...fourWays(650, 190, 45, 35)],
     fewReefs: RING_SIDES,
+    wrecks: wrecks4(450, 125, 30),
   },
   archipelago: {
     id: "archipelago",
@@ -181,6 +209,7 @@ export const LAYOUTS: Readonly<Record<LayoutId, Layout>> = {
     packSpots3: gapSpots(90, 10, 365),
     reefs: ARCHIPELAGO_REEFS,
     fewReefs: diagonal(ARCHIPELAGO_REEFS),
+    wrecks: wrecksAcross(600),
   },
   slalom: {
     id: "slalom",
@@ -201,6 +230,7 @@ export const LAYOUTS: Readonly<Record<LayoutId, Layout>> = {
     packSpots3: gapSpots(90, 10, 365),
     reefs: SLALOM_REEFS,
     fewReefs: diagonal(SLALOM_REEFS),
+    wrecks: wrecksDown(200),
   },
 };
 

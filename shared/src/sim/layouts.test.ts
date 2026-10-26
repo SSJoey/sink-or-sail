@@ -7,6 +7,7 @@ import { step } from "./step.ts";
 import type { ShipInput } from "./types.ts";
 import { ISLAND, PACK_SPOTS, PACK_SPOTS_3, SPAWN_POINTS, START_POINTS, START_POINTS_3 } from "./map.ts";
 import { distance, type Vec } from "./vec.ts";
+import { wreckHull } from "./wrecks.ts";
 
 const { width: W, height: H } = TUNING.sea;
 const R = TUNING.ship.radius;
@@ -67,6 +68,9 @@ function reachable(islands: readonly Polygon[], from: Vec): (p: Vec) => boolean 
   }
   return (p) => seen[Math.floor(p.y / step) * cols + Math.floor(p.x / step)] === 1;
 }
+
+/** A layout's wreck hulls (Stage 2 slice 4): solid until destroyed, so channels and reachability count them. */
+const hulls = (l: Layout) => l.wrecks.map(wreckHull);
 
 const spread = (values: readonly number[]) => Math.max(...values) / Math.min(...values);
 
@@ -138,20 +142,36 @@ describe.each(all.map((l) => [l.name, l] as [string, Layout]))("%s", (_name, l) 
     }
   });
 
+  it("has 2 or 4 wrecks (Stage 2 slice 4): mirrored both ways, clear of every spot and of the reefs", () => {
+    expect([2, 4]).toContain(l.wrecks.length);
+    const wrecks = hulls(l);
+    for (const mirror of [mirrorX, mirrorY]) {
+      for (const hull of wrecks) expect(wrecks.some((other) => sameSpots(hull.map(mirror), other)), JSON.stringify(hull[0])).toBe(true);
+    }
+    const spots = [...l.starts, ...l.starts3, ...SPAWN_POINTS, ...l.packSpots, ...l.packSpots3];
+    for (const hull of wrecks) {
+      for (const spot of spots) {
+        expect(pointInPolygon(spot, hull) || circleOverlapsPolygon(spot, 2 * R + 12, hull) !== null, JSON.stringify(spot)).toBe(false);
+      }
+      for (const reef of l.reefs) expect(islandGap(hull, reef)).toBeGreaterThan(0);
+    }
+  });
+
   it("Few reefs look the same from either 2-ship start (each mirrored through the middle)", () => {
     const throughMiddle = (p: Vec): Vec => ({ x: W - p.x, y: H - p.y });
     for (const reef of l.fewReefs) expect(l.fewReefs.some((other) => sameSpots(reef.map(throughMiddle), other))).toBe(true);
   });
 
-  it(`leaves every channel at least ${MIN_CHANNEL} wide, between islands and to the sea edge`, () => {
-    for (let i = 0; i < l.islands.length; i++) {
-      expect(edgeGap(l.islands[i]!), `island ${i} to the edge`).toBeGreaterThanOrEqual(MIN_CHANNEL);
-      for (let j = i + 1; j < l.islands.length; j++) expect(islandGap(l.islands[i]!, l.islands[j]!), `islands ${i} and ${j}`).toBeGreaterThanOrEqual(MIN_CHANNEL);
+  it(`leaves every channel at least ${MIN_CHANNEL} wide, between islands and wrecks and to the sea edge`, () => {
+    const solids = [...l.islands, ...hulls(l)];
+    for (let i = 0; i < solids.length; i++) {
+      expect(edgeGap(solids[i]!), `island or wreck ${i} to the edge`).toBeGreaterThanOrEqual(MIN_CHANNEL);
+      for (let j = i + 1; j < solids.length; j++) expect(islandGap(solids[i]!, solids[j]!), `islands or wrecks ${i} and ${j}`).toBeGreaterThanOrEqual(MIN_CHANNEL);
     }
   });
 
-  it("lets a Frigate sail from a start to every start, pack spot and respawn spot", () => {
-    const canReach = reachable(l.islands, l.starts[0]!);
+  it("lets a Frigate sail from a start to every start, pack spot and respawn spot, with every wreck standing", () => {
+    const canReach = reachable([...l.islands, ...hulls(l)], l.starts[0]!);
     for (const p of [...l.starts, ...l.starts3, ...l.packSpots, ...l.packSpots3, ...SPAWN_POINTS]) expect(canReach(p), JSON.stringify(p)).toBe(true);
   });
 

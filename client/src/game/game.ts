@@ -117,6 +117,10 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
       const id = (room.state as RoomStateView).matchLayout;
       return LAYOUTS[isLayoutId(id) ? id : DEFAULT_LAYOUT].islands;
     },
+    wrecks: () => {
+      const id = (room.state as RoomStateView).matchLayout;
+      return LAYOUTS[isLayoutId(id) ? id : DEFAULT_LAYOUT].wrecks;
+    },
     reefs: () => {
       const state = room.state as RoomStateView;
       return reefsFor(isLayoutId(state.matchLayout) ? state.matchLayout : DEFAULT_LAYOUT, isReefAmount(state.matchReefs) ? state.matchReefs : "none");
@@ -147,6 +151,8 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
         .map((p) => `${p.type}@${Math.round(p.x)},${Math.round(p.y)}`)
         .join(";");
       canvasHost.dataset.mines = String(frame?.mines.size ?? 0);
+      // Wrecks still standing as "id:health:pack;…" (pack 1 when it holds one), for the browser smoke tests.
+      canvasHost.dataset.wrecks = [...(frame?.wrecks ?? new Map())].map(([id, w]) => `${id}:${Math.round(w.health)}:${w.hasPack ? 1 : 0}`).join(";");
       canvasHost.dataset.torpedoes = String(frame?.torpedoes.size ?? 0);
       // A short buzz on the gunner's phone when the crew picks up a torpedo or EMP (Android only).
       const heldNow = own?.gunnerPack ?? null;
@@ -189,6 +195,7 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
       delete canvasHost.dataset.ownY;
       delete canvasHost.dataset.packs;
       delete canvasHost.dataset.mines;
+      delete canvasHost.dataset.wrecks;
       delete canvasHost.dataset.torpedoes;
       delete canvasHost.dataset.disabled;
       delete canvasHost.dataset.shots;

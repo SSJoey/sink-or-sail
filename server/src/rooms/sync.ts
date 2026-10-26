@@ -1,5 +1,5 @@
 import { Phase, TUNING, timeLeft, type SimEvent, type World } from "@sink-or-sail/shared";
-import { MineState, PackState, ShipState, ShotState, type CrewState } from "./state.ts";
+import { MineState, PackState, ShipState, ShotState, WreckState, type CrewState } from "./state.ts";
 
 /** Copies the simulation world into the synced room state. Colyseus sends only what changed. */
 export function syncWorld(state: CrewState, world: World): void {
@@ -30,7 +30,7 @@ export function syncWorld(state: CrewState, world: World): void {
     synced.out = ship.out;
   });
 
-  const livePacks = new Set(world.packs.map((pack) => String(pack.id)));
+  const livePacks = new Set([...world.packs, ...world.wreckPacks].map((pack) => String(pack.id)));
   for (const id of [...state.packs.keys()]) {
     if (!livePacks.has(id)) state.packs.delete(id);
   }
@@ -45,6 +45,27 @@ export function syncWorld(state: CrewState, world: World): void {
       const spot = world.packSpots[pack.spot]!;
       state.packs.set(id, new PackState({ x: spot.x, y: spot.y, type: pack.type, signalled, lifeLeft: pack.lifeLeft }));
     }
+  }
+  // Stage 2: packs released from wrecks lie where the wreck stood and can be taken at once.
+  for (const pack of world.wreckPacks) {
+    const id = String(pack.id);
+    const synced = state.packs.get(id);
+    if (synced) synced.lifeLeft = pack.lifeLeft;
+    else state.packs.set(id, new PackState({ x: pack.pos.x, y: pack.pos.y, type: pack.type, signalled: false, lifeLeft: pack.lifeLeft }));
+  }
+
+  const liveWrecks = new Set(world.wrecks.map((wreck) => String(wreck.id)));
+  for (const id of [...state.wrecks.keys()]) {
+    if (!liveWrecks.has(id)) state.wrecks.delete(id);
+  }
+  for (const wreck of world.wrecks) {
+    const id = String(wreck.id);
+    const synced = state.wrecks.get(id);
+    if (synced) {
+      // (A new match reuses the ids, so the pack flag is copied too.)
+      synced.health = wreck.health;
+      synced.hasPack = wreck.pack !== null;
+    } else state.wrecks.set(id, new WreckState({ health: wreck.health, hasPack: wreck.pack !== null }));
   }
 
   const liveTorpedoes = new Set(world.torpedoes.map((torpedo) => String(torpedo.id)));
@@ -106,6 +127,12 @@ export function applyEvents(state: CrewState, events: readonly SimEvent[]): void
           if (target && event.damage[i]! > 0) target.hits++;
         });
         break;
+      case "wreckHit": {
+        // A ship hurt ramming a wreck flashes like a bump.
+        const rammer = event.by === null ? undefined : ship(event.by);
+        if (rammer && (event.shipDamage ?? 0) > 0) rammer.hits++;
+        break;
+      }
       case "sunk": {
         const target = ship(event.ship);
         if (target) {

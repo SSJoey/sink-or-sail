@@ -1,13 +1,13 @@
 import { PACK_USER } from "../packRules.ts";
 import { TUNING } from "../tuning.ts";
 import { randomIndex, weightedPick } from "./random.ts";
-import type { Pack, PackType, SimEvent, World } from "./types.ts";
-import { distance } from "./vec.ts";
+import type { Pack, PackType, Ship, SimEvent, World, WreckPack } from "./types.ts";
+import { distance, type Vec } from "./vec.ts";
 
 /** Guards timer comparisons against float drift from adding dt many times. */
 const EPSILON = 1e-9;
 
-const PACK_CHANCES = Object.entries(TUNING.packs.chances) as [PackType, number][];
+export const PACK_CHANCES = Object.entries(TUNING.packs.chances) as [PackType, number][];
 
 /** A ship and a pack touch when their circles overlap. */
 const touches = (a: { x: number; y: number }, b: { x: number; y: number }) =>
@@ -42,9 +42,32 @@ export function signalPack(world: World): { world: World; event: Extract<SimEven
 const slotFor = (type: PackType) => (PACK_USER[type] === "pilot" ? "pilotPack" : "gunnerPack");
 
 /**
- * Ships afloat take packs they touch, lowest ship id first. A slot pack needs its role's slot empty;
- * a health pack is used at once, needs no slot, and is left alone by a ship at full health.
- * A pickup from a full map restarts the spawn clock.
+ * The ship that takes a pack lying at `pos`: the lowest-id ship afloat touching it that can take it.
+ * A slot pack needs its role's slot empty; a health pack needs no slot and is left alone by a ship at full health.
+ */
+function takerOf(ships: readonly Ship[], pos: Vec, type: PackType): number {
+  return ships.findIndex((ship) => {
+    if (ship.sunk || !touches(ship.pos, pos)) return false;
+    return type === "health" ? ship.health < TUNING.ship.maxHealth : ship[slotFor(type)] === null;
+  });
+}
+
+/** The taker gets the pack: a slot pack goes in its slot; a health pack heals at once (never above full). */
+function givePack(ships: Ship[], index: number, pack: { id: number; type: PackType }, events: SimEvent[]): void {
+  const ship = ships[index]!;
+  events.push({ type: "packPickedUp", ship: ship.id, pack: pack.id, packType: pack.type });
+  if (pack.type === "health") {
+    const amount = Math.min(TUNING.ship.maxHealth - ship.health, TUNING.packs.healthRestore * TUNING.ship.maxHealth);
+    ships[index] = { ...ship, health: ship.health + amount };
+    events.push({ type: "healthRestored", ship: ship.id, amount });
+  } else {
+    ships[index] = { ...ship, [slotFor(pack.type)]: pack.type };
+  }
+}
+
+/**
+ * Ships afloat take packs they touch, lowest ship id first (see takerOf). A pickup from a full map
+ * restarts the spawn clock.
  */
 export function pickUpPacks(world: World): { world: World; events: SimEvent[] } {
   const events: SimEvent[] = [];
@@ -53,23 +76,9 @@ export function pickUpPacks(world: World): { world: World; events: SimEvent[] } 
   const wasFull = world.packs.length >= TUNING.packs.maxOnMap;
 
   for (const pack of world.packs) {
-    const index = pack.signalLeft > EPSILON ? -1 : ships.findIndex((ship) => {
-      if (ship.sunk || !touches(ship.pos, world.packSpots[pack.spot]!)) return false;
-      return pack.type === "health" ? ship.health < TUNING.ship.maxHealth : ship[slotFor(pack.type)] === null;
-    });
-    if (index < 0) {
-      remaining.push(pack);
-      continue;
-    }
-    const ship = ships[index]!;
-    events.push({ type: "packPickedUp", ship: ship.id, pack: pack.id, packType: pack.type });
-    if (pack.type === "health") {
-      const amount = Math.min(TUNING.ship.maxHealth - ship.health, TUNING.packs.healthRestore * TUNING.ship.maxHealth);
-      ships[index] = { ...ship, health: ship.health + amount };
-      events.push({ type: "healthRestored", ship: ship.id, amount });
-    } else {
-      ships[index] = { ...ship, [slotFor(pack.type)]: pack.type };
-    }
+    const index = pack.signalLeft > EPSILON ? -1 : takerOf(ships, world.packSpots[pack.spot]!, pack.type);
+    if (index < 0) remaining.push(pack);
+    else givePack(ships, index, pack, events);
   }
 
   if (events.length === 0) return { world, events };
@@ -131,4 +140,27 @@ export function updatePacks(world: World, dt: number): { world: World; events: S
   const justSpawned = new Set(events.flatMap((e) => (e.type === "packSpawned" ? [e.pack] : [])));
   const expired = expirePacks({ ...next, packs, nextSignalIn }, dt, justSpawned);
   return { world: expired.world, events: [...events, ...expired.events] };
+}
+
+/**
+ * Stage 2: packs released from wrecks. Ones already lying there count down and disappear at 0 (like other
+ * packs); then ships take the ones they touch, the same way as other packs. They play no part in the
+ * spawn clock or the map's pack limit.
+ */
+export function updateWreckPacks(world: World, dt: number): { world: World; events: SimEvent[] } {
+  if (world.wreckPacks.length === 0) return { world, events: [] };
+  const events: SimEvent[] = [];
+  const ships = [...world.ships];
+  const wreckPacks: WreckPack[] = [];
+  for (const pack of world.wreckPacks) {
+    const lifeLeft = pack.lifeLeft - dt;
+    if (lifeLeft <= EPSILON) {
+      events.push({ type: "packExpired", pack: pack.id, spot: null, packType: pack.type });
+      continue;
+    }
+    const index = takerOf(ships, pack.pos, pack.type);
+    if (index < 0) wreckPacks.push({ ...pack, lifeLeft });
+    else givePack(ships, index, pack, events);
+  }
+  return { world: { ...world, ships, wreckPacks }, events };
 }

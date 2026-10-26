@@ -36,7 +36,7 @@ export const GAME_MODES = ["sinkCount", "lastAfloat"] as const;
 export type GameMode = (typeof GAME_MODES)[number];
 
 /** What sank a ship. A mine set off by a shot or a torpedo counts as that weapon; "ownMine" is a ship's own mine it sailed into. */
-export type SinkCause = "shot" | "mine" | "ownMine" | "torpedo" | "bump" | "reef";
+export type SinkCause = "shot" | "mine" | "ownMine" | "torpedo" | "bump" | "reef" | "wreck";
 
 /** A pack on the map. While `signalLeft` > 0 its spot is glowing and it can't be picked up yet. */
 export interface Pack {
@@ -48,6 +48,32 @@ export interface Pack {
   /** Seconds left once it has appeared (it stays at the full lifetime while glowing); it disappears at 0. */
   lifeLeft: number;
 }
+
+/** Stage 2: a pack released from a destroyed wreck. It lies where the wreck was, can be taken at once and doesn't count toward the map's pack limit. */
+export interface WreckPack {
+  id: number;
+  /** The wreck it came from. */
+  wreck: number;
+  pos: Vec;
+  type: PackType;
+  /** Seconds left; it disappears at 0, like other packs. */
+  lifeLeft: number;
+}
+
+/** Stage 2: a shipwreck, solid like a rock until its health runs out (then it's gone for the match). */
+export interface Wreck {
+  /** Index into the layout's wrecks. */
+  id: number;
+  pos: Vec;
+  /** The hull: blocks ships, shots, torpedoes and mine drops. */
+  hull: Polygon;
+  health: number;
+  /** The pack it releases when destroyed, or null (drawn with the seed at the match start; none with packs off). */
+  pack: PackType | null;
+}
+
+/** What damaged a wreck. */
+export type WreckWeapon = "shot" | "torpedo" | "mine" | "bump";
 
 /** A dropped mine. Armed once `age` reaches the arm time; gone at its lifetime or when it goes off. */
 export interface Mine {
@@ -120,7 +146,7 @@ export interface World {
   ships: Ship[];
   shots: Shot[];
   nextShotId: number;
-  /** Ship pairs touching after the last step, as "a:b" with a < b; bumps hurt only when contact starts. */
+  /** Ship pairs touching after the last step, as "a:b" with a < b, and ships touching a wreck, as "a:w3"; bumps hurt only when contact starts. */
   contacts: string[];
   over: boolean;
   /** Stage 2: set for the whole match. */
@@ -131,6 +157,9 @@ export interface World {
   /** Stage 2: hazards on for the whole match; `reefs` are the match's reefs (none with hazards off). */
   hazardsOn: boolean;
   reefs: readonly Polygon[];
+  /** Stage 2: wrecks still standing (none with hazards off), and packs released from destroyed ones. */
+  wrecks: Wreck[];
+  wreckPacks: WreckPack[];
   /** Stage 1: packs spawn only when on (set for the whole match). */
   packsOn: boolean;
   /** Seeded generator state; the same seed gives the same packs. */
@@ -163,13 +192,17 @@ export type SimEvent =
   | { type: "crewOut"; ship: number }
   /** Stage 2: a ship's centre entered a reef (not counted while protected). */
   | { type: "reefHit"; ship: number; damage: number }
+  /** Stage 2 wrecks: `by` is the ship credited (null for none). A ram also gives the ramming ship's damage (0 while shielded or protected). */
+  | { type: "wreckHit"; wreck: number; by: number | null; weapon: WreckWeapon; damage: number; shipDamage?: number }
+  | { type: "wreckDestroyed"; wreck: number; by: number | null }
+  | { type: "wreckPackReleased"; wreck: number; pack: number; packType: PackType }
   | { type: "respawned"; ship: number; pos: Vec }
   /** "lastAfloat": one ship (or none) left in a Last Afloat match; "time": the clock ran out. */
   | { type: "matchEnded"; winner: number | null; reason: "time" | "lastAfloat" }
   | { type: "packSignalled"; pack: number; spot: number; packType: PackType }
   | { type: "packSpawned"; pack: number; spot: number; packType: PackType }
-  /** A pack nobody picked up in time. */
-  | { type: "packExpired"; pack: number; spot: number; packType: PackType }
+  /** A pack nobody picked up in time; `spot` is null for a pack released from a wreck. */
+  | { type: "packExpired"; pack: number; spot: number | null; packType: PackType }
   | { type: "packPickedUp"; ship: number; pack: number; packType: PackType }
   | { type: "packLost"; ship: number; packType: PackType }
   | { type: "healthRestored"; ship: number; amount: number }
@@ -182,5 +215,5 @@ export type SimEvent =
   | { type: "torpedoFired"; torpedo: number; owner: number; pos: Vec; heading: number }
   | { type: "torpedoHit"; torpedo: number; attacker: number; target: number; damage: number; shieldHalved: boolean }
   | { type: "empFired"; ship: number; caught: number[] }
-  /** A torpedo that didn't hit a ship: stopped by the island or the sea edge, or used up setting off a mine. */
-  | { type: "torpedoEnded"; torpedo: number; owner: number; reason: "island" | "edge" | "mine" };
+  /** A torpedo that didn't hit a ship: stopped by the island, the sea edge or a wreck, or used up setting off a mine. */
+  | { type: "torpedoEnded"; torpedo: number; owner: number; reason: "island" | "edge" | "mine" | "wreck" };

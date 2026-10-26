@@ -3,14 +3,15 @@ import { bumpDamage, canBeDamaged, damageShip, traceShot } from "./combat.ts";
 import { updateEnergy } from "./energy.ts";
 import { SPAWN_POINTS } from "./map.ts";
 import { blastMine, canDropAt, dropSpot, isArmed, updateMines } from "./mines.ts";
-import { pickUpPacks, updatePacks } from "./packs.ts";
+import { pickUpPacks, updatePacks, updateWreckPacks } from "./packs.ts";
 import { launchTorpedo, outsideSea, torpedoDamage } from "./torpedoes.ts";
 import { matchDuration, matchResult } from "./match.ts";
 import { chooseSpawn, respawnShip } from "./respawn.ts";
 import { keepInSea, pushOutOfIslands, separateShips, steerShip } from "./ship.ts";
-import { NO_INPUT, type Mine, type Ship, type ShipInput, type Shot, type SimEvent, type SinkCause, type Torpedo, type World } from "./types.ts";
+import { NO_INPUT, type Mine, type Ship, type ShipInput, type Shot, type SimEvent, type SinkCause, type Torpedo, type World, type Wreck, type WreckPack, type WreckWeapon } from "./types.ts";
 import { add, distance, scale } from "./vec.ts";
-import { pointInPolygon } from "./geometry.ts";
+import { circleOverlapsPolygon, pointInPolygon } from "./geometry.ts";
+import { ramDamage, touchingWreck, wreckContactKey, wreckDamage } from "./wrecks.ts";
 import { aimTurret, fireGun, moveShot } from "./weapons.ts";
 
 /** Guards timer comparisons against float drift from adding dt many times. */
@@ -23,7 +24,8 @@ const contactKey = (a: number, b: number) => (a < b ? `${a}:${b}` : `${b}:${a}`)
  * `inputs[shipId]` is that ship's crew input; a missing entry means no input.
  *
  * Order: sunk ships count down and respawn → afloat ships aim, use energy, steer and fire →
- * ship-vs-ship bumps → island and sea edge → shots move and hit → match timer.
+ * ship-vs-ship bumps → ramming wrecks → islands, wrecks and sea edge → reefs → packs → mines →
+ * shots and torpedoes move and hit → packs from wrecks destroyed this step → match timer.
  */
 export function step(world: World, inputs: readonly (ShipInput | undefined)[], dt: number): { world: World; events: SimEvent[] } {
   if (world.over || !(dt > 0) || !Number.isFinite(dt)) return { world, events: [] };
@@ -36,6 +38,11 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
   let nextMineId = world.nextMineId;
   const torpedoes: Torpedo[] = [...world.torpedoes];
   let nextTorpedoId = world.nextTorpedoId;
+  let wrecks: Wreck[] = world.wrecks;
+  let wreckPacks: WreckPack[] = world.wreckPacks;
+  const destroyedWrecks: Wreck[] = [];
+  /** Islands and the wrecks still standing: what blocks ships and mine drops. */
+  const solids = () => (wrecks.length === 0 ? world.islands : [...world.islands, ...wrecks.map((w) => w.hull)]);
 
   const sink = (targetIndex: number, by: number | null, cause: SinkCause) => {
     const sunk = ships[targetIndex]!;
@@ -60,6 +67,21 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
       const attacker = ships.findIndex((s) => s.id === by);
       if (attacker >= 0) ships[attacker] = { ...ships[attacker]!, sinkings: ships[attacker]!.sinkings + 1 };
     }
+  };
+
+  // Stage 2: a wreck takes damage; at 0 it's destroyed (credited to `by`), and any pack it holds is released at the end of the step.
+  const hitWreck = (id: number, by: number | null, weapon: WreckWeapon, damage: number, shipDamage?: number) => {
+    const wreck = wrecks.find((w) => w.id === id);
+    if (!wreck) return;
+    events.push({ type: "wreckHit", wreck: id, by, weapon, damage, ...(shipDamage !== undefined && { shipDamage }) });
+    const health = wreck.health - damage;
+    if (health > 1e-9) {
+      wrecks = wrecks.map((w) => (w.id === id ? { ...w, health } : w));
+      return;
+    }
+    wrecks = wrecks.filter((w) => w.id !== id);
+    destroyedWrecks.push(wreck);
+    events.push({ type: "wreckDestroyed", wreck: id, by });
   };
 
   // EMP timers run down first, so a ship caught during this step is disabled for exactly the full time.
@@ -125,7 +147,7 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
     // Stage 1: the pilot's Pack button drops a loaded mine behind the stern (if that spot is clear).
     if (world.packsOn && !disabled && input.pilot.pack && ship.pilotPack === "mine") {
       const pos = dropSpot(ship);
-      if (canDropAt(pos, world.islands)) {
+      if (canDropAt(pos, solids())) {
         const mine: Mine = { id: nextMineId++, owner: ship.id, pos, age: 0 };
         droppedMines.push(mine);
         ship = { ...ship, pilotPack: null };
@@ -194,9 +216,29 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
     }
   }
 
-  // The islands and the sea edge win over ship pushes, so nothing ends up inside them.
+  // Stage 2: a ship that starts touching a wreck rams it: a bump for the ship, the ram factor times that for the wreck.
+  for (let i = 0; i < ships.length && wrecks.length > 0; i++) {
+    for (const wreck of wrecks) {
+      const ship = ships[i]!;
+      if (ship.sunk) break;
+      const touch = touchingWreck(ship, wreck);
+      if (!touch) continue;
+      const key = wreckContactKey(ship.id, wreck.id);
+      contacts.push(key);
+      if (world.contacts.includes(key)) continue;
+      const ram = ramDamage(ship, touch.normal);
+      if (ram.wreck <= 0) continue;
+      const hurt = damageShip(ship, ram.ship);
+      ships[i] = hurt.ship;
+      hitWreck(wreck.id, ship.id, "bump", ram.wreck, ram.ship);
+      if (ram.ship > 0 && hurt.sank) sink(i, null, "wreck");
+    }
+  }
+
+  // The islands, wrecks and the sea edge win over ship pushes, so nothing ends up inside them.
+  const blocking = solids();
   for (let i = 0; i < ships.length; i++) {
-    if (!ships[i]!.sunk) ships[i] = keepInSea(pushOutOfIslands(ships[i]!, world.islands));
+    if (!ships[i]!.sunk) ships[i] = keepInSea(pushOutOfIslands(ships[i]!, blocking));
   }
 
   // Stage 2 reefs: a ship whose centre enters one takes a hit (not while protected); on one, it's slowed next step.
@@ -222,9 +264,11 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
   if (world.packsOn) {
     const updated = updatePacks({ ...world, ships }, dt);
     const picked = pickUpPacks(updated.world);
-    packWorld = picked.world;
-    ships.splice(0, ships.length, ...picked.world.ships);
-    events.push(...updated.events, ...picked.events);
+    const fromWrecks = updateWreckPacks(picked.world, dt);
+    packWorld = fromWrecks.world;
+    wreckPacks = fromWrecks.world.wreckPacks;
+    ships.splice(0, ships.length, ...fromWrecks.world.ships);
+    events.push(...updated.events, ...picked.events, ...fromWrecks.events);
   }
 
   // A mine goes off: every ship touching it takes damage; sinkings are credited by blastMine's rules.
@@ -237,6 +281,10 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
       const hurt = damageShip(ships[hit.index]!, hit.damage);
       ships[hit.index] = hurt.ship;
       if (hurt.sank) sink(hit.index, result.creditFor(hurt.ship.id), weapon ?? (hurt.ship.id === mine.owner ? "ownMine" : "mine"));
+    }
+    // Stage 2: wrecks in the blast take mine damage, credited to whoever set it off (the owner when sailed into).
+    for (const wreck of wrecks.filter((w) => circleOverlapsPolygon(mine.pos, TUNING.mine.blastRadius, w.hull))) {
+      hitWreck(wreck.id, shooter ?? mine.owner, "mine", wreckDamage("mine"));
     }
   };
 
@@ -256,7 +304,11 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
   const survivingShots: Shot[] = [];
   for (const shot of shots) {
     const moved = moveShot(shot, dt);
-    const trace = traceShot(shot.owner, moved.from, moved.to, ships, world.islands, mines.filter(isArmed));
+    const trace = traceShot(shot.owner, moved.from, moved.to, ships, world.islands, mines.filter(isArmed), wrecks);
+    if (trace.kind === "wreck") {
+      hitWreck(trace.wreck, shot.owner, "shot", wreckDamage("shot"));
+      continue;
+    }
     if (trace.kind === "mine") {
       const mine = mines.find((m) => m.id === trace.mine)!;
       mines = mines.filter((m) => m.id !== trace.mine);
@@ -285,7 +337,12 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
   const runningTorpedoes: Torpedo[] = [];
   for (const torpedo of torpedoes) {
     const to = add(torpedo.pos, scale(torpedo.vel, dt));
-    const trace = traceShot(torpedo.owner, torpedo.pos, to, ships, world.islands, mines.filter(isArmed));
+    const trace = traceShot(torpedo.owner, torpedo.pos, to, ships, world.islands, mines.filter(isArmed), wrecks);
+    if (trace.kind === "wreck") {
+      events.push({ type: "torpedoEnded", torpedo: torpedo.id, owner: torpedo.owner, reason: "wreck" });
+      hitWreck(trace.wreck, torpedo.owner, "torpedo", wreckDamage("torpedo"));
+      continue;
+    }
     if (trace.kind === "ship") {
       const index = ships.findIndex((s) => s.id === trace.target);
       const { damage, shieldHalved } = torpedoDamage(ships[index]!);
@@ -311,10 +368,24 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
     runningTorpedoes.push({ ...torpedo, pos: to });
   }
 
+  // Stage 2: wrecks destroyed this step release their packs where they stood (with packs on), ready to take next step.
+  let nextPackId = packWorld?.nextPackId ?? world.nextPackId;
+  if (world.packsOn) {
+    for (const wreck of destroyedWrecks) {
+      if (!wreck.pack) continue;
+      const pack: WreckPack = { id: nextPackId++, wreck: wreck.id, pos: wreck.pos, type: wreck.pack, lifeLeft: TUNING.packs.lifetime };
+      wreckPacks = [...wreckPacks, pack];
+      events.push({ type: "wreckPackReleased", wreck: wreck.id, pack: pack.id, packType: pack.type });
+    }
+  }
+
   const time = world.time + dt;
   const next: World = {
     ...world,
-    ...(packWorld && { rng: packWorld.rng, packs: packWorld.packs, nextPackId: packWorld.nextPackId, nextSignalIn: packWorld.nextSignalIn }),
+    ...(packWorld && { rng: packWorld.rng, packs: packWorld.packs, nextSignalIn: packWorld.nextSignalIn }),
+    nextPackId,
+    wrecks,
+    wreckPacks,
     time,
     ships,
     shots: survivingShots,

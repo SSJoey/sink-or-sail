@@ -1,13 +1,14 @@
 import * as Phaser from "phaser";
-import { PACK_LETTERS, TUNING, packButtonLit, rolePack, type PackType, type Polygon, type Role, type Vec } from "@sink-or-sail/shared";
+import { PACK_LETTERS, TUNING, packButtonLit, rolePack, type PackType, type Polygon, type Role, type Vec, type WreckSpot } from "@sink-or-sail/shared";
 import { CREW_STYLES } from "./crews.ts";
 import { ShipEffects, type ShipEffect } from "./effects.ts";
 import { EmpRings } from "./empRing.ts";
 import { aimGuide, dashes, hullPoints, turretEnd } from "./hull.ts";
-import type { Frame, MineView, PackView, ShipView } from "./interpolation.ts";
+import type { Frame, MineView, PackView, ShipView, WreckView } from "./interpolation.ts";
 import { blinkVisible, packBlinkVisible } from "./matchText.ts";
 import { gunnerFromMouse, pilotFromKeys } from "./laptopInput.ts";
 import { mergeGunner, mergePilot, type TouchControls } from "./touchControls.ts";
+import { WreckFlashes, crackLines, wreckPieces } from "./wreckLook.ts";
 
 /** What the scene needs from the game: the frame to draw, the local seat, and where to report state. */
 export interface SceneLink {
@@ -15,6 +16,8 @@ export interface SceneLink {
   /** The match's islands (Stage 2 layouts) and reefs (none with hazards off). */
   islands(): readonly Polygon[];
   reefs(): readonly Polygon[];
+  /** The match layout's wreck spots (the frame says which still stand). */
+  wrecks(): readonly WreckSpot[];
   seat(): { crew: number; role: Role } | null;
   /** Phone controls; merged with keyboard and mouse. */
   touch: TouchControls;
@@ -31,6 +34,8 @@ const REEF_EDGE = 0xd9f2f7;
 const HULL_EDGE = 0x1b1b1b;
 const SHIELD = 0x9be7ff;
 const PACK_FILL = 0x0b2545;
+const WRECK_WOOD = 0x5a3b22;
+const WRECK_EDGE = 0x2b1a0e;
 
 export class GameScene extends Phaser.Scene {
   private g!: Phaser.GameObjects.Graphics;
@@ -43,6 +48,7 @@ export class GameScene extends Phaser.Scene {
   private eTapped = false;
   private readonly effects = new ShipEffects(TUNING.client.hitFlashMs, TUNING.client.sinkFadeMs);
   private readonly empRings = new EmpRings();
+  private readonly wreckFlashes = new WreckFlashes(TUNING.client.hitFlashMs);
 
   private readonly link: SceneLink;
 
@@ -100,6 +106,7 @@ export class GameScene extends Phaser.Scene {
 
     for (const reef of this.link.reefs()) this.reef(reef);
     for (const island of this.link.islands()) this.polygon(island, ISLAND_SAND, ISLAND_EDGE);
+    if (frame) this.drawWrecks(frame.wrecks);
     this.drawPacks(frame?.packs ?? new Map());
     if (!frame) return;
     this.drawMines(frame.mines);
@@ -172,6 +179,35 @@ export class GameScene extends Phaser.Scene {
       if (!pack || pack.signalled) {
         letter.destroy();
         this.packLetters.delete(id);
+      }
+    }
+  }
+
+  /**
+   * Wrecks still standing: a dark wooden hull broken in two, with cracks as it takes damage; it flashes when
+   * hit, and a pulsing glint marks one that holds a pack.
+   */
+  private drawWrecks(wrecks: Map<string, WreckView>): void {
+    const g = this.g;
+    const spots = this.link.wrecks();
+    const now = performance.now();
+    const pulse = (Math.sin(now / 200) + 1) / 2;
+    for (const [id, wreck] of wrecks) {
+      const spot = spots[Number(id)];
+      if (!spot) continue;
+      const flashing = this.wreckFlashes.update(id, wreck.health, now);
+      for (const piece of wreckPieces(spot)) this.polygon(piece, flashing ? 0xffffff : WRECK_WOOD, WRECK_EDGE);
+      g.lineStyle(2, WRECK_EDGE, 1);
+      for (const [a, b] of crackLines(spot, wreck.health)) g.lineBetween(a.x, a.y, b.x, b.y);
+      if (wreck.hasPack) {
+        // A four-pointed glint on the deck.
+        const { x, y } = spot.pos;
+        const r = 7 + 5 * pulse;
+        g.fillStyle(0xfff4c2, 0.55 + 0.45 * pulse);
+        g.fillTriangle(x - r, y, x + r, y, x, y - 3);
+        g.fillTriangle(x - r, y, x + r, y, x, y + 3);
+        g.fillTriangle(x, y - r, x, y + r, x - 3, y);
+        g.fillTriangle(x, y - r, x, y + r, x + 3, y);
       }
     }
   }

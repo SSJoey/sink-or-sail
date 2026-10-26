@@ -158,6 +158,54 @@ describe("packs in the synced state", () => {
   });
 });
 
+describe("wrecks in the synced state", () => {
+  it("shows each wreck still standing (by its layout index) with its health and whether it holds a pack, not the type", () => {
+    const state = new CrewState();
+    const world = createWorld({ hazards: true, packs: true, seed: 1 });
+    world.wrecks = world.wrecks.map((w, i) => ({ ...w, pack: i === 2 ? "torpedo" : null }));
+    syncWorld(state, world);
+    expect([...state.wrecks.keys()]).toEqual(["0", "1", "2", "3"]);
+    expect(state.wrecks.get("2")?.toJSON()).toEqual({ health: TUNING.wreck.health, hasPack: true });
+    expect(state.wrecks.get("0")?.toJSON()).toEqual({ health: TUNING.wreck.health, hasPack: false });
+
+    world.wrecks = world.wrecks.filter((w) => w.id !== 1).map((w) => (w.id === 2 ? { ...w, health: 20 } : w));
+    syncWorld(state, world);
+    expect(state.wrecks.has("1")).toBe(false);
+    expect(state.wrecks.get("2")?.health).toBe(20);
+
+    // The next match reuses the ids: its wrecks' pack flags replace the last match's.
+    const next = createWorld({ hazards: true, packs: true, seed: 2 });
+    next.wrecks = next.wrecks.map((w) => ({ ...w, pack: w.id === 0 ? "mine" : null }));
+    syncWorld(state, next);
+    expect([...state.wrecks.values()].map((w) => w.hasPack)).toEqual([true, false, false, false]);
+  });
+
+  it("shows packs released from wrecks where the wreck stood, ready to take", () => {
+    const state = new CrewState();
+    const world = createWorld({ hazards: true, packs: true, seed: 1 });
+    world.wreckPacks = [{ id: 6, wreck: 1, pos: { x: 1150, y: 125 }, type: "emp", lifeLeft: 30 }];
+    syncWorld(state, world);
+    expect(state.packs.get("6")?.toJSON()).toEqual({ x: 1150, y: 125, type: "emp", signalled: false, lifeLeft: 30 });
+    world.wreckPacks = [];
+    syncWorld(state, world);
+    expect(state.packs.has("6")).toBe(false);
+  });
+
+  it("clears the wrecks for a match with hazards off", () => {
+    const state = new CrewState();
+    syncWorld(state, createWorld({ hazards: true }));
+    syncWorld(state, createWorld());
+    expect(state.wrecks.size).toBe(0);
+  });
+
+  it("flashes a ship hurt by ramming a wreck", () => {
+    const state = new CrewState();
+    syncWorld(state, createWorld({ hazards: true }));
+    applyEvents(state, [{ type: "wreckHit", wreck: 0, by: 1, weapon: "bump", damage: 15, shipDamage: 5 }, { type: "wreckHit", wreck: 0, by: 0, weapon: "bump", damage: 15, shipDamage: 0 }]);
+    expect(state.ships.map((s) => s.hits)).toEqual([0, 1]);
+  });
+});
+
 describe("mines in the synced state", () => {
   it("shows each mine's place, owner and whether it is armed", () => {
     const state = new CrewState();

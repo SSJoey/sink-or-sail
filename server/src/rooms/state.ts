@@ -64,6 +64,14 @@ export const PackState = schema({
 }, "PackState");
 export type PackState = SchemaType<typeof PackState>;
 
+/** Stage 2: a wreck still standing; clients draw its hull from the match's layout (keyed by its index there). */
+export const WreckState = schema({
+  health: t.float32(),
+  /** Whether it holds a pack (shown as a glint); the type stays hidden. */
+  hasPack: t.boolean(),
+}, "WreckState");
+export type WreckState = SchemaType<typeof WreckState>;
+
 export const MineState = schema({
   x: t.float32(),
   y: t.float32(),
@@ -105,8 +113,10 @@ export const CrewState = schema({
   reefs: t.string().default("all"),
   /** The reefs of the current (or last) match: "none" with hazards off. Clients draw the layout's reefs from it. */
   matchReefs: t.string().default("none"),
-  /** Keyed by pack id. */
+  /** Keyed by pack id (packs released from wrecks too). */
   packs: t.map(PackState),
+  /** Stage 2: wrecks still standing, keyed by their index in the layout's wrecks. */
+  wrecks: t.map(WreckState),
   /** Keyed by mine id. */
   mines: t.map(MineState),
   /** Keyed by torpedo id. */

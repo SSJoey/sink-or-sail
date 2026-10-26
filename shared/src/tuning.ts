@@ -57,6 +57,18 @@ export const TUNING = {
     /** Fraction of full health lost on entering a reef (respawn protection blocks it; a shield doesn't). */
     damage: 0.05,
   },
+  /** Stage 2 shipwrecks (approved 2026-10-26): solid like a rock until destroyed; with hazards on only. */
+  wreck: {
+    /** Hull size: a broken ship lying on its side. */
+    length: 70,
+    width: 26,
+    /** Three gun shots; torpedoes and mine blasts do their usual damage (50 and 40). */
+    health: 60,
+    /** Chance that a wreck holds a pack (with packs on), drawn with the seed; the type uses the packs' chances. */
+    packChance: 0.5,
+    /** Ramming a wreck: the ship takes a normal bump for its speed, the wreck this many times that. */
+    ramFactor: 3,
+  },
   /** Stage 2: Last Afloat (approved 2026-10-26). */
   lastAfloat: {
     /** Lives per ship unless the host picks another number; each sinking costs one, and at 0 the crew is out. */

@@ -48,6 +48,13 @@ export interface MineView {
   armed: boolean;
 }
 
+/** Stage 2: a wreck still standing (keyed by its index in the match layout's wrecks). */
+export interface WreckView {
+  health: number;
+  /** Holds a pack (shown as a glint; the type stays hidden). */
+  hasPack: boolean;
+}
+
 export interface ShotView {
   x: number;
   y: number;
@@ -62,6 +69,7 @@ export interface Snapshot {
   packs: Map<string, PackView>;
   mines: Map<string, MineView>;
   torpedoes: Map<string, ShotView>;
+  wrecks: Map<string, WreckView>;
 }
 
 export type Frame = Omit<Snapshot, "t">;
@@ -130,7 +138,7 @@ export class SnapshotBuffer {
       const before = a.ships[index];
       return before ? blendShip(before, ship, k) : ship;
     });
-    // Packs and mines don't move: take them from the newer snapshot.
-    return { ships, shots: blendMoving(a.shots, b.shots, k), packs: b.packs, mines: b.mines, torpedoes: blendMoving(a.torpedoes, b.torpedoes, k) };
+    // Packs, mines and wrecks don't move: take them from the newer snapshot.
+    return { ships, shots: blendMoving(a.shots, b.shots, k), packs: b.packs, mines: b.mines, torpedoes: blendMoving(a.torpedoes, b.torpedoes, k), wrecks: b.wrecks };
   }
 }

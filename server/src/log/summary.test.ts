@@ -44,8 +44,8 @@ describe("summarise", () => {
 
   it("gives the exact per-crew numbers", () => {
     expect(summary.crews).toEqual([
-      { ship: 0, pilot: "Ann", gunner: "Bob", sinkings: 0, shots: 3, hits: 1, blocked: 1, accuracy: 1 / 3, boostEnergy: 50.5, shieldEnergy: 0, emptySeconds: 2, averageSurvivalSeconds: 13.5, lives: 2, sunkBy: {}, reefHits: 0, reefDamage: 0 },
-      { ship: 1, pilot: "Cat", gunner: null, sinkings: 1, shots: 1, hits: 0, blocked: 0, accuracy: 0, boostEnergy: 0, shieldEnergy: 30, emptySeconds: 5, averageSurvivalSeconds: 30, lives: 1, sunkBy: {}, reefHits: 0, reefDamage: 0 },
+      { ship: 0, pilot: "Ann", gunner: "Bob", sinkings: 0, shots: 3, hits: 1, blocked: 1, accuracy: 1 / 3, boostEnergy: 50.5, shieldEnergy: 0, emptySeconds: 2, averageSurvivalSeconds: 13.5, lives: 2, sunkBy: {}, reefHits: 0, reefDamage: 0, wrecksDestroyed: 0, wreckPacksReleased: 0 },
+      { ship: 1, pilot: "Cat", gunner: null, sinkings: 1, shots: 1, hits: 0, blocked: 0, accuracy: 0, boostEnergy: 0, shieldEnergy: 30, emptySeconds: 5, averageSurvivalSeconds: 30, lives: 1, sunkBy: {}, reefHits: 0, reefDamage: 0, wrecksDestroyed: 0, wreckPacksReleased: 0 },
     ]);
   });
 
@@ -409,5 +409,32 @@ describe("Stage 2: hazards and reefs in the summary", () => {
     const old = formatSummary(summarise(parseLog(sampleText)));
     expect(old).toContain("· Hazards off");
     expect(old).not.toContain("Reef hits");
+  });
+});
+
+describe("Stage 2: wrecks in the summary", () => {
+  const crew = { pilot: "Ann", gunner: "Bob" };
+  const lines = [
+    { t: 0, type: "matchStart", room: "WRCK", crews: [{ ship: 0, ...crew }, { ship: 1, pilot: "Cat", gunner: null }], packsOn: true, seed: 1, mode: "sinkCount", lives: null, layout: "oneIsland", hazardsOn: true, reefs: "all", wrecks: [], tuning: {} },
+    { t: 4000, type: "wreckHit", wreck: 0, ship: 0, crew, weapon: "shot", damage: 20 },
+    { t: 5000, type: "wreckDestroyed", wreck: 0, ship: 0, crew },
+    { t: 5000, type: "wreckPackReleased", wreck: 0, pack: 3, packType: "mine" },
+    { t: 8000, type: "wreckDestroyed", wreck: 2, ship: 0, crew },
+    { t: 9000, type: "wreckDestroyed", wreck: 1, ship: 1, crew: { pilot: "Cat", gunner: null } },
+    { t: 9000, type: "wreckPackReleased", wreck: 1, pack: 4, packType: "health" },
+    { t: 12000, type: "sunk", ship: 1, crew: { pilot: "Cat", gunner: null }, by: null, cause: "wreck" },
+    { t: 30000, type: "matchEnd", winner: null, endedEarly: false, reason: "time", scores: [] },
+  ];
+
+  it("counts each crew's wrecks destroyed and the packs those released", () => {
+    expect(summarise(lines).crews.map((c) => [c.wrecksDestroyed, c.wreckPacksReleased])).toEqual([[2, 1], [1, 1]]);
+    expect(summarise(lines).crews[1]!.sunkBy).toEqual({ wreck: 1 });
+  });
+
+  it("prints a Wrecks destroyed (packs released) column with hazards on only", () => {
+    const text = formatSummary(summarise(lines));
+    expect(text).toContain("Wrecks destroyed (packs released)");
+    expect(text).toMatch(/^Crew 1 .* 2 \(1\)$/m);
+    expect(formatSummary(summarise(parseLog(sampleText)))).not.toContain("Wrecks destroyed");
   });
 });
