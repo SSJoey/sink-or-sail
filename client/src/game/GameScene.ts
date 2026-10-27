@@ -5,6 +5,7 @@ import { ShipEffects, type ShipEffect } from "./effects.ts";
 import { EmpRings } from "./empRing.ts";
 import { aimGuide, dashes, hullPoints, turretEnd } from "./hull.ts";
 import { hazardAlpha, hiddenByStorms, krakenTentacles, whirlpoolArms } from "./hazardLook.ts";
+import { lifebarColour, lifebarFill } from "./lifebar.ts";
 import type { Frame, GhostView, HazardView, MineView, PackView, ShipView, WreckView } from "./interpolation.ts";
 import { blinkVisible, packBlinkVisible } from "./matchText.ts";
 import { gunnerFromMouse, pilotFromKeys } from "./laptopInput.ts";
@@ -43,6 +44,7 @@ const WRECK_EDGE = 0x2b1a0e;
 const STORM_CLOUD = 0x2b2f3a;
 const STORM_EDGE = 0x9aa3b5;
 const STORM_FLASH = 0xff4d4d;
+const LIFEBAR_COLOURS = { green: 0x7ee081, amber: 0xffb347, red: 0xff4d4d } as const;
 const MOVING_STORM_CLOUD = 0x3b4150;
 const MOVING_STORM_SWIRL = 0xc9d1e0;
 const WHIRLPOOL_WATER = 0x123d70;
@@ -145,8 +147,10 @@ export class GameScene extends Phaser.Scene {
     const drawOne = (ship: ShipView, crew: number) => {
       const effect = effects[crew];
       const flash = effect?.flashing ? 0xffffff : stormFlashes[crew] ? STORM_FLASH : null;
-      if (!ship.sunk) this.drawShip(ship, crew, flash, 1);
-      else if (effect?.sinkAlpha) this.drawShip(ship, crew, null, effect.sinkAlpha);
+      // Stage 3 lifebar: not over another crew's ship hidden in a moving storm (it would give the ship away).
+      const bar = crew === ownCrew || !hiddenByStorms(ship, frame.hazards);
+      if (!ship.sunk) this.drawShip(ship, crew, flash, 1, bar);
+      else if (effect?.sinkAlpha) this.drawShip(ship, crew, null, effect.sinkAlpha, bar);
     };
     frame.ships.forEach((ship, crew) => {
       if (crew !== ownCrew) drawOne(ship, crew);
@@ -330,7 +334,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   /** `flash` is the hit-flash colour (white for a hit, red for the storm), or null; `fade` < 1 while a sunk ship fades out; protection makes the ship see-through and blink. */
-  private drawShip(ship: ShipView, crew: number, flash: number | null, fade: number): void {
+  private drawShip(ship: ShipView, crew: number, flash: number | null, fade: number, lifebar = true): void {
     const g = this.g;
     const style = CREW_STYLES[crew] ?? CREW_STYLES[0];
     const protectedAlpha = blinkVisible(ship.protection, TUNING.client.protectionBlinkHz) ? 0.6 : 0.2;
@@ -367,6 +371,20 @@ export class GameScene extends Phaser.Scene {
       g.lineStyle(3, SHIELD, 0.9);
       g.strokeCircle(ship.x, ship.y, TUNING.ship.radius + 8);
     }
+    if (lifebar) this.drawLifebar(ship, alpha);
+  }
+
+  /** Stage 3: a level bar above the ship, filled by its health (green, amber, red) over a dark backing. */
+  private drawLifebar(ship: ShipView, alpha: number): void {
+    const g = this.g;
+    const C = TUNING.client;
+    const fill = lifebarFill(ship.health);
+    const x = ship.x - C.lifebarWidth / 2;
+    const y = ship.y - C.lifebarOffset - C.lifebarHeight / 2;
+    g.fillStyle(0x0b1a33, 0.75 * alpha);
+    g.fillRect(x - 1, y - 1, C.lifebarWidth + 2, C.lifebarHeight + 2);
+    g.fillStyle(LIFEBAR_COLOURS[lifebarColour(fill)], alpha);
+    g.fillRect(x, y, C.lifebarWidth * fill, C.lifebarHeight);
   }
 
   /**

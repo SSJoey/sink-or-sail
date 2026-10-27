@@ -11,6 +11,7 @@ import { gunnerPackBuzz } from "./packBuzz.ts";
 import { SnapshotBuffer, type Frame } from "./interpolation.ts";
 import { frameLimit } from "./frameLimit.ts";
 import { heldShips, hiddenShips } from "./hazardLook.ts";
+import { lifebarColour, lifebarFill, lifebarShown } from "./lifebar.ts";
 import { countdownLabel, hauntingText, outBanner, pausedText, resultLine, respawnText, resultTitle, scoreRows, sinkBanner, stormText } from "./matchText.ts";
 import { blockGestures, goFullscreenLandscape, isPortrait, isTouchFirst } from "./phone.ts";
 import { snapshotFromState, type GameStateView } from "./snapshot.ts";
@@ -181,6 +182,11 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
       // Stage 2 hazards as "id:kind:phase:x,y;…", and the ships a moving storm hides from this player, for the browser smoke tests.
       canvasHost.dataset.hazards = [...(frame?.hazards ?? new Map())].map(([id, h]) => `${id}:${h.kind}:${h.phase}:${Math.round(h.x)},${Math.round(h.y)}`).join(";");
       canvasHost.dataset.hidden = frame ? hiddenShips(frame.ships, frame.hazards, mine?.crew ?? null).join(",") : "";
+      // Stage 3 lifebars shown to this player as "ship:fill:colour;…", for the browser smoke tests.
+      canvasHost.dataset.lifebars = (frame?.ships ?? [])
+        .map((s, id) => (lifebarShown(s, id, mine?.crew ?? null, frame!.hazards) ? `${id}:${lifebarFill(s.health).toFixed(2)}:${lifebarColour(lifebarFill(s.health))}` : ""))
+        .filter(Boolean)
+        .join(";");
       // Ghosts as "ship:x,y;…", for the browser smoke tests.
       canvasHost.dataset.ghosts = [...(frame?.ghosts ?? new Map())].map(([id, g]) => `${id}:${Math.round(g.x)},${Math.round(g.y)}`).join(";");
       // Ships a kraken holds, for the browser smoke tests.
@@ -235,6 +241,7 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
       delete canvasHost.dataset.hidden;
       delete canvasHost.dataset.held;
       delete canvasHost.dataset.ghosts;
+      delete canvasHost.dataset.lifebars;
       delete canvasHost.dataset.disabled;
       delete canvasHost.dataset.shots;
       rotate.hidden = true;

@@ -250,5 +250,12 @@ export const TUNING = {
     /** A pack on the sea blinks for its last seconds before it disappears, this many times per second. */
     packBlinkTime: 5,
     packBlinkHz: 4,
+    /** Stage 3 lifebar above every ship (sea units): size and how far above the ship's centre; amber at or below
+     *  half health, red below a quarter (approved 2026-10-27). */
+    lifebarWidth: 48,
+    lifebarHeight: 6,
+    lifebarOffset: 40,
+    lifebarAmberAtOrBelow: 0.5,
+    lifebarRedBelow: 0.25,
   },
 } as const;

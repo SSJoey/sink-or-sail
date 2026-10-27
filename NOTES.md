@@ -584,6 +584,14 @@ Drafted from `docs/design.md` and the lobby mock-ups on the look-options canvas 
   - **Tests changed (late joiners now wait, as agreed):** the room tests' mid-match joiner (who used to be paired into a crew with a ship, or take a freed seat) now waits and is refused a seat (SeatLocked); the Crew 3 test now ends with the waiting player paired into the crew waiting for a partner; the log test checks no `seatTaken` line is written for a late joiner; `canChangeSeat`'s seatless-player tests now expect a lock; the slice 2 pairing test for mid-match joiners now expects waiting. New: pairing rules, the waiting room messages, the waiting view, and `e2e/waiting.spec.ts`.
   - **Runs:** `npm test` passed (918 unit plus 1 skipped, 26 browser).
 
+### 2026-10-27 — Stage 3 slice 4 plan: the lifebar
+
+- **Plan as proposed:** a bar above every ship afloat (yours too), level whatever the ship's heading, with a dark backing for the missing part; hidden for sunk ships and ships hidden in a moving storm (from other crews); fades with a sinking ship and blinks with a protected one; ghosts have none; follows the ship's blended health.
+- **Question 1:** a) green above 50%, amber 25–50%, red below 25% (25% matches Stage 4's visible damage).
+- **Question 2:** a) 48 × 6 sea units, 40 above the ship's centre (about 27 × 3.5 px on a 915 px phone).
+- **Question 3:** a) your own ship's bar is the same as everyone else's (no number in the top bar).
+- **Built (2026-10-27):** `TUNING.client` lifebarWidth 48, lifebarHeight 6, lifebarOffset 40, lifebarAmberAtOrBelow 0.5, lifebarRedBelow 0.25; `client/src/game/lifebar.ts` (fill, colour, shown). Drawn with the ship (so it blinks with protection and fades with a sinking ship), over a dark backing; colours green 0x7ee081, amber 0xffb347, red 0xff4d4d; skipped for another crew's ship hidden in a moving storm. `data-lifebars` for the browser test (`e2e/lifebar.spec.ts`: Crew 1 sails onto a reef and both pages see its bar at 0.95). On a 915 px phone the bars are small (about 27 × 3.5 px) but readable in a screenshot. `npm test` passed (921 unit plus 1 skipped, 27 browser).
+
 ## Later
 
 - **(2026-10-25, Stage 5) Ship types**, discussed with the user ahead of Stage 5 (not to build before then):
