@@ -32,7 +32,7 @@ import {
   type ShipInput,
   type World,
 } from "@sink-or-sail/shared";
-import { LOG_DIR, firstHazardAt, fixedSeed, fixedStormTimes, testSink } from "../config.ts";
+import { LOG_DIR, firstHazardAt, fixedSeed, fixedStormTimes, joinAddress, testSink } from "../config.ts";
 import { controlLine, matchEndLine, matchMs, matchStartLine, playerLine, positionLines, seatLine, simEventLines, type LogLine, type Roster } from "../log/events.ts";
 import { MatchLog, fileSink, logFileName, type LogSink } from "../log/matchLog.ts";
 import { canChangeSeat, canEndMatch, canPause, canResume, canSetPacks, canStart, crewHasShip, everyCrewManned, nextHost, readLayout, readOnOff, readReefs, readLives, readMode, shipCount } from "./matchFlow.ts";
@@ -96,6 +96,7 @@ export class CrewRoom extends Room<{ state: CrewState }> {
       (await this.presence.smembers(CODES_KEY)).includes(code),
     );
     await this.presence.sadd(CODES_KEY, this.roomId);
+    this.state.joinAddress = joinAddress(process.env);
 
     this.onMessage(ClientMessage.TakeSeat, (client, message: unknown) => {
       if (!canChangeSeat(this.state.phase, this.seatOf(client.sessionId) !== null)) {
@@ -189,6 +190,20 @@ export class CrewRoom extends Room<{ state: CrewState }> {
       if (!canSetPacks(client.sessionId, this.state.hostId, this.state.phase)) return;
       const reefs = readReefs(message);
       if (reefs) this.state.reefs = reefs;
+    });
+
+    // Stage 3: change your name between matches; names stay unique in the room (ignoring case).
+    this.onMessage(ClientMessage.SetName, (client, message: unknown) => {
+      const reject = (reason: RejectReason) => client.send(ServerMessage.Rejected, { reason } satisfies RejectedMessage);
+      const player = this.state.players.get(client.sessionId);
+      if (!player) return;
+      const phase = this.state.phase;
+      if (phase === Phase.Countdown || phase === Phase.Running || phase === Phase.Paused) return reject(RejectReason.NameLocked);
+      const name = normaliseName((message as { name?: unknown } | null)?.name);
+      if (name === null) return reject(RejectReason.InvalidName);
+      const others = [...this.state.players.entries()].filter(([id]) => id !== client.sessionId).map(([, p]) => p.name);
+      if (isNameTaken(others, name)) return reject(RejectReason.NameTaken);
+      player.name = name;
     });
 
     this.onMessage(ClientMessage.SetLayout, (client, message: unknown) => {

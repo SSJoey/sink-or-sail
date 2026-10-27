@@ -10,6 +10,7 @@ import {
   ROOM_NAME,
   RejectReason,
   ServerMessage,
+  Phase,
   normaliseCode,
 } from "@sink-or-sail/shared";
 import { server } from "../app.config.ts";
@@ -110,6 +111,66 @@ describe("joining by code", () => {
 
   it("rejects a bad name when creating a room too", async () => {
     await expect(colyseus.sdk.create(ROOM_NAME, { name: "" })).rejects.toThrow(JoinError.InvalidName);
+  });
+});
+
+describe("changing your name (Stage 3)", () => {
+  it("changes it between matches, trimmed; everyone sees the new name", async () => {
+    const { client, room } = await createRoom("Ana");
+    client.send(ClientMessage.SetName, { name: "  Robin " });
+    await waitFor(() => playerOf(room, client)?.name === "Robin");
+  });
+
+  it("lets a player change only the case of their own name", async () => {
+    const { client, room } = await createRoom("ana");
+    client.send(ClientMessage.SetName, { name: "Ana" });
+    await waitFor(() => playerOf(room, client)?.name === "Ana");
+  });
+
+  it("rejects a name another player has, whatever its case, and says why", async () => {
+    const { client: a, room, code } = await createRoom("Ana");
+    const b = await join(code, "Ben");
+    const rejected = b.waitForMessage(ServerMessage.Rejected);
+    b.send(ClientMessage.SetName, { name: "ANA" });
+    expect(await rejected).toEqual({ reason: RejectReason.NameTaken });
+    expect(playerOf(room, b)?.name).toBe("Ben");
+    expect(playerOf(room, a)?.name).toBe("Ana");
+  });
+
+  it("rejects a blank or too-long name", async () => {
+    const { client, room } = await createRoom("Ana");
+    for (const name of ["   ", "x".repeat(13), 7]) {
+      const rejected = client.waitForMessage(ServerMessage.Rejected);
+      client.send(ClientMessage.SetName, { name });
+      expect(await rejected).toEqual({ reason: RejectReason.InvalidName });
+    }
+    expect(playerOf(room, client)?.name).toBe("Ana");
+  });
+
+  it("is locked from the countdown until the match is over", async () => {
+    const { client, room } = await createRoom("Ana");
+    for (const phase of [Phase.Countdown, Phase.Running, Phase.Paused]) {
+      room.state.phase = phase;
+      const rejected = client.waitForMessage(ServerMessage.Rejected);
+      client.send(ClientMessage.SetName, { name: "Robin" });
+      expect(await rejected).toEqual({ reason: RejectReason.NameLocked });
+    }
+    expect(playerOf(room, client)?.name).toBe("Ana");
+    room.state.phase = Phase.Over;
+    client.send(ClientMessage.SetName, { name: "Robin" });
+    await waitFor(() => playerOf(room, client)?.name === "Robin");
+  });
+});
+
+describe("the join address for the QR code (Stage 3)", () => {
+  it("is the JOIN_ADDRESS setting, or empty without one", async () => {
+    process.env.JOIN_ADDRESS = "192.168.1.11";
+    try {
+      expect((await createRoom("A")).room.state.joinAddress).toBe("192.168.1.11");
+    } finally {
+      delete process.env.JOIN_ADDRESS;
+    }
+    expect((await createRoom("B")).room.state.joinAddress).toBe("");
   });
 });
 

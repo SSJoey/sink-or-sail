@@ -18,6 +18,14 @@ Play **at least 3 rounds with packs off, then at least 3 rounds with packs on**,
 
    This builds the current code and starts the server in the background. It keeps running (and restarts with the laptop) until `sudo docker compose down`.
 
+   **For the room screen's QR code** (Stage 3), start it with the laptop's Wi-Fi address instead, so a laptop page opened as `localhost` can still show phones a QR code:
+
+   ```
+   sudo HOST_IP=$(hostname -I | cut -d' ' -f1) docker compose up --build -d
+   ```
+
+   Pages opened at the Wi-Fi address (as phones do) show the QR code either way.
+
 2. **Find the laptop's address** on the Wi-Fi:
 
    ```

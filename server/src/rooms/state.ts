@@ -126,6 +126,8 @@ export const CrewState = schema({
   players: t.map(Player),
   /** Session id of the host, who starts matches. */
   hostId: t.string(),
+  /** Stage 3: the laptop's Wi-Fi address for the QR code (JOIN_ADDRESS), or "" when not set. */
+  joinAddress: t.string(),
   phase: t.string().default(Phase.Waiting),
   /** Name of the player who paused the match (while paused). */
   pausedBy: t.string(),

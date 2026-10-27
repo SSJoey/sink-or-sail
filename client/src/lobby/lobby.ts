@@ -1,4 +1,5 @@
 import { Client, type Room } from "@colyseus/sdk";
+import qrcode from "qrcode-generator";
 import {
   ClientMessage,
   JoinError,
@@ -20,6 +21,8 @@ import { reloadIfNewBuild } from "./newBuild.ts";
 import { leaveSeatShown, seatAction } from "./seatButtons.ts";
 import { LAYOUT_CHOICES, LIFE_CHOICES, REEF_CHOICES, hazardsText, layoutText, livesShown, settingsText } from "./settings.ts";
 import { clearToken, loadToken, saveToken } from "./reconnectToken.ts";
+import { codeFromSearch, joinBase, joinLink } from "./joinLink.ts";
+import { loadName, saveName } from "./rememberedName.ts";
 
 /** The parts of the server's room state the lobby reads. */
 type StateView = RoomStateView;
@@ -41,6 +44,21 @@ export function startLobby(): void {
   const errorLine = byId("error");
 
   const showError = (text: string) => { errorLine.textContent = text; };
+  // Stage 3: the device remembers the last name used (localStorage can be missing or refuse: then it doesn't).
+  const nameStore = (() => {
+    try {
+      return localStorage;
+    } catch {
+      return null;
+    }
+  })();
+  nameInput.value = loadName(nameStore);
+  // A QR code's join link fills in the room code; the player only types a name.
+  const linkedCode = codeFromSearch(location.search);
+  if (linkedCode) {
+    codeInput.value = linkedCode;
+    nameInput.focus();
+  }
   let game: GameHandle | null = null;
   let lastPhase = "";
   const stopGame = () => {
@@ -82,6 +100,27 @@ export function startLobby(): void {
       showJoinScreen();
       if (code !== CONSENTED) showError("You were disconnected from the room.");
     });
+    // Stage 3: changing your name between matches (the server checks it is free and that no match is on).
+    const nameEdit = byId("name-edit");
+    const nameNew = byId<HTMLInputElement>("name-new");
+    const closeNameEdit = () => { nameEdit.hidden = true; byId("name-change").hidden = false; };
+    byId("name-change").onclick = () => {
+      nameNew.value = byId("my-name").textContent ?? "";
+      nameEdit.hidden = false;
+      byId("name-change").hidden = true;
+      nameNew.focus();
+    };
+    byId("name-cancel").onclick = closeNameEdit;
+    byId("name-save").onclick = () => {
+      showError("");
+      const name = normaliseName(nameNew.value);
+      if (name === null) {
+        showError(joinErrorText(new Error(JoinError.InvalidName)));
+        return;
+      }
+      room.send(ClientMessage.SetName, { name });
+      closeNameEdit();
+    };
     byId("leave").onclick = () => { void room.leave(); };
     byId("leave-seat").onclick = () => leaveSeat(room);
     // Only the host sees Start; the server checks it too.
@@ -103,9 +142,48 @@ export function startLobby(): void {
     layout.onchange = () => room.send(ClientMessage.SetLayout, { layout: layout.value });
   }
 
+  /** The QR code for this room (redrawn only when its link changes), or a hint when phones couldn't use one. */
+  let qrLink: string | null = null;
+  function renderQr(code: string, joinAddress: string): void {
+    const base = joinBase(location, joinAddress);
+    const link = base ? joinLink(base, code) : null;
+    if (link === qrLink) return;
+    qrLink = link;
+    const box = byId("qr");
+    const caption = byId("qr-caption");
+    if (!link) {
+      box.replaceChildren();
+      box.hidden = true;
+      delete box.dataset.link;
+      caption.textContent = "Phones can't open localhost: open this page at the laptop's Wi-Fi address (hostname -I) to show a QR code here.";
+      return;
+    }
+    const qr = qrcode(0, "M");
+    qr.addData(link);
+    qr.make();
+    // The library builds the SVG from the link's bits only, so it is safe to insert.
+    box.innerHTML = qr.createSvgTag({ cellSize: 4, margin: 2, scalable: true });
+    box.hidden = false;
+    box.dataset.link = link;
+    caption.textContent = "Scan to join";
+  }
+
   function renderRoom(room: Room, state: StateView): void {
     const phase = state.phase;
     const matchOn = phase === Phase.Countdown || phase === Phase.Running || phase === Phase.Paused;
+    renderQr(room.roomId, state.joinAddress);
+    // Stage 3: your name, changeable between matches; remembered on this device whenever it changes.
+    const myName = state.players.get(room.sessionId)?.name ?? "";
+    if (byId("my-name").textContent !== myName) {
+      byId("my-name").textContent = myName;
+      if (myName) saveName(nameStore, myName);
+    }
+    if (matchOn) {
+      byId("name-edit").hidden = true;
+      byId("name-change").hidden = true;
+    } else if (byId("name-edit").hidden) {
+      byId("name-change").hidden = false;
+    }
     const host = (sessionId: string) => (sessionId === state.hostId ? " ★" : "");
     let iAmSeated = false;
     state.players.forEach((p, id) => { if (id === room.sessionId && p.role !== undefined) iAmSeated = true; });

@@ -52,6 +52,10 @@
       #paused { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); background: rgba(11,37,69,0.95); padding: 16px 24px; border-radius: 12px; text-align: center; min-width: 280px; }
       #hud button { padding: 4px 12px; min-height: 36px; }
       #rotate { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: #0b2545; font-size: 24px; text-align: center; padding: 24px; }
+      /* Stage 3: the QR code and room code side by side. */
+      #join-card { display: flex; align-items: center; gap: 16px; }
+      #qr svg { width: 132px; height: 132px; display: block; background: #fff; }
+      #qr-caption { font-size: 14px; max-width: 360px; }
     </style>
   </head>
   <body>
@@ -67,7 +71,20 @@
     </section>
 
     <section id="room-screen" hidden>
-      <p>Room code <span id="code"></span></p>
+      <div id="join-card">
+        <div id="qr" role="img" aria-label="QR code to join this room"></div>
+        <div>
+          <p>Room code <span id="code"></span></p>
+          <p id="qr-caption"></p>
+        </div>
+      </div>
+      <p>
+        Your name: <strong id="my-name"></strong> <button id="name-change">Change</button>
+        <span id="name-edit" hidden>
+          <input id="name-new" maxlength="24" autocomplete="nickname" aria-label="New name" />
+          <button id="name-save">Save</button> <button id="name-cancel">Cancel</button>
+        </span>
+      </p>
       <p id="status"></p>
       <div id="seats"></div>
       <p><button id="leave-seat" hidden>Leave seat</button></p>

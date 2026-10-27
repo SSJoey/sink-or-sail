@@ -20,5 +20,8 @@ export function rejectedText(message: RejectedMessage): string {
     case RejectReason.SeatLocked: return "Seats are locked during a match.";
     case RejectReason.CrewNotInMatch: return "Crew 3 joins from the next match.";
     case RejectReason.CrewsNeedPlayers: return "Every crew needs a player for Last Afloat.";
+    case RejectReason.NameTaken: return joinErrorText(new Error(JoinError.NameTaken));
+    case RejectReason.InvalidName: return joinErrorText(new Error(JoinError.InvalidName));
+    case RejectReason.NameLocked: return "Names can be changed between matches.";
   }
 }

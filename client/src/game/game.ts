@@ -30,6 +30,8 @@ export interface RoomStateView extends GameStateView {
     forEach(cb: (player: PlayerView, sessionId: string) => void): void;
   };
   hostId: string;
+  /** Stage 3: the laptop's Wi-Fi address for the QR code, or "". */
+  joinAddress: string;
   packsEnabled: boolean;
   /** Room settings for the next match (Stage 2). */
   mode: string;

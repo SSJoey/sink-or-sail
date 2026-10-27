@@ -10,4 +10,8 @@ services:
       # Local time for log file names. Node needs the zone by name (it has its own zone data);
       # change this if the laptop moves to another time zone.
       TZ: Asia/Kolkata
+      # The laptop's Wi-Fi address for the room screen's QR code, when the page is opened as localhost.
+      # Start with: sudo HOST_IP=$(hostname -I | cut -d' ' -f1) docker compose up --build -d
+      # Without HOST_IP the room screen shows a hint instead (pages opened at the Wi-Fi address still get a QR code).
+      JOIN_ADDRESS: ${HOST_IP:-}
     restart: unless-stopped

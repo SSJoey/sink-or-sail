@@ -46,7 +46,8 @@ export default defineConfig({
       // MATCH_SEED fixes the packs: with seed 367 the first pack is a mine at (450, 300) and the second
       // (at 0:22) a torpedo at (450, 600), both near Crew 1's start.
       // HAZARDS_FIRST_AT=never keeps moving storms out of these tests (they'd push the test ships around).
-      env: { LOG_DIR: join(tmpdir(), "sink-or-sail-test-logs"), MATCH_SEED: "367", HAZARDS_FIRST_AT: "never" },
+      // JOIN_ADDRESS is a documentation-only address (192.0.2.0/24), for checking the room screen's QR code link.
+      env: { LOG_DIR: join(tmpdir(), "sink-or-sail-test-logs"), MATCH_SEED: "367", HAZARDS_FIRST_AT: "never", JOIN_ADDRESS: "192.0.2.10" },
     },
     {
       // A second server for the EMP test: with seed 8 the first pack is an EMP at (800, 150), between the crews.

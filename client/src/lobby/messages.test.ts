@@ -25,3 +25,11 @@ describe("rejectedText", () => {
     expect(rejectedText({ reason: RejectReason.CrewsNeedPlayers })).toBe("Every crew needs a player for Last Afloat.");
   });
 });
+
+describe("refused name changes (Stage 3)", () => {
+  it("explains each", () => {
+    expect(rejectedText({ reason: RejectReason.NameTaken })).toBe("That name is already in this room.");
+    expect(rejectedText({ reason: RejectReason.InvalidName })).toBe("Enter a name of 1–12 characters.");
+    expect(rejectedText({ reason: RejectReason.NameLocked })).toBe("Names can be changed between matches.");
+  });
+});

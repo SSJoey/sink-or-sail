@@ -538,6 +538,24 @@ Drafted from `docs/design.md` and the lobby mock-ups on the look-options canvas 
 - **Question 9, ok:** done includes a Stage 3 playtest timing how long a fresh group takes from opening the page to playing (target 30 s), plus the usual tests.
 - **Question 10, ok (slice order):** 1 changing your name and the QR code; 2 the new lobby screens and crew pairing (with Ready); 3 the waiting screen and late joiners; 4 the lifebar; 5 results screen, Play again, back to the lobby; 6 awards; 7 spectator view; 8 partner bots (bot gunner and bot pilot); 9 bot ships; 10 log and summary additions, then check matches.
 
+### 2026-10-27 — Stage 3 slice 1 plan: changing your name and the QR code
+
+- **Plan as proposed:** the room screen shows "Your name: …" with **Change** (field, Save, Cancel); the server accepts a change only between matches (not during the countdown, a match or a pause), with the join rule (1–12 characters); everyone sees it at once; nothing is logged (the next match's start line has the names). The room screen shows a QR code beside the room code ("Scan to join") holding a link like `http://192.168.1.11:2567/?code=7QX4`; opening it fills in the room code on the join screen.
+- **Question 1 (library):** a) add **`qrcode-generator` 2.0.4** (MIT, no dependencies of its own, client only): encoding QR codes correctly is a few hundred lines of fiddly code.
+- **Question 2 (address in the QR code):** c) the page's own address when it isn't `localhost`; otherwise the laptop's address passed in by Docker at start (a longer start command, `HOST_IP` from `hostname -I`); with neither, a hint instead of the QR code.
+- **Question 3:** a) everyone in the room sees the QR code.
+- **Question 4 (names):** **names must be unique in a room**, on joining and on changing. (Detail chosen while planning, to confirm: compared ignoring upper/lower case, so "Ana" and "ana" count as the same.)
+- **Question 5:** a) the device remembers your name and fills it in on your next visit.
+- **Confirmed by the user:** names are compared ignoring upper/lower case. (Unique names on joining already existed this way since Stage 0; the slice adds the same rule to changing your name, with the same message, "That name is already in this room.")
+- **Built (2026-10-27):**
+  - **Dependency:** `qrcode-generator` 2.0.4 (exact pin, client only).
+  - **Name change:** `ClientMessage.SetName` { name }; refusals `nameLocked` (countdown, match or pause), `invalidName`, `nameTaken` (another player's name, any case; a player may change the case of their own). Room screen: "Your name: …" with Change (field, Save, Cancel); hidden during a match.
+  - **QR code:** `JOIN_ADDRESS` (server setting: an IPv4 address or plain host name, else ignored) is synced as `joinAddress`. `client/src/lobby/joinLink.ts`: the page's own address unless it is localhost (`localhost`, `127.*`, `::1`), then `JOIN_ADDRESS` on the same port, else none; the link is `<address>/?code=ABCD`, and the join screen reads `?code=` (a bad code is ignored) and puts the cursor in the name field. The room screen draws the QR code (error correction level M) beside the room code, "Scan to join", for everyone; with no address it shows a hint ("Phones can't open localhost: open this page at the laptop's Wi-Fi address (hostname -I) to show a QR code here.").
+  - **Docker:** `compose.yaml` passes `JOIN_ADDRESS: ${HOST_IP:-}`; start with `sudo HOST_IP=$(hostname -I | cut -d' ' -f1) docker compose up --build -d` (in `docs/playtest.md`; not yet tried on the laptop: sudo can't run from here).
+  - **Remembered name:** `client/src/lobby/rememberedName.ts` (localStorage, quietly skipped when storage is missing or refuses); saved whenever your name in a room is set or changed.
+  - **Test server:** port 2577 has `JOIN_ADDRESS=192.0.2.10` (a documentation-only address) for `e2e/lobby.spec.ts`.
+  - **Runs:** `npm test` passed (891 unit plus 1 skipped, 25 browser).
+
 ## Later
 
 - **(2026-10-25, Stage 5) Ship types**, discussed with the user ahead of Stage 5 (not to build before then):

@@ -49,3 +49,12 @@ export function testSink(env: Record<string, string | undefined>): { ship: numbe
   const match = /^([1-3])@(\d+(?:\.\d+)?)$/.exec(env.TEST_SINK ?? "");
   return match ? { ship: Number(match[1]) - 1, at: Number(match[2]) } : null;
 }
+
+/**
+ * JOIN_ADDRESS: the laptop's Wi-Fi address (from `hostname -I`, passed in by Docker at start), which the QR code
+ * uses when the page itself was opened as localhost. Only an IPv4 address or a plain host name; empty otherwise.
+ */
+export function joinAddress(env: Record<string, string | undefined>): string {
+  const address = (env.JOIN_ADDRESS ?? "").trim();
+  return /^[A-Za-z0-9](?:[A-Za-z0-9.-]{0,251}[A-Za-z0-9])?$/.test(address) ? address : "";
+}

@@ -52,6 +52,8 @@ export const ClientMessage = {
   SetHazards: "setHazards",
   /** Stage 2: reefs for the next match: { reefs: "none" | "few" | "all" } (host only, between matches). */
   SetReefs: "setReefs",
+  /** Change your name, between matches (Stage 3). */
+  SetName: "setName",
 } as const;
 
 /** The host's layout setting: a layout, or Random (picked at each match start). */
@@ -81,6 +83,10 @@ export const RejectReason = {
   CrewNotInMatch: "crewNotInMatch",
   /** Last Afloat can't start while a crew with a ship has no player. */
   CrewsNeedPlayers: "crewsNeedPlayers",
+  /** Stage 3 name changes: another player has that name (any case), it isn't 1–12 characters, or a match is on. */
+  NameTaken: "nameTaken",
+  InvalidName: "invalidName",
+  NameLocked: "nameLocked",
 } as const;
 export type RejectReason = (typeof RejectReason)[keyof typeof RejectReason];
 
