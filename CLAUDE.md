@@ -40,6 +40,7 @@ Every decision, with its date, is in `NOTES.md`.
 - **Ship types** (Stage 5): five types with approved starting values. Whether types move earlier than Stage 5 is decided after the Stage 1 playtest.
 - **Island layouts** (Stages 2 and 5): hand-made, mirrored layouts of 1–4 islands, differing between matches and picked by the host or Random. Today's single-island map stays the default. Stage 2 gets a few fixed layouts; Stage 5 gets layouts that scale with the map.
 - **Countdown beeps** (Stage 4 unless moved earlier): a double beep at 1:00, beeps over the last 10 s, beeps for the 3-2-1-Go countdowns, and a per-device sound switch in the top bar. Whether to bring them earlier is decided after the Stage 1 playtest, depending on whether players kept checking the clock (a column on the playtest notes sheet).
+- **QR code for joining from a phone** (no stage set; added 2026-10-27): the room screen shows a QR code with the laptop's address and the room code, so phones scan instead of typing. Likely Stage 3; open points (finding the address under Docker, a possible library) in `NOTES.md`.
 - **"Add to Home Screen"** (no stage set): a web app manifest so the game opens from a home-screen icon without the browser's address bar. It gives true fullscreen on Android; on iPhone it only hides Safari's bars, since iPhone pages still can't go fullscreen and no browser allows fullscreen without a tap.
 
 **Stage 0 verify items:** all done (time zone 2026-10-24; phone reload and a full 4-player match 2026-10-25).
