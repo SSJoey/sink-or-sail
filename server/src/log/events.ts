@@ -34,6 +34,7 @@ export function simEventLines(t: number, events: readonly SimEvent[], roster: Ro
       case "protectionEnded": lines.push({ t, type: "protectionEnded", ...crew(e.ship) }); break;
       case "sunk": lines.push({ t, type: "sunk", ...crew(e.ship), by: e.by, cause: e.cause, ...(e.livesLeft !== undefined && { livesLeft: e.livesLeft }) }); break;
       case "crewOut": lines.push({ t, type: "crewOut", ...crew(e.ship) }); break;
+      case "hauntingTriggered": lines.push({ t, type: "hauntingTriggered", zone: e.zone, hazard: e.hazard, ghosts: e.ghosts }); break;
       case "ghostStarted": lines.push({ t, type: "ghostStarted", ...crew(e.ship), x: r1(e.pos.x), y: r1(e.pos.y) }); break;
       case "reefHit": lines.push({ t, type: "reefHit", ...crew(e.ship), damage: r1(e.damage) }); break;
       case "wreckHit":

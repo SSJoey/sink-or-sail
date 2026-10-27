@@ -1,5 +1,5 @@
 import * as Phaser from "phaser";
-import { PACK_LETTERS, SEA_CENTRE, TUNING, circleOverlapsPolygon, packButtonLit, rolePack, wreckHull, type PackType, type Polygon, type Role, type Vec, type WreckSpot } from "@sink-or-sail/shared";
+import { PACK_LETTERS, SEA_CENTRE, TUNING, circleOverlapsPolygon, packButtonLit, rolePack, wreckHull, zoneRect, type PackType, type Polygon, type Role, type Vec, type WreckSpot } from "@sink-or-sail/shared";
 import { CREW_STYLES } from "./crews.ts";
 import { ShipEffects, type ShipEffect } from "./effects.ts";
 import { EmpRings } from "./empRing.ts";
@@ -132,8 +132,9 @@ export class GameScene extends Phaser.Scene {
     for (const reef of this.link.reefs()) this.reef(reef);
     for (const island of this.link.islands()) this.polygon(island, ISLAND_SAND, ISLAND_EDGE);
     if (frame) this.drawWrecks(frame.wrecks);
-    // Stage 2 whirlpools are water: drawn under everything that floats.
+    // Stage 2 whirlpools are water: drawn under everything that floats; haunted zones' fog the same.
     if (frame) this.drawWhirlpools(frame.hazards);
+    if (frame) this.drawHaunting(frame.zones);
     // The storm covers the sea, islands and wrecks; packs, mines and ships stay clear on top of it.
     const stormRadius = this.link.stormRadius();
     if (stormRadius !== null) this.drawStorm(stormRadius);
@@ -594,6 +595,27 @@ export class GameScene extends Phaser.Scene {
       else if (crew === 1) g.strokeRect(flag.x - 5, flag.y - 5, 10, 10);
       else g.strokeTriangle(flag.x, flag.y - 6, flag.x + 6, flag.y + 5, flag.x - 6, flag.y + 5);
     }
+  }
+
+  /**
+   * Stage 2 haunting: as a zone's meter fills, its water darkens and fog thickens over it (slowly drifting puffs),
+   * for everyone, so living crews can see danger building.
+   */
+  private drawHaunting(zones: number[]): void {
+    const g = this.g;
+    const t = performance.now() / 1000;
+    zones.forEach((meter, zone) => {
+      if (meter <= 0) return;
+      const r = zoneRect(zone);
+      g.fillStyle(0x0b1530, 0.35 * meter);
+      g.fillRect(r.x0, r.y0, r.x1 - r.x0, r.y1 - r.y0);
+      g.fillStyle(0xdfe6f2, 0.14 * meter);
+      for (let i = 0; i < 7; i++) {
+        const px = r.x0 + (((i * 0.37 + t * 0.02 * (1 + (i % 3))) % 1) + 1) % 1 * (r.x1 - r.x0);
+        const py = r.y0 + ((i * 0.61) % 1) * (r.y1 - r.y0) + Math.sin(t * 0.5 + i) * 12;
+        g.fillCircle(px, py, 40 + 25 * meter + (i % 3) * 10);
+      }
+    });
   }
 
   /** A reef: lighter, shallow water with a dotted edge, so it doesn't read as an island. */

@@ -158,6 +158,17 @@ export const TUNING = {
     /** Full-stick speed (ships sail 150); it passes through everything, kept inside the sea. */
     speed: 160,
   },
+  /** Stage 2 haunting (approved 2026-10-27): Last Afloat with hazards on; ghosts make hazards come in the zones they haunt. */
+  haunting: {
+    /** The sea is split into zones, this many across and down, numbered row by row. */
+    zonesAcross: 4,
+    zonesDown: 2,
+    /** A zone's hidden meter fills in this many seconds with one ghost in it (faster with more), and drains in this many with none. */
+    fillTime: 20,
+    drainTime: 60,
+    /** After a zone's full meter sets off a hazard, the meter empties and can't fill again for this many seconds. */
+    zoneCap: 45,
+  },
   /** Stage 2: Last Afloat (approved 2026-10-26). */
   lastAfloat: {
     /** Lives per ship unless the host picks another number; each sinking costs one, and at 0 the crew is out. */

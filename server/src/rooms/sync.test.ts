@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PACK_SPOTS_3, Phase, TUNING, createWorld, step, type ShipInput, type World } from "@sink-or-sail/shared";
+import { PACK_SPOTS_3, Phase, TUNING, createWorld, step, type ShipInput, type World, zoneOf } from "@sink-or-sail/shared";
 import { CrewState } from "./state.ts";
 import { applyEvents, syncWorld } from "./sync.ts";
 
@@ -273,9 +273,24 @@ describe("ghosts in the synced state", () => {
     syncWorld(state, world);
     const ghost = state.ghosts.get("2")!;
     expect([ghost.x, ghost.y]).toEqual([910, 690]);
+    // Its haunting zone as the simulation sees it (so the client never rounds it into the next zone).
+    expect(ghost.zone).toBe(zoneOf({ x: 910, y: 690 }));
     expect(ghost.heading).toBeCloseTo(1);
     syncWorld(state, createWorld({ mode: "lastAfloat", ships: 3 }));
     expect(state.ghosts.size).toBe(0);
+  });
+});
+
+describe("haunting in the synced state", () => {
+  it("shows each zone's meter in a match with haunting, and none without", () => {
+    const state = new CrewState();
+    const world = createWorld({ mode: "lastAfloat", ships: 3, hazards: true });
+    world.haunting!.meters[5] = 0.4;
+    syncWorld(state, world);
+    expect(state.zones.length).toBe(8);
+    expect(state.zones[5]!.meter).toBeCloseTo(0.4);
+    syncWorld(state, createWorld({ ships: 3, hazards: true }));
+    expect(state.zones.length).toBe(0);
   });
 });
 

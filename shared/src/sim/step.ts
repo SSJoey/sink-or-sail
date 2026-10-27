@@ -269,7 +269,7 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
 
   // Stage 2 dynamic hazards: they move (and the timer signals the next); active moving storms carry ships inside,
   // active whirlpools pull them in and swirl them round.
-  const hazardUpdate = world.hazards.length > 0 || world.nextHazardIn !== null ? updateHazards(world, ships, dt, solids()) : null;
+  const hazardUpdate = world.hazards.length > 0 || world.nextHazardIn !== null ? updateHazards(world, ships, dt, solids(), ghosts) : null;
   let hazards = hazardUpdate?.hazards ?? world.hazards;
   if (hazardUpdate) {
     // A kraken hurts the ship it holds each tick (a shield doesn't help); sinking there credits nobody. Logged
@@ -488,7 +488,7 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
     wreckPacks,
     hazards,
     ghosts,
-    ...(hazardUpdate && { nextHazardId: hazardUpdate.nextHazardId, nextHazardIn: hazardUpdate.nextHazardIn, hazardRng: hazardUpdate.hazardRng }),
+    ...(hazardUpdate && { haunting: hazardUpdate.haunting, nextHazardId: hazardUpdate.nextHazardId, nextHazardIn: hazardUpdate.nextHazardIn, hazardRng: hazardUpdate.hazardRng }),
     hazardContacts,
     time,
     ships,

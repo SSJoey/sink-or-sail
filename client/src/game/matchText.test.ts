@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Phase, TUNING } from "@sink-or-sail/shared";
-import { blinkVisible, countdownLabel, outBanner, packBlinkVisible, pausedText, resultLine, respawnText, resultTitle, scoreRows, sinkBanner, stormText } from "./matchText.ts";
+import { blinkVisible, countdownLabel, hauntingText, outBanner, packBlinkVisible, pausedText, resultLine, respawnText, resultTitle, scoreRows, sinkBanner, stormText } from "./matchText.ts";
 
 const D = TUNING.match.duration;
 
@@ -147,5 +147,14 @@ describe("Stage 2: the closing storm's status line", () => {
 
   it("tells a crew whose ship is outside the circle", () => {
     expect(stormText(120, times, true)).toBe("In the storm!");
+  });
+});
+
+describe("the ghost's haunting meter (Stage 2)", () => {
+  it("shows how haunted the ghost's zone is in five blocks", () => {
+    expect(hauntingText(0)).toBe("Haunting ▯▯▯▯▯");
+    expect(hauntingText(0.2)).toBe("Haunting ▮▯▯▯▯");
+    expect(hauntingText(0.61)).toBe("Haunting ▮▮▮▯▯");
+    expect(hauntingText(1)).toBe("Haunting ▮▮▮▮▮");
   });
 });

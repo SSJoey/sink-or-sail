@@ -215,6 +215,8 @@ export interface World {
   hazardRng: number;
   /** Stage 2 (Last Afloat): the ghosts of crews that are out. */
   ghosts: Ghost[];
+  /** Stage 2 haunting (Last Afloat with hazards on, else null): each zone's meter (0–1) and seconds before it can fill again. */
+  haunting: { meters: number[]; cooldowns: number[] } | null;
   /** Ships inside an active moving storm or whirlpool, as "ship:hazard". */
   hazardContacts: string[];
   /** Stage 1: packs spawn only when on (set for the whole match). */
@@ -249,6 +251,8 @@ export type SimEvent =
   | { type: "crewOut"; ship: number }
   /** Last Afloat: an out crew's ghost appears (where its ship sank). */
   | { type: "ghostStarted"; ship: number; pos: Vec }
+  /** Stage 2: a zone's full haunting meter set off a hazard; `ghosts` are the ships whose ghosts were in the zone. */
+  | { type: "hauntingTriggered"; zone: number; hazard: number; ghosts: number[] }
   /** Stage 2: a ship's centre entered a reef (not counted while protected). */
   | { type: "reefHit"; ship: number; damage: number }
   /** Stage 2 wrecks: `by` is the ship credited (null for none). A ram also gives the ramming ship's damage (0 while shielded or protected). */

@@ -54,4 +54,10 @@ test("ghosts: an out crew's ghost appears; its laptop pilot and its phone gunner
   await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: 150, y: 200, id: 1 }] });
   await expect.poll(async () => (await ghost(gunner3)).y, { timeout: 5_000 }).toBeLessThan(before.y - 60);
   await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+
+  // Haunting: the ghost crew's top bar shows how haunted its zone is, filling while the ghost stays there;
+  // living crews keep their pack slots.
+  await expect(pilot3.locator("#hud-pack")).toHaveText(/^Haunting [▮▯]{5}$/);
+  await expect(pilot3.locator("#hud-pack")).toHaveText(/^Haunting ▮/, { timeout: 10_000 });
+  await expect(host.locator("#hud-pack")).toHaveText(/^Packs:/);
 });

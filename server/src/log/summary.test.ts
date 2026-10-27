@@ -353,9 +353,9 @@ describe("Stage 2: Last Afloat in the summary", () => {
 
   it("gives each crew its finishing place, time afloat and lives used", () => {
     expect(summary.lastAfloat).toEqual([
-      { ship: 0, place: 1, afloatSeconds: 90, livesUsed: 0, ghostSeconds: 0 },
-      { ship: 1, place: 3, afloatSeconds: 47, livesUsed: 2, ghostSeconds: 0 },
-      { ship: 2, place: 2, afloatSeconds: 87, livesUsed: 2, ghostSeconds: 0 },
+      { ship: 0, place: 1, afloatSeconds: 90, livesUsed: 0, ghostSeconds: 0, hazardsHaunted: 0 },
+      { ship: 1, place: 3, afloatSeconds: 47, livesUsed: 2, ghostSeconds: 0, hazardsHaunted: 0 },
+      { ship: 2, place: 2, afloatSeconds: 87, livesUsed: 2, ghostSeconds: 0, hazardsHaunted: 0 },
     ]);
   });
 
@@ -558,6 +558,8 @@ describe("Stage 2: ghosts in the summary", () => {
     { t: 20000, type: "sunk", ship: 2, crew: crew("P2"), by: 0, cause: "shot", livesLeft: 0 },
     { t: 20000, type: "crewOut", ship: 2, crew: crew("P2") },
     { t: 22000, type: "ghostStarted", ship: 2, crew: crew("P2"), x: 900, y: 700 },
+    { t: 40000, type: "hauntingTriggered", zone: 5, hazard: 0, ghosts: [2] },
+    { t: 45000, type: "hauntingTriggered", zone: 1, hazard: 1, ghosts: [2] },
     { t: 50000, type: "sunk", ship: 1, crew: crew("P1"), by: 0, cause: "shot", livesLeft: 0 },
     { t: 50000, type: "crewOut", ship: 1, crew: crew("P1") },
     { t: 50000, type: "matchEnd", winner: 0, endedEarly: false, reason: "lastAfloat", scores: [] },
@@ -567,8 +569,12 @@ describe("Stage 2: ghosts in the summary", () => {
     expect(summarise(lines).lastAfloat!.map((c) => c.ghostSeconds)).toEqual([0, 0, 28]);
   });
 
-  it("prints a Time as a ghost column in the Last Afloat table, only for a match with ghosts", () => {
-    expect(formatSummary(summarise(lines))).toMatch(/Time as a ghost[\s\S]*^Crew 3 .* 28 s$/m);
+  it("counts the hazards each crew's ghost set off by haunting", () => {
+    expect(summarise(lines).lastAfloat!.map((c) => c.hazardsHaunted)).toEqual([0, 0, 2]);
+  });
+
+  it("prints Time as a ghost and Hazards haunted columns in the Last Afloat table, only for a match with ghosts", () => {
+    expect(formatSummary(summarise(lines))).toMatch(/Time as a ghost +Hazards haunted[\s\S]*^Crew 3 .* 28 s +2$/m);
     expect(formatSummary(summarise(LAST_AFLOAT))).not.toContain("ghost");
   });
 });

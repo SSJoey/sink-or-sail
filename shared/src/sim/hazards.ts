@@ -1,7 +1,7 @@
 import { TUNING } from "../tuning.ts";
 import { circleOverlapsPolygon, type Polygon } from "./geometry.ts";
 import { nextRandom, randomIndex, weightedPick, type Random } from "./random.ts";
-import type { Hazard, HazardKind, Ship, SimEvent, World } from "./types.ts";
+import type { Ghost, Hazard, HazardKind, Ship, SimEvent, World } from "./types.ts";
 import { add, angleOf, distance, fromAngle, scale, sub, type Vec } from "./vec.ts";
 
 const EPSILON = 1e-9;
@@ -9,6 +9,9 @@ const H = TUNING.hazards;
 const M = TUNING.movingStorm;
 const W = TUNING.whirlpool;
 const K = TUNING.kraken;
+const HT = TUNING.haunting;
+/** How many haunting zones the sea is split into. */
+export const ZONES = HT.zonesAcross * HT.zonesDown;
 const KIND_CHANCES = Object.entries(H.chances) as [HazardKind, number][];
 
 /**
@@ -33,6 +36,73 @@ export const inMovingStorm = (pos: Vec, storm: Hazard) => distance(pos, storm.po
 
 const outsideSea = (pos: Vec) => pos.x < 0 || pos.y < 0 || pos.x > TUNING.sea.width || pos.y > TUNING.sea.height;
 
+/** Whether a hazard of `kind` may appear at `pos`: its whole reach inside the sea and clear of every ship afloat, and its body clear of `solids`. */
+function clearSpot(kind: HazardKind, pos: Vec, afloat: readonly Ship[], solids: readonly Polygon[]): boolean {
+  const { radius, clearOfSolids } = SIZES[kind];
+  const inSea = pos.x >= radius && pos.y >= radius && pos.x <= TUNING.sea.width - radius && pos.y <= TUNING.sea.height - radius;
+  if (!inSea || afloat.some((s) => distance(s.pos, pos) < radius + TUNING.ship.radius + H.clearance)) return false;
+  return clearOfSolids <= 0 || solids.every((solid) => circleOverlapsPolygon(pos, clearOfSolids, solid) === null);
+}
+
+/** The haunting zone a spot is in (row by row; the far edges belong to the last row and column). */
+export function zoneOf(pos: Vec): number {
+  const across = Math.min(HT.zonesAcross - 1, Math.max(0, Math.floor((pos.x / TUNING.sea.width) * HT.zonesAcross)));
+  const down = Math.min(HT.zonesDown - 1, Math.max(0, Math.floor((pos.y / TUNING.sea.height) * HT.zonesDown)));
+  return down * HT.zonesAcross + across;
+}
+
+export function zoneRect(zone: number): { x0: number; y0: number; x1: number; y1: number } {
+  const w = TUNING.sea.width / HT.zonesAcross;
+  const h = TUNING.sea.height / HT.zonesDown;
+  const x0 = (zone % HT.zonesAcross) * w;
+  const y0 = Math.floor(zone / HT.zonesAcross) * h;
+  return { x0, y0, x1: x0 + w, y1: y0 + h };
+}
+
+/** Tries at a spot inside a haunted zone (more than around a ship: a zone may hold a ship or an island). */
+const ZONE_TRIES = 60;
+
+/**
+ * Where a haunted hazard of `kind` appears: a seeded spot inside `zone` that is clear (see clearSpot). It heads for
+ * the nearest ship afloat (the moving storm drifts that way). Null when no try finds a clear spot.
+ */
+export function placeInZone(kind: HazardKind, zone: number, ships: readonly Ship[], state: number, solids: readonly Polygon[]): Random<{ pos: Vec; heading: number } | null> {
+  const afloat = ships.filter((s) => !s.sunk);
+  const r = zoneRect(zone);
+  for (let i = 0; i < ZONE_TRIES; i++) {
+    const rx = nextRandom(state);
+    const ry = nextRandom(rx.state);
+    state = ry.state;
+    const pos = { x: r.x0 + rx.value * (r.x1 - r.x0), y: r.y0 + ry.value * (r.y1 - r.y0) };
+    if (zoneOf(pos) !== zone || !clearSpot(kind, pos, afloat, solids)) continue;
+    const nearest = afloat.reduce<Ship | null>((best, s) => (!best || distance(s.pos, pos) < distance(best.pos, pos) ? s : best), null);
+    return { value: { pos, heading: nearest ? angleOf(sub(nearest.pos, pos)) : 0 }, state };
+  }
+  return { value: null, state };
+}
+
+/** A new hazard, signalled: a whirlpool draws its spin with the seed; a kraken starts at full health, holding nothing. */
+function signalHazard(id: number, kind: HazardKind, pos: Vec, heading: number, state: number, events: SimEvent[]): Random<Hazard> {
+  let spin = 0;
+  if (kind === "whirlpool") {
+    const roll = nextRandom(state);
+    state = roll.state;
+    spin = roll.value < 0.5 ? 1 : -1;
+  }
+  const hazard: Hazard = {
+    id, kind, pos, heading, phase: "signalled", timeLeft: H.signalTime, spin,
+    ...(kind === "kraken" && { health: K.health, holding: null, holdLeft: 0 }),
+  };
+  events.push({ type: "hazardSignalled", hazard: id, kind, pos, heading, ...(spin !== 0 && { spin }) });
+  return { value: hazard, state };
+}
+
+/** Seconds to the next timer hazard: between the gaps, drawn with the seed. */
+function nextGap(state: number): Random<number> {
+  const gap = nextRandom(state);
+  return { value: H.minGap + gap.value * (H.maxGap - H.minGap), state: gap.state };
+}
+
 /**
  * Where the next hazard of `kind` appears: its distance from a ship afloat (picked with the seed), in a seeded
  * direction, its whole reach inside the sea and `clearance` clear of every ship afloat; a whirlpool's eye and a
@@ -46,15 +116,12 @@ export function placeHazard(kind: HazardKind, ships: readonly Ship[], state: num
   const pick = randomIndex(state, afloat.length);
   state = pick.state;
   const target = afloat[pick.value]!;
-  const { radius, distance: away, clearOfSolids } = SIZES[kind];
-  const clear = radius + TUNING.ship.radius + H.clearance;
+  const away = SIZES[kind].distance;
   for (let i = 0; i < PLACE_TRIES; i++) {
     const roll = nextRandom(state);
     state = roll.state;
     const pos = add(target.pos, scale(fromAngle(roll.value * Math.PI * 2), away));
-    const inSea = pos.x >= radius && pos.y >= radius && pos.x <= TUNING.sea.width - radius && pos.y <= TUNING.sea.height - radius;
-    if (!inSea || afloat.some((s) => distance(s.pos, pos) < clear)) continue;
-    if (clearOfSolids > 0 && solids.some((solid) => circleOverlapsPolygon(pos, clearOfSolids, solid) !== null)) continue;
+    if (!clearSpot(kind, pos, afloat, solids)) continue;
     return { value: { pos, heading: angleOf(sub(target.pos, pos)), ship: target.id }, state };
   }
   return { value: null, state };
@@ -68,6 +135,7 @@ export interface HazardUpdate {
   events: SimEvent[];
   /** Kraken ticks on the ships they hold this step, for the step to apply (and log) as damage. */
   krakenDamage: { ship: number; hazard: number; damage: number }[];
+  haunting: World["haunting"];
 }
 
 /** A kraken stops acting: it lets go of any ship it holds (for `released`), and fades. */
@@ -130,7 +198,7 @@ export function hitKraken(hazards: readonly Hazard[], id: number, by: number, we
  * sea, then fade and go. Then the timer runs (only while fewer than the most allowed are on the sea), picks the
  * next kind with the seed and signals it (`solids`: islands and standing wrecks, kept clear of a whirlpool's eye).
  */
-export function updateHazards(world: World, ships: readonly Ship[], dt: number, solids: readonly Polygon[]): HazardUpdate {
+export function updateHazards(world: World, ships: readonly Ship[], dt: number, solids: readonly Polygon[], ghosts: readonly Ghost[] = []): HazardUpdate {
   const events: SimEvent[] = [];
   const hazards: Hazard[] = [];
   const krakenDamage: HazardUpdate["krakenDamage"] = [];
@@ -167,27 +235,50 @@ export function updateHazards(world: World, ships: readonly Ship[], dt: number, 
       const placed = placeHazard(kind.value, ships, kind.state, solids);
       hazardRng = placed.state;
       if (placed.value) {
-        let spin = 0;
-        if (kind.value === "whirlpool") {
-          const roll = nextRandom(hazardRng);
-          hazardRng = roll.state;
-          spin = roll.value < 0.5 ? 1 : -1;
-        }
-        const hazard: Hazard = {
-          id: nextHazardId++, kind: kind.value, pos: placed.value.pos, heading: placed.value.heading, phase: "signalled", timeLeft: H.signalTime, spin,
-          ...(kind.value === "kraken" && { health: K.health, holding: null, holdLeft: 0 }),
-        };
-        hazards.push(hazard);
-        events.push({ type: "hazardSignalled", hazard: hazard.id, kind: hazard.kind, pos: hazard.pos, heading: hazard.heading, ...(spin !== 0 && { spin }) });
-        const gap = nextRandom(hazardRng);
+        const signalled = signalHazard(nextHazardId++, kind.value, placed.value.pos, placed.value.heading, hazardRng, events);
+        hazards.push(signalled.value);
+        const gap = nextGap(signalled.state);
         hazardRng = gap.state;
-        nextHazardIn = H.minGap + gap.value * (H.maxGap - H.minGap);
+        nextHazardIn = gap.value;
       } else {
         nextHazardIn = H.retryAfter;
       }
     }
   }
-  return { hazards, nextHazardId, nextHazardIn, hazardRng, events, krakenDamage };
+
+  // Stage 2 haunting: each zone's meter fills with the ghosts in it (or drains); a full one sets off a hazard there,
+  // which may be a second one on the sea, and counts as the next hazard (the timer starts its wait again).
+  let haunting = world.haunting;
+  if (haunting) {
+    const meters = [...haunting.meters];
+    const cooldowns = [...haunting.cooldowns];
+    const inZone: number[][] = meters.map(() => []);
+    for (const ghost of ghosts) if (ghost.appearIn <= 0) inZone[zoneOf(ghost.pos)]!.push(ghost.ship);
+    for (let zone = 0; zone < meters.length; zone++) {
+      if (cooldowns[zone]! > 0) {
+        cooldowns[zone] = Math.max(0, cooldowns[zone]! - dt);
+        meters[zone] = 0;
+        continue;
+      }
+      const count = inZone[zone]!.length;
+      meters[zone] = count > 0 ? Math.min(1, meters[zone]! + (count * dt) / HT.fillTime) : Math.max(0, meters[zone]! - dt / HT.drainTime);
+      if (meters[zone]! < 1 - EPSILON || hazards.length >= H.maxActive + 1) continue;
+      const kind = weightedPick(hazardRng, KIND_CHANCES);
+      const placed = placeInZone(kind.value, zone, ships, kind.state, solids);
+      hazardRng = placed.state;
+      if (!placed.value) continue;
+      const signalled = signalHazard(nextHazardId++, kind.value, placed.value.pos, placed.value.heading, hazardRng, events);
+      hazards.push(signalled.value);
+      events.push({ type: "hauntingTriggered", zone, hazard: signalled.value.id, ghosts: inZone[zone]! });
+      const gap = nextGap(signalled.state);
+      hazardRng = gap.state;
+      if (nextHazardIn !== null) nextHazardIn = gap.value;
+      meters[zone] = 0;
+      cooldowns[zone] = HT.zoneCap;
+    }
+    haunting = { meters, cooldowns };
+  }
+  return { hazards, nextHazardId, nextHazardIn, hazardRng, events, krakenDamage, haunting };
 }
 
 /** Whether a ship's centre is inside an active moving storm's cloud or whirlpool's pull (a kraken grabs instead). */

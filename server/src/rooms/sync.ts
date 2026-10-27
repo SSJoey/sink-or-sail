@@ -1,5 +1,5 @@
-import { Phase, TUNING, stormRadius, timeLeft, type SimEvent, type World } from "@sink-or-sail/shared";
-import { GhostState, HazardState, MineState, PackState, ShipState, ShotState, WreckState, type CrewState } from "./state.ts";
+import { Phase, TUNING, stormRadius, timeLeft, zoneOf, type SimEvent, type World } from "@sink-or-sail/shared";
+import { GhostState, HazardState, ZoneState, MineState, PackState, ShipState, ShotState, WreckState, type CrewState } from "./state.ts";
 
 /** Copies the simulation world into the synced room state. Colyseus sends only what changed. */
 export function syncWorld(state: CrewState, world: World): void {
@@ -100,6 +100,11 @@ export function syncWorld(state: CrewState, world: World): void {
     }
   }
 
+  const meters = world.haunting?.meters ?? [];
+  while (state.zones.length < meters.length) state.zones.push(new ZoneState());
+  while (state.zones.length > meters.length) state.zones.pop();
+  meters.forEach((meter, zone) => { state.zones[zone]!.meter = meter; });
+
   const liveGhosts = new Set(world.ghosts.filter((g) => g.appearIn <= 0).map((g) => String(g.ship)));
   for (const id of [...state.ghosts.keys()]) {
     if (!liveGhosts.has(id)) state.ghosts.delete(id);
@@ -112,8 +117,9 @@ export function syncWorld(state: CrewState, world: World): void {
       synced.x = ghost.pos.x;
       synced.y = ghost.pos.y;
       synced.heading = ghost.heading;
+      synced.zone = zoneOf(ghost.pos);
     } else {
-      state.ghosts.set(id, new GhostState({ x: ghost.pos.x, y: ghost.pos.y, heading: ghost.heading }));
+      state.ghosts.set(id, new GhostState({ x: ghost.pos.x, y: ghost.pos.y, heading: ghost.heading, zone: zoneOf(ghost.pos) }));
     }
   }
 

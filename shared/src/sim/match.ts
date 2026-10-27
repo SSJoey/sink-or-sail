@@ -2,7 +2,7 @@ import { TUNING } from "../tuning.ts";
 import { DEFAULT_LAYOUT, LAYOUTS, reefsFor, type LayoutId, type ReefAmount } from "./layouts.ts";
 import { SEA_CENTRE } from "./map.ts";
 import { PACK_CHANCES } from "./packs.ts";
-import { hazardSeed } from "./hazards.ts";
+import { ZONES, hazardSeed } from "./hazards.ts";
 import { DEFAULT_STORM_TIMES } from "./storm.ts";
 import { placeWrecks } from "./wrecks.ts";
 import type { GameMode, Ship, StormTimes, World } from "./types.ts";
@@ -87,6 +87,9 @@ export function createWorld(options: WorldOptions = {}): World {
     hazardRng: hazardSeed(seed),
     hazardContacts: [],
     ghosts: [],
+    haunting: mode === "lastAfloat" && options.hazards && options.firstHazardAt !== null
+      ? { meters: Array(ZONES).fill(0), cooldowns: Array(ZONES).fill(0) }
+      : null,
     packsOn,
     rng: seed,
     packs: [],

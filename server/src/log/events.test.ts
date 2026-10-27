@@ -284,6 +284,10 @@ describe("Stage 2: Last Afloat lines", () => {
     expect(positionLines(world).filter((l) => l.type === "ghost")).toEqual([{ t: 12000, type: "ghost", ship: 2, x: 900, y: 700 }]);
   });
 
+  it("logs a zone's haunting setting off a hazard, with the ghosts in the zone", () => {
+    expect(lines({ type: "hauntingTriggered", zone: 5, hazard: 3, ghosts: [1] })).toEqual([{ t: 1234, type: "hauntingTriggered", zone: 5, hazard: 3, ghosts: [1] }]);
+  });
+
   it("adds each hazard on the sea to the once-a-second lines", () => {
     const world = createWorld({ hazards: true });
     world.time = 12;

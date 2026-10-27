@@ -11,7 +11,7 @@ import { gunnerPackBuzz } from "./packBuzz.ts";
 import { SnapshotBuffer, type Frame } from "./interpolation.ts";
 import { frameLimit } from "./frameLimit.ts";
 import { heldShips, hiddenShips } from "./hazardLook.ts";
-import { countdownLabel, outBanner, pausedText, resultLine, respawnText, resultTitle, scoreRows, sinkBanner, stormText } from "./matchText.ts";
+import { countdownLabel, hauntingText, outBanner, pausedText, resultLine, respawnText, resultTitle, scoreRows, sinkBanner, stormText } from "./matchText.ts";
 import { blockGestures, goFullscreenLandscape, isPortrait, isTouchFirst } from "./phone.ts";
 import { snapshotFromState, type GameStateView } from "./snapshot.ts";
 import { layoutText } from "../lobby/settings.ts";
@@ -328,7 +328,9 @@ function updateHud(frame: Frame | null, seat: { crew: number; role: Role } | nul
   if (empLine.textContent !== emp) empLine.textContent = emp;
   const packSlot = byId("hud-pack");
   const crewShip = seat ? frame?.ships[seat.crew] : undefined;
-  const slotText = seat ? packSlotText(crewShip?.pilotPack ?? null, crewShip?.gunnerPack ?? null) : "";
+  // Stage 2: a crew that is out sees how haunted its ghost's zone is instead of its (empty) pack slots.
+  const ghost = seat && crewShip?.out ? frame?.ghosts.get(String(seat.crew)) : undefined;
+  const slotText = !seat ? "" : ghost && frame!.zones.length > 0 ? hauntingText(frame!.zones[ghost.zone] ?? 0) : packSlotText(crewShip?.pilotPack ?? null, crewShip?.gunnerPack ?? null);
   if (packSlot.textContent !== slotText) packSlot.textContent = slotText;
   const score = byId("hud-score");
   const ships = frame?.ships ?? [];

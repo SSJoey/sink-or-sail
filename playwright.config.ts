@@ -87,12 +87,13 @@ export default defineConfig({
     },
     {
       // A sixth server for the ghost test: TEST_SINK sinks Crew 3's ship at 0:04 (in a 1-life Last Afloat match its
-      // crew is out, and its ghost appears at 0:06). No dynamic hazards.
+      // crew is out, and its ghost appears at 0:06). The hazard timer's first hazard is far off (999 s), so haunting
+      // is on but no timer hazard comes during the test.
       command: `PORT=${GHOST_PORT} npm start`,
       url: `http://localhost:${GHOST_PORT}`,
       reuseExistingServer: false,
       timeout: 60_000,
-      env: { LOG_DIR: join(tmpdir(), "sink-or-sail-test-logs"), MATCH_SEED: "367", HAZARDS_FIRST_AT: "never", TEST_SINK: "3@4" },
+      env: { LOG_DIR: join(tmpdir(), "sink-or-sail-test-logs"), MATCH_SEED: "367", HAZARDS_FIRST_AT: "999", TEST_SINK: "3@4" },
     },
   ],
 });

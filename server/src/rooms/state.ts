@@ -101,8 +101,16 @@ export const GhostState = schema({
   y: t.float32(),
   /** The way it last moved (radians). */
   heading: t.float32(),
+  /** Its haunting zone, as the simulation sees it. */
+  zone: t.int8(),
 }, "GhostState");
 export type GhostState = SchemaType<typeof GhostState>;
+
+/** Stage 2 haunting: one zone's meter (0–1), shown as fog. */
+export const ZoneState = schema({
+  meter: t.float32(),
+}, "ZoneState");
+export type ZoneState = SchemaType<typeof ZoneState>;
 
 export const MineState = schema({
   x: t.float32(),
@@ -158,6 +166,8 @@ export const CrewState = schema({
   hazards: t.map(HazardState),
   /** Stage 2 (Last Afloat): ghosts that have appeared, keyed by their crew's ship id. */
   ghosts: t.map(GhostState),
+  /** Stage 2 haunting: each zone's meter, row by row (empty for a match without haunting). */
+  zones: t.array(ZoneState),
   /** Keyed by mine id. */
   mines: t.map(MineState),
   /** Keyed by torpedo id. */

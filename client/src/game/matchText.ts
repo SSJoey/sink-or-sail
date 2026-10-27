@@ -98,3 +98,9 @@ export function pausedText(pausedBy: string, isHost: boolean): string {
   const who = pausedBy ? `Paused by ${pausedBy}` : "Paused";
   return isHost ? who : `${who} · Waiting for the host to resume`;
 }
+
+/** Stage 2: the ghost crew's top bar: how haunted its ghost's zone is, in five blocks. */
+export function hauntingText(meter: number): string {
+  const filled = Math.max(0, Math.min(5, Math.round(meter * 5)));
+  return `Haunting ${"▮".repeat(filled)}${"▯".repeat(5 - filled)}`;
+}

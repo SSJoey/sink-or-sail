@@ -16,6 +16,7 @@ export interface GameStateView {
   wrecks: { forEach(cb: (wreck: WreckView, id: string) => void): void };
   hazards: { forEach(cb: (hazard: HazardView, id: string) => void): void };
   ghosts: { forEach(cb: (ghost: GhostView, id: string) => void): void };
+  zones: Iterable<{ meter: number }>;
 }
 
 /** Copies the synced state (which Colyseus updates in place) into a plain, timestamped snapshot. */
@@ -44,6 +45,7 @@ export function snapshotFromState(state: GameStateView, t: number): Snapshot {
   const hazards = new Map<string, HazardView>();
   state.hazards.forEach((h, id) => hazards.set(id, { kind: h.kind, phase: h.phase, x: h.x, y: h.y, heading: h.heading, timeLeft: h.timeLeft, spin: h.spin, health: h.health, holding: h.holding }));
   const ghosts = new Map<string, GhostView>();
-  state.ghosts.forEach((g, id) => ghosts.set(id, { x: g.x, y: g.y, heading: g.heading }));
-  return { t, ships, shots, packs, mines, torpedoes, wrecks, hazards, ghosts };
+  state.ghosts.forEach((g, id) => ghosts.set(id, { x: g.x, y: g.y, heading: g.heading, zone: g.zone }));
+  const zones = [...state.zones].map((z) => z.meter);
+  return { t, ships, shots, packs, mines, torpedoes, wrecks, hazards, ghosts, zones };
 }
