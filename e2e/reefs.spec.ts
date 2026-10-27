@@ -16,14 +16,17 @@ test("reefs: a ship sailing onto a reef slows down", async ({ page }) => {
   await expect(page.locator("#countdown")).toBeHidden({ timeout: 10_000 });
 
   // Hold D and time the ship over open water (x 400–560) and on the reef, once it has slowed (x 770–870).
-  const samples: { t: number; x: number }[] = [];
+  // The page itself records every change of the ship's x with its time, so a slow test machine can't skip a stretch.
+  await page.evaluate(() => {
+    const game = document.getElementById("game")!;
+    const samples: { t: number; x: number }[] = [];
+    (window as unknown as { reefSamples: typeof samples }).reefSamples = samples;
+    new MutationObserver(() => samples.push({ t: performance.now(), x: Number(game.dataset.ownX) })).observe(game, { attributeFilter: ["data-own-x"] });
+  });
   await page.keyboard.down("d");
-  await expect.poll(async () => {
-    const { x } = await ownPosition(page);
-    samples.push({ t: Date.now(), x });
-    return x;
-  }, { timeout: 20_000, intervals: [100] }).toBeGreaterThan(880);
+  await expect.poll(async () => (await ownPosition(page)).x, { timeout: 20_000, intervals: [100] }).toBeGreaterThan(880);
   await page.keyboard.up("d");
+  const samples = await page.evaluate(() => (window as unknown as { reefSamples: { t: number; x: number }[] }).reefSamples);
 
   const speed = (from: number, to: number) => {
     const a = samples.find((s) => s.x >= from)!;

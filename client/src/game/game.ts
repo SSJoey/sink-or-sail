@@ -9,6 +9,7 @@ import { startInputSender } from "./inputSender.ts";
 import { PackLatch } from "./packLatch.ts";
 import { gunnerPackBuzz } from "./packBuzz.ts";
 import { SnapshotBuffer, type Frame } from "./interpolation.ts";
+import { frameLimit } from "./frameLimit.ts";
 import { hiddenShips } from "./hazardLook.ts";
 import { countdownLabel, outBanner, pausedText, resultLine, respawnText, resultTitle, scoreRows, sinkBanner, stormText } from "./matchText.ts";
 import { blockGestures, goFullscreenLandscape, isPortrait, isTouchFirst } from "./phone.ts";
@@ -195,6 +196,8 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
       width: TUNING.sea.width,
       height: TUNING.sea.height,
     },
+    // Browser tests only: ?fps=20 draws less often, to keep a busy test machine responsive.
+    ...(frameLimit(location.search) !== undefined && { fps: { limit: frameLimit(location.search) } }),
     scene,
   });
 

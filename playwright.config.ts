@@ -13,11 +13,17 @@ export default defineConfig({
   testDir: "e2e",
   timeout: 30_000,
   reporter: "list",
+  // Two tests at a time: with four, the game pages saturated the laptop's 8 cores and tests read ship positions late
+  // (reliability slice, 2026-10-27).
+  workers: 2,
   use: {
     baseURL: `http://localhost:${PORT}`,
     // The installed Google Chrome, so Playwright needs no browser download.
     channel: "chrome",
     headless: true,
+    // Draw on the laptop's graphics chip (Intel Iris Xe, through Vulkan) instead of in software: headless Chrome's
+    // software drawing kept the machine so busy that tests read ship positions late (reliability slice, 2026-10-27).
+    launchOptions: { args: ["--enable-gpu", "--ignore-gpu-blocklist", "--use-angle=vulkan", "--enable-features=Vulkan"] },
   },
   webServer: [
     {

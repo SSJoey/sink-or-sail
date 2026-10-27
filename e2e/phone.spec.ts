@@ -1,10 +1,11 @@
 import { expect, test } from "@playwright/test";
+import { GAME_PAGE } from "./helpers.ts";
 
 // A landscape phone: touch is the main pointer.
 test.use({ viewport: { width: 915, height: 412 }, hasTouch: true, isMobile: true });
 
 test("phone: touch controls show for the pilot and the stick sails the ship", async ({ page }) => {
-  await page.goto("/");
+  await page.goto(GAME_PAGE);
   await page.fill("#name", "Thumb");
   await page.click("#create");
   await expect(page.locator("#code")).toHaveText(/^[A-Z]{4}$/);
@@ -30,7 +31,7 @@ test("phone: touch controls show for the pilot and the stick sails the ship", as
 });
 
 test("phone: the gunner's aiming stick aims without firing; only Fire fires", async ({ page }) => {
-  await page.goto("/");
+  await page.goto(GAME_PAGE);
   await page.fill("#name", "Aimer");
   await page.click("#create");
   await expect(page.locator("#code")).toHaveText(/^[A-Z]{4}$/);

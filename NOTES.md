@@ -438,6 +438,23 @@ The first dynamic hazard; the slice also builds the shared **hazard timer** that
   - **Tests changed:** the first-hazard test now accepts either kind (the kind is drawn with the seed); placement tests call `placeHazard`; the summary column test for moving storms allows the new column after it.
   - **Browser runs:** 20 browser tests. 3 full runs, each with 2 load failures (phone mine-pack top bar not shown yet and the reef test's NaN speed; laptop mine-pack and EMP; reef NaN and EMP). The two new hazard tests passed every time. **Answer:** commit slice 7 as it is and keep watching; then a short **browser-test reliability slice** before the kraken (plan first, as usual).
 
+### 2026-10-27 — Browser-test reliability slice: plan
+
+Agreed after Stage 2 slice 7, before the kraken.
+
+- **Measured** (one full run, 4 tests at a time): Chrome's GPU processes (software drawing in headless Chrome) about 100% CPU each, 4 of them; each game page about 15%; the game servers hardly any. Load average up to 25 on 8 cores. Every page draws at 60 frames a second, even pages that only fill a seat. The failures come from tests reading ship positions late on the busy machine.
+- **Question 1 (order), ok:** try, one at a time, with 5 full runs after each (failures, run time, load), stopping at the first that gives 5 clean runs in a row: 1) Chrome uses the laptop's graphics chip (Intel Iris Xe) instead of software drawing (launch settings in `playwright.config.ts` only); 2) a test-only `?fps=20` page-address setting caps drawing at 20 frames a second (Phaser's own limit; real games unchanged); 3) 2 tests at a time instead of 4.
+- **Question 2, ok:** a hidden `?fps=` switch in the client, if step 2 is needed.
+- **Question 3, agreed:** no Playwright retries (they would hide real failures).
+- **Question 4, ok:** the reef test measures speed without dividing by nothing when its samples jump the reef stretch (more samples, or the server log); what it checks stays the same.
+- **Question 5, ok:** done means 5 clean full runs in a row.
+- **Step 1 results:** with Chrome's settings `--enable-gpu --ignore-gpu-blocklist --use-angle=vulkan --enable-features=Vulkan`, WebGL in headless Chrome reports the Iris Xe (other settings still gave SwiftShader, software drawing). 5 full runs in a row passed 20 of 20 (151–181 s each). A 6th run, taken to sample the processes, had 1 failure (the phone torpedo pack test). During it the GPU processes used about 30% CPU each (was about 100%), but the pages still ran at about 160% together (60 frames a second) and the load average was still 20–31.
+- **Reef test:** the page now records every change of the ship's x itself (a MutationObserver on `data-own-x`, with `performance.now()`), so samples can't jump the reef stretch however slow the test machine is. Same speed comparison as before.
+- **Next step (asked):** step 1 met the bar but the 6th run failed and the load stayed high, so the user chose to **also do step 2**.
+- **Step 2 results:** `?fps=20` (`client/src/game/frameLimit.ts`, read in `game.ts` as Phaser's `fps.limit`; whole numbers 1–60, otherwise ignored); every browser test opens `GAME_PAGE` ("/?fps=20", in `e2e/helpers.ts`). Checked: the page draws 20 times a second instead of 60. Runs: 3 passed, then 1 failure (phone torpedo pack test, the same one as step 1's 6th run), 2 passed, then 1 failure (laptop torpedo test). Sampled with `top`: the pages still used about 300% CPU together and the GPU processes about 170%; the rest was spread thin (test workers, game servers, the terminal). Drawing is no longer the main cost; 10–12 game pages at once simply fill the 8 cores.
+- **Step 3 results:** `workers: 2` in `playwright.config.ts` (steps 1 and 2 kept). Runs: 194 s, 214 s, 214 s, all 20 of 20; one run voided (the laptop went to sleep in the middle, 10:58); then 174 s and 193 s, 20 of 20. That is 5 clean runs; the final `npm test` passed too (807 unit plus 1 skipped, 20 browser). Peak load 15–23 (was 25–32). A full run now takes about 3–3.5 minutes (was about 2.5).
+- **Kept:** all three steps. Step 2 didn't show a clear drop in CPU on its own, but it does cut drawing to a third and costs nothing in real games.
+
 ## Later
 
 - **(2026-10-25, Stage 5) Ship types**, discussed with the user ahead of Stage 5 (not to build before then):

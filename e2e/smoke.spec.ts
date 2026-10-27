@@ -1,7 +1,8 @@
 import { expect, test } from "@playwright/test";
+import { GAME_PAGE } from "./helpers.ts";
 
 test("loads, joins a room and shows a ship", async ({ page }) => {
-  await page.goto("/");
+  await page.goto(GAME_PAGE);
   await page.fill("#name", "Smoke");
   await page.click("#create");
   await expect(page.locator("#code")).toHaveText(/^[A-Z]{4}$/);
@@ -20,7 +21,7 @@ test("loads, joins a room and shows a ship", async ({ page }) => {
 });
 
 test("a player leaves their seat by tapping it again or with Leave seat, freeing it", async ({ page }) => {
-  await page.goto("/");
+  await page.goto(GAME_PAGE);
   await page.fill("#name", "Seats");
   await page.click("#create");
   await expect(page.locator("#code")).toHaveText(/^[A-Z]{4}$/);
@@ -42,7 +43,7 @@ test("a player leaves their seat by tapping it again or with Leave seat, freeing
 });
 
 test("laptop: the gunner aims with the mouse and fires only while the left button is held", async ({ page }) => {
-  await page.goto("/");
+  await page.goto(GAME_PAGE);
   await page.fill("#name", "Mouse");
   await page.click("#create");
   await expect(page.locator("#code")).toHaveText(/^[A-Z]{4}$/);
@@ -63,7 +64,7 @@ test("laptop: the gunner aims with the mouse and fires only while the left butto
 });
 
 test("laptop: pause, host resumes with a countdown, host exits to the scoreboard", async ({ page }) => {
-  await page.goto("/");
+  await page.goto(GAME_PAGE);
   await page.fill("#name", "Host");
   await page.click("#create");
   await expect(page.locator("#code")).toHaveText(/^[A-Z]{4}$/);
@@ -105,7 +106,7 @@ test("a page left open across a rebuild reloads itself and rejoins its seat", as
     await route.continue();
   });
 
-  await page.goto("/");
+  await page.goto(GAME_PAGE);
   await page.fill("#name", "Stale");
   const reloaded = page.waitForEvent("load");
   await page.click("#create");
