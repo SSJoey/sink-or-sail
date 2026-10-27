@@ -5,10 +5,12 @@ export function canStart(sessionId: string, hostId: string, phase: string): bool
   return sessionId === hostId && (phase === Phase.Waiting || phase === Phase.Over);
 }
 
-/** During the countdown, a match or a pause, seated players can't switch; seatless players may take a free seat. */
-export function canChangeSeat(phase: string, isSeated: boolean): boolean {
-  const matchOn = phase === Phase.Countdown || phase === Phase.Running || phase === Phase.Paused;
-  return !matchOn || !isSeated;
+/**
+ * During the countdown, a match or a pause, nobody changes seat: seated players are locked in, and seatless
+ * players (who joined mid-match) wait for the next round (Stage 3 slice 3).
+ */
+export function canChangeSeat(phase: string, _isSeated: boolean): boolean {
+  return !(phase === Phase.Countdown || phase === Phase.Running || phase === Phase.Paused);
 }
 
 /** During a match, only crews with a ship can be joined (no ship for Crew 3 if it was empty at the start). */

@@ -58,16 +58,55 @@ function freeCrew(seats: SeatMap): number | null {
 
 /**
  * A player who joins (seat null): into the crew that has waited longest for a partner, in its free role; with
- * none waiting, a new crew of their own as pilot. During a match (`shipsInMatch` set), only a waiting crew that
- * has a ship can be joined; otherwise they wait without a crew until the next round.
+ * none waiting, a new crew of their own in `role` (pilot unless asked). During a match they always wait without
+ * a crew until the next round (slice 3).
  */
-export function placeJoiner(roster: CrewRoster, id: string, now: number, shipsInMatch: number | null): CrewRoster {
-  const waiting = waitingCrews(roster, null).filter((crew) => shipsInMatch === null || crew < shipsInMatch);
-  if (waiting.length > 0) return intoCrew(roster, id, waiting[0]!, now);
-  const crew = shipsInMatch === null ? freeCrew(roster.seats) : null;
+export function placeJoiner(roster: CrewRoster, id: string, now: number, matchOn: boolean, role: Role = "pilot"): CrewRoster {
   const seats = new Map(roster.seats);
-  seats.set(id, crew === null ? null : { crew: crew as Crew, role: "pilot" });
+  if (matchOn) {
+    seats.set(id, null);
+    return { seats, waiting: roster.waiting };
+  }
+  const waiting = waitingCrews(roster, null);
+  if (waiting.length > 0) return intoCrew(roster, id, waiting[0]!, now);
+  const crew = freeCrew(roster.seats);
+  seats.set(id, crew === null ? null : { crew: crew as Crew, role });
   return refreshWaiting({ seats, waiting: roster.waiting }, now);
+}
+
+/** A player waiting out a match: the role they chose for the next round, and who they paired with ("" for nobody). */
+export interface Waiter {
+  id: string;
+  role: Role;
+  partner: string;
+}
+
+/**
+ * When a match ends, players who waited it out get crews (in the order given): a pair who chose each other starts
+ * a new crew together (the first in their chosen role, the other in the other role) if there are fewer than 3
+ * crews; otherwise, and for a single player, each is placed like a joiner (their chosen role if they start a crew).
+ */
+export function seatWaiting(roster: CrewRoster, waiters: readonly Waiter[], now: number): CrewRoster {
+  const byId = new Map(waiters.map((w) => [w.id, w]));
+  const done = new Set<string>();
+  let next = roster;
+  for (const waiter of waiters) {
+    if (done.has(waiter.id)) continue;
+    done.add(waiter.id);
+    const partner = byId.get(waiter.partner);
+    const paired = partner && partner.partner === waiter.id && !done.has(partner.id);
+    const crew = freeCrew(next.seats);
+    if (paired && crew !== null) {
+      done.add(partner.id);
+      const seats = new Map(next.seats);
+      seats.set(waiter.id, { crew: crew as Crew, role: waiter.role });
+      seats.set(partner.id, { crew: crew as Crew, role: otherRole(waiter.role) });
+      next = refreshWaiting({ seats, waiting: next.waiting }, now);
+      continue;
+    }
+    next = placeJoiner(next, waiter.id, now, false, waiter.role);
+  }
+  return next;
 }
 
 /** Find me a partner: into the crew that has waited longest (its free role); refused when nobody waits or you have one. */

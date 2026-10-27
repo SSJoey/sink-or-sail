@@ -571,6 +571,19 @@ Drafted from `docs/design.md` and the lobby mock-ups on the look-options canvas 
   - **Runs:** `npm test` passed its 907 unit tests (plus 1 skipped) with one browser failure (the phone torpedo pack test, a known load failure; it passed alone), then two full browser runs passed 25 of 25.
 
 
+### 2026-10-27 — Stage 3 slice 3 plan: the waiting screen and late joiners
+
+- **Plan as proposed:** a player who joins while a match is on sees the waiting screen (from the mock-up): "A match is under way", "You'll join at the start of the next round. Set up your crew while you wait."; three figures (ships afloat; time left in Sink Count or the storm timer in Last Afloat; others waiting); "Your crew for the next round" (choose Pilot / Gunner; who you're with); "Pair with <name>" for each other waiting player without a partner (Play with a bot comes in slice 8); "Your crew colour is assigned when the round starts"; Leave room. When the match ends, a waiting pair starts a new crew together if there are fewer than 3 crews (else each fills a crew waiting for a partner), and a single waiting player is placed like a joiner, in their chosen role where it's free. Waiting players count toward the room's 6.
+- **Question 1:** a) **late joiners always wait for the next round** (as `docs/design.md` says): slice 2's pairing of a mid-match joiner into a crew with a ship goes.
+- **Question 2:** a) the waiting screen, with a **Watch the match** button showing the live game until they go back (until the spectator view in slice 7).
+- **Question 3, ok:** "Pair with …" pairs at once (no accepting, like Join); either player unpairs by choosing another partner or with **Wait alone**.
+- **Question 4, ok:** the three figures as proposed.
+- **Built (2026-10-27):**
+  - **Server:** a player who joins during a match always waits without a crew (`placeJoiner` with `matchOn`); nobody changes seat during a match (`canChangeSeat` now locks seatless players too). Waiting players carry `nextRole` (default pilot) and `partner`; messages `setNextRole` { role } and `pairWith` { player } ("" = Wait alone; only another waiting player without a partner; pairing replaces any earlier partner; leaving the room unpairs). At the match end `seatWaiting` places them in join order: a pair who chose each other starts a new crew (the first in their chosen role) if there are fewer than 3 crews, else each is placed like a joiner; a single player is placed like a joiner (their chosen role when starting a crew); partners are then forgotten.
+  - **Client:** the waiting section (`lobby/waiting.ts`: ships afloat; time left, or in Last Afloat with the storm "until the storm" then "Closing" / "Closed"; others waiting; Pilot / Gunner; "Paired with …" or "Looking for a partner"; "Pair with …" buttons; Wait alone; Watch the match). The game view opens for a waiting player only when watching; a **Back** button in the top bar (players without a seat) returns to the waiting screen.
+  - **Tests changed (late joiners now wait, as agreed):** the room tests' mid-match joiner (who used to be paired into a crew with a ship, or take a freed seat) now waits and is refused a seat (SeatLocked); the Crew 3 test now ends with the waiting player paired into the crew waiting for a partner; the log test checks no `seatTaken` line is written for a late joiner; `canChangeSeat`'s seatless-player tests now expect a lock; the slice 2 pairing test for mid-match joiners now expects waiting. New: pairing rules, the waiting room messages, the waiting view, and `e2e/waiting.spec.ts`.
+  - **Runs:** `npm test` passed (918 unit plus 1 skipped, 26 browser).
+
 ## Later
 
 - **(2026-10-25, Stage 5) Ship types**, discussed with the user ahead of Stage 5 (not to build before then):

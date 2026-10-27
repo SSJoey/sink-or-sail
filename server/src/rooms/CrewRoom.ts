@@ -38,7 +38,7 @@ import { MatchLog, fileSink, logFileName, type LogSink } from "../log/matchLog.t
 import { canChangeSeat, canEndMatch, canPause, canResume, canSetPacks, canStart, crewHasShip, everyCrewManned, nextHost, readLayout, readOnOff, readReefs, readLives, readMode, readReady, shipCount } from "./matchFlow.ts";
 import { generateUniqueCode } from "./roomCode.ts";
 import { isNameTaken, takeSeat, type SeatMap } from "./seats.ts";
-import { closeUpCrews, findPartner, leaveCrew, placeJoiner, refreshWaiting, type CrewResult, type CrewRoster } from "./crews.ts";
+import { closeUpCrews, findPartner, leaveCrew, placeJoiner, refreshWaiting, seatWaiting, type CrewResult, type CrewRoster } from "./crews.ts";
 import { CrewState, Player } from "./state.ts";
 import { GhostControl } from "./ghostControl.ts";
 import { applyEvents, syncWorld } from "./sync.ts";
@@ -133,6 +133,27 @@ export class CrewRoom extends Room<{ state: CrewState }> {
     };
     this.onMessage(ClientMessage.FindPartner, (client) => crewAction(client, findPartner));
     this.onMessage(ClientMessage.LeaveCrew, (client) => crewAction(client, leaveCrew));
+
+    // Stage 3 slice 3: a player waiting out a match (no crew) sets up their crew for the next round.
+    this.onMessage(ClientMessage.SetNextRole, (client, message: unknown) => {
+      const player = this.state.players.get(client.sessionId);
+      const role = (message as { role?: unknown } | null)?.role;
+      if (!player || player.crew !== undefined || (role !== "pilot" && role !== "gunner")) return;
+      player.nextRole = role;
+    });
+    this.onMessage(ClientMessage.PairWith, (client, message: unknown) => {
+      const player = this.state.players.get(client.sessionId);
+      const otherId = (message as { player?: unknown } | null)?.player;
+      if (!player || player.crew !== undefined || typeof otherId !== "string") return;
+      const other = otherId ? this.state.players.get(otherId) : undefined;
+      // Only another waiting player who has no partner (or already has this one).
+      if (otherId && (!other || otherId === client.sessionId || other.crew !== undefined || (other.partner !== "" && other.partner !== client.sessionId))) return;
+      this.unpair(client.sessionId);
+      if (other) {
+        player.partner = otherId;
+        other.partner = client.sessionId;
+      }
+    });
 
     this.onMessage(ClientMessage.SetReady, (client, message: unknown) => {
       const player = this.state.players.get(client.sessionId);
@@ -240,9 +261,9 @@ export class CrewRoom extends Room<{ state: CrewState }> {
     this.joinOrder.set(client.sessionId, this.joinCount++);
     if (!this.state.hostId) this.state.hostId = client.sessionId;
     this.logLine(playerLine(this.logTime(), "playerJoined", name, null));
-    // Stage 3: into the crew waiting longest for a partner, or a new crew of their own (during a match: only a
-    // waiting crew that has a ship; otherwise no crew until the match is over).
-    this.applyCrews(placeJoiner(this.crewRoster(), client.sessionId, this.crewClock++, this.matchOn() ? (this.world?.ships.length ?? 0) : null));
+    // Stage 3: into the crew waiting longest for a partner, or a new crew of their own; during a match they wait
+    // without a crew until it ends (slice 3).
+    this.applyCrews(placeJoiner(this.crewRoster(), client.sessionId, this.crewClock++, this.matchOn()));
   }
 
   onDrop(client: Client): void {
@@ -262,6 +283,7 @@ export class CrewRoom extends Room<{ state: CrewState }> {
 
   onLeave(client: Client): void {
     this.logLine(playerLine(this.logTime(), "playerLeft", this.nameOf(client.sessionId), this.seatOf(client.sessionId)));
+    this.unpair(client.sessionId);
     this.state.players.delete(client.sessionId);
     if (this.log) this.roster = this.buildRoster();
     this.latestInput.delete(client.sessionId);
@@ -477,13 +499,28 @@ export class CrewRoom extends Room<{ state: CrewState }> {
     if (this.log) this.roster = this.buildRoster();
   }
 
-  /** After a match: players who joined during it without a crew get one, and crew numbers close up. */
+  /**
+   * After a match: players who waited it out get crews (a pair together; in the order they joined), with their
+   * chosen role; partners are forgotten; crew numbers close up.
+   */
   private settleCrews(): void {
-    let roster = this.crewRoster();
-    for (const [id, seat] of roster.seats) {
-      if (!seat) roster = placeJoiner(roster, id, this.crewClock++, null);
+    const waiters = [...this.state.players.entries()]
+      .filter(([, p]) => p.crew === undefined)
+      .sort(([a], [b]) => (this.joinOrder.get(a) ?? 0) - (this.joinOrder.get(b) ?? 0))
+      .map(([id, p]) => ({ id, role: (p.nextRole === "gunner" ? "gunner" : "pilot") as Role, partner: p.partner }));
+    this.applyCrews(seatWaiting(this.crewRoster(), waiters, this.crewClock++));
+    for (const { id } of waiters) {
+      const player = this.state.players.get(id);
+      if (player) player.partner = "";
     }
-    this.applyCrews(roster);
+  }
+
+  /** A waiting player's partner (if any) is left without one. */
+  private unpair(sessionId: string): void {
+    const partner = this.state.players.get(this.state.players.get(sessionId)?.partner ?? "");
+    if (partner?.partner === sessionId) partner.partner = "";
+    const player = this.state.players.get(sessionId);
+    if (player) player.partner = "";
   }
 
   private seatOf(sessionId: string): Seat | null {

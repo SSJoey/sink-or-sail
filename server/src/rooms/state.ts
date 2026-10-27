@@ -9,6 +9,10 @@ export const Player = schema({
   connected: t.boolean().default(true),
   /** Stage 3: ready for the next match (cleared when they move crew or role, and when a match starts). */
   ready: t.boolean().default(false),
+  /** Stage 3 slice 3, while waiting out a match without a crew: the role they want next round, and who they're
+   *  paired with for it (a session id, "" for nobody). */
+  nextRole: t.string().default("pilot"),
+  partner: t.string().default(""),
 }, "Player");
 export type Player = SchemaType<typeof Player>;
 

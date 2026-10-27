@@ -33,6 +33,10 @@ export const ClientMessage = {
   FindPartner: "findPartner",
   LeaveCrew: "leaveCrew",
   SetReady: "setReady",
+  /** Stage 3 slice 3, for a player waiting out a match: the role they want next round { role }, and who they pair
+   *  with for it { player: sessionId }, "" to wait alone. */
+  SetNextRole: "setNextRole",
+  PairWith: "pairWith",
   /** Start the match (host only). */
   Start: "start",
   /** The sender's role input; see input.ts. */

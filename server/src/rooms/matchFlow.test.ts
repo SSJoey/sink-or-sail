@@ -38,8 +38,8 @@ describe("canChangeSeat", () => {
     expect(canChangeSeat(Phase.Running, true)).toBe(false);
   });
 
-  it("lets a seatless player take a free seat mid-match", () => {
-    expect(canChangeSeat(Phase.Running, false)).toBe(true);
+  it("keeps a seatless player (who joined mid-match) waiting for the next round (Stage 3 slice 3)", () => {
+    expect(canChangeSeat(Phase.Running, false)).toBe(false);
   });
 });
 
@@ -85,9 +85,9 @@ describe("canEndMatch", () => {
 });
 
 describe("seats while paused", () => {
-  it("stay locked for seated players", () => {
+  it("stay locked for everyone (seatless players wait for the next round, Stage 3 slice 3)", () => {
     expect(canChangeSeat(Phase.Paused, true)).toBe(false);
-    expect(canChangeSeat(Phase.Paused, false)).toBe(true);
+    expect(canChangeSeat(Phase.Paused, false)).toBe(false);
   });
 });
 

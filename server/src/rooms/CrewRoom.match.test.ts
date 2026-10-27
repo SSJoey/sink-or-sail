@@ -38,16 +38,11 @@ async function crewedRoom() {
   return { ...crew, third };
 }
 
-/**
- * During a match: a fourth player is paired into Crew 2 (its free gunner seat), so a fifth finds every crew with a
- * ship full and has no crew until the match is over.
- */
-async function crewlessDuringMatch(room: CrewRoom) {
-  const fourth = await colyseus.sdk.joinById(room.roomId, { name: "Fourth" });
-  await waitFor(() => room.state.players.get(fourth.sessionId)?.role === "gunner");
-  const late = await colyseus.sdk.joinById(room.roomId, { name: "Late" });
+/** A player who joins during a match: they wait without a crew until it ends (Stage 3 slice 3). */
+async function crewlessDuringMatch(room: CrewRoom, name = "Late") {
+  const late = await colyseus.sdk.joinById(room.roomId, { name });
   await waitFor(() => room.state.players.has(late.sessionId));
-  return { fourth, late };
+  return { late };
 }
 
 /** Between matches: a new player paired into Crew 2 who leaves it for a new crew of their own (Crew 3), as its pilot. */
@@ -335,14 +330,47 @@ describe("seats during a match", () => {
     expect(room.state.players.get(pilot.sessionId)?.crew).toBe(0);
   });
 
-  it("pairs a player who joins into a waiting crew with a ship; a seatless player may take a seat freed later", async () => {
+  it("keeps a player who joins mid-match waiting without a crew, even with a free seat (Stage 3 slice 3)", async () => {
     const { room } = await started();
-    const { fourth, late } = await crewlessDuringMatch(room);
-    expect(room.state.players.get(fourth.sessionId)?.crew).toBe(1);
+    const { late } = await crewlessDuringMatch(room);
     expect(room.state.players.get(late.sessionId)?.crew).toBeUndefined();
-    await fourth.leave();
+    const rejected = late.waitForMessage(ServerMessage.Rejected);
     late.send(ClientMessage.TakeSeat, { crew: 1, role: "gunner" });
-    await waitFor(() => room.state.players.get(late.sessionId)?.role === "gunner");
+    expect(await rejected).toEqual({ reason: RejectReason.SeatLocked });
+    expect(room.state.players.get(late.sessionId)?.crew).toBeUndefined();
+  });
+
+  it("lets waiting players choose their next role and pair up; at the match end the pair starts a crew", async () => {
+    const { room } = await started();
+    const { late: tom } = await crewlessDuringMatch(room, "Tom");
+    const { late: ana } = await crewlessDuringMatch(room, "Ana");
+    tom.send(ClientMessage.SetNextRole, { role: "gunner" });
+    tom.send(ClientMessage.PairWith, { player: ana.sessionId });
+    await waitFor(() => room.state.players.get(ana.sessionId)?.partner === tom.sessionId);
+    expect(room.state.players.get(tom.sessionId)?.toJSON()).toMatchObject({ nextRole: "gunner", partner: ana.sessionId });
+    await endMatch(room);
+    // Crew 1 is full and Crew 2 (the third player) waits for a partner: the pair still starts Crew 3 together.
+    await waitFor(() => room.state.players.get(tom.sessionId)?.crew === 2);
+    expect(room.state.players.get(tom.sessionId)?.role).toBe("gunner");
+    expect(room.state.players.get(ana.sessionId)?.toJSON()).toMatchObject({ crew: 2, role: "pilot", partner: "" });
+  });
+
+  it("only lets a waiting player pair with another waiting player without a partner; Wait alone unpairs both", async () => {
+    const { room, gunner } = await started();
+    const { late: tom } = await crewlessDuringMatch(room, "Tom");
+    const { late: ana } = await crewlessDuringMatch(room, "Ana");
+    const { late: kim } = await crewlessDuringMatch(room, "Kim");
+    tom.send(ClientMessage.PairWith, { player: gunner.sessionId }); // has a crew
+    gunner.send(ClientMessage.PairWith, { player: tom.sessionId }); // has a crew
+    tom.send(ClientMessage.PairWith, { player: ana.sessionId });
+    await waitFor(() => room.state.players.get(ana.sessionId)?.partner === tom.sessionId);
+    kim.send(ClientMessage.PairWith, { player: ana.sessionId }); // Ana already has a partner
+    await sleep(150);
+    expect(room.state.players.get(kim.sessionId)?.partner).toBe("");
+    expect(room.state.players.get(gunner.sessionId)?.partner).toBe("");
+    ana.send(ClientMessage.PairWith, { player: "" });
+    await waitFor(() => room.state.players.get(tom.sessionId)?.partner === "");
+    expect(room.state.players.get(ana.sessionId)?.partner).toBe("");
   });
 
   it("lets players switch again once the match is over", async () => {
@@ -381,15 +409,18 @@ describe("a third ship", () => {
     await waitFor(() => crewed.room.world!.ships[2]!.pos.x > startX + 5);
   });
 
-  it("keeps Crew 3 closed during a match that started without it; after it, a player without a crew gets one", async () => {
-    const { room } = await started();
+  it("keeps Crew 3 closed during a match that started without it; after it, a waiting player is placed like a joiner", async () => {
+    const { room, third } = await started();
     const { late } = await crewlessDuringMatch(room);
     const rejected = late.waitForMessage(ServerMessage.Rejected);
     late.send(ClientMessage.TakeSeat, { crew: 2, role: "gunner" });
-    expect(await rejected).toEqual({ reason: RejectReason.CrewNotInMatch });
+    expect(await rejected).toEqual({ reason: RejectReason.SeatLocked });
     expect(room.state.players.get(late.sessionId)?.crew).toBeUndefined();
     await endMatch(room);
-    await waitFor(() => room.state.players.get(late.sessionId)?.crew === 2);
+    // Crew 2 (the third player) was waiting for a partner: the late player joins it, in its free role.
+    await waitFor(() => room.state.players.get(late.sessionId)?.crew === 1);
+    expect(room.state.players.get(late.sessionId)?.role).toBe("gunner");
+    expect(room.state.players.get(third.sessionId)?.crew).toBe(1);
   });
 
   it("goes back to 2 ships for the next match once Crew 3 is empty", async () => {

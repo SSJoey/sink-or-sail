@@ -25,6 +25,9 @@ export interface PlayerView {
   connected: boolean;
   /** Stage 3: ready for the next match. */
   ready: boolean;
+  /** Stage 3 slice 3, while waiting out a match: the role wanted next round, and the partner's session id ("" for none). */
+  nextRole: string;
+  partner: string;
 }
 export interface RoomStateView extends GameStateView {
   players: {
@@ -100,6 +103,8 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
   const paused = byId("paused");
   screen.hidden = false;
   byId("back-to-room").onclick = onExit;
+  // Stage 3 slice 3: a player watching while they wait goes back to the waiting screen.
+  byId("hud-back").onclick = onExit;
 
   // Pause: any seated player. Resume and Exit: host only (the server checks both).
   const endMatch = () => {
@@ -152,6 +157,7 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
       const state = room.state as RoomStateView;
       showMatchOverlays(state, frame, effects, mine?.crew ?? null, { countdown, banner, scoreboard });
       showPauseControls(state, mine !== null, state.hostId === room.sessionId, paused);
+      byId("hud-back").hidden = mine !== null;
       // Read by the browser smoke tests (a canvas has no elements to inspect).
       canvasHost.dataset.ships = String(frame?.ships.filter((s) => !s.sunk).length ?? 0);
       canvasHost.dataset.shots = String(frame?.shots.size ?? 0);

@@ -55,7 +55,13 @@
       /* Stage 3: your crew and the crews in the room. */
       #my-crew-title { margin: 8px 0 0; }
       .note { margin: 2px 0 8px; font-size: 13px; font-style: italic; }
-      #role-buttons { display: grid; grid-template-columns: repeat(2, minmax(0, 160px)); gap: 8px; }
+      #role-buttons, .role-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 160px)); gap: 8px; }
+      /* Stage 3 slice 3: the waiting screen. */
+      #waiting-figures { display: grid; grid-template-columns: repeat(3, minmax(0, 120px)); gap: 8px; margin: 12px 0; }
+      #waiting-figures div { display: flex; flex-direction: column; align-items: center; padding: 8px; border: 1px solid rgba(255,255,255,0.4); }
+      #waiting-figures strong { font-size: 22px; }
+      #waiting-figures span { text-align: center; }
+      #w-pair { display: flex; flex-wrap: wrap; gap: 8px; }
       .role-btn { display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: 56px; }
       .role-btn[aria-pressed="true"] { background: #ffd166; font-weight: 600; }
       /* A taken role can't be tapped, but stays easy to read (yours, or your partner's). */
@@ -109,7 +115,24 @@
         </div>
         <p><button id="find-partner">Find me a partner</button> <button id="leave-crew">Leave this crew</button></p>
       </section>
-      <p id="no-crew" hidden>A match is under way: you'll get a crew when it ends.</p>
+      <section id="waiting" hidden>
+        <h2>A match is under way</h2>
+        <p>You'll join at the start of the next round. Set up your crew while you wait.</p>
+        <div id="waiting-figures">
+          <div><strong id="w-afloat"></strong><span>ships afloat</span></div>
+          <div><strong id="w-clock"></strong><span id="w-clock-label"></span></div>
+          <div><strong id="w-others"></strong><span>others waiting</span></div>
+        </div>
+        <h3>Your crew for the next round</h3>
+        <div class="role-pair">
+          <button id="w-role-pilot" class="role-btn" aria-pressed="true"><strong>Pilot</strong></button>
+          <button id="w-role-gunner" class="role-btn" aria-pressed="false"><strong>Gunner</strong></button>
+        </div>
+        <p id="w-partner"></p>
+        <div id="w-pair"></div>
+        <p><button id="w-alone" hidden>Wait alone</button> <button id="w-watch">Watch the match</button></p>
+        <p class="note">Your crew colour is assigned when the round starts.</p>
+      </section>
       <h2>Crews in this room</h2>
       <ul id="crew-list"></ul>
       <p><button id="ready" aria-pressed="false">Ready</button> <span id="ready-count"></span></p>
@@ -150,6 +173,7 @@
         <span id="hud-clock"></span>
         <button id="hud-pause" hidden>Pause</button>
         <button id="hud-exit" hidden>Exit</button>
+        <button id="hud-back" hidden>Back</button>
       </div>
       <div id="game"></div>
       <div id="touch" hidden>

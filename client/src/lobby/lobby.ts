@@ -18,6 +18,7 @@ import { renderResult, startGame, type GameHandle, type RoomStateView } from "..
 import { joinErrorText, rejectedText } from "./messages.ts";
 import { reloadIfNewBuild } from "./newBuild.ts";
 import { crewRows, myCrew, readyCount, type LobbyPlayer } from "./crewList.ts";
+import { waitingView } from "./waiting.ts";
 import { LAYOUT_CHOICES, LIFE_CHOICES, REEF_CHOICES, hazardsText, layoutText, livesShown, settingsText } from "./settings.ts";
 import { clearToken, loadToken, saveToken } from "./reconnectToken.ts";
 import { codeFromSearch, joinBase, joinLink } from "./joinLink.ts";
@@ -59,6 +60,8 @@ export function startLobby(): void {
     nameInput.focus();
   }
   let game: GameHandle | null = null;
+  /** Stage 3 slice 3: a player waiting out a match is watching it (Watch the match) rather than on the waiting screen. */
+  let watching = false;
   let lastPhase = "";
   const stopGame = () => {
     game?.stop();
@@ -125,6 +128,13 @@ export function startLobby(): void {
     for (const role of ROLES) byId(`role-${role}`).onclick = () => takeSeat(room, myCrewNow ?? 0, role);
     byId("find-partner").onclick = () => { showError(""); room.send(ClientMessage.FindPartner); };
     byId("leave-crew").onclick = () => { showError(""); room.send(ClientMessage.LeaveCrew); };
+    // Stage 3 slice 3: setting up your crew for the next round while waiting out a match.
+    for (const role of ROLES) byId(`w-role-${role}`).onclick = () => room.send(ClientMessage.SetNextRole, { role });
+    byId("w-alone").onclick = () => room.send(ClientMessage.PairWith, { player: "" });
+    byId("w-watch").onclick = () => {
+      watching = true;
+      renderRoom(room, room.state as StateView);
+    };
     byId("ready").onclick = () => room.send(ClientMessage.SetReady, { ready: byId("ready").getAttribute("aria-pressed") !== "true" });
     // Only the host sees Start; the server checks it too.
     byId("start").onclick = () => { showError(""); room.send(ClientMessage.Start); };
@@ -192,7 +202,15 @@ export function startLobby(): void {
     // The game view runs from the countdown until the player leaves the scoreboard.
     // A countdown straight after "over" is a new match (a fresh game view); after a pause it's a resume.
     if (phase === Phase.Countdown && lastPhase === Phase.Over && game) stopGame();
-    if (matchOn && !game) game = startGame(room, stopGame);
+    // A player waiting out the match sees the game only while watching it (Back returns to the waiting screen).
+    const waiting = matchOn && state.players.get(room.sessionId)?.crew === undefined;
+    if (!matchOn) watching = false;
+    if (matchOn && !game && (!waiting || watching)) {
+      game = startGame(room, () => {
+        watching = false;
+        stopGame();
+      });
+    }
     if (phase === Phase.Waiting && game) stopGame();
     lastPhase = phase;
 
@@ -254,6 +272,36 @@ export function startLobby(): void {
     room.send(ClientMessage.TakeSeat, { crew, role });
   }
 
+  /** Stage 3 slice 3: the waiting screen, for a player without a crew while a match is on. */
+  function renderWaiting(room: Room, state: StateView, shown: boolean): void {
+    byId("waiting").hidden = !shown;
+    if (!shown) return;
+    const players: { id: string; name: string; crew?: number; nextRole: string; partner: string }[] = [];
+    state.players.forEach((pl, id) => players.push({ id, name: pl.name, crew: pl.crew, nextRole: pl.nextRole, partner: pl.partner }));
+    const view = waitingView({
+      players, mode: state.matchMode, timeLeft: state.timeLeft, matchStorm: state.matchStorm,
+      stormStartsAt: state.stormStartsAt, stormClosedAt: state.stormClosedAt, ships: [...state.ships],
+    }, room.sessionId);
+    byId("w-afloat").textContent = String(view.afloat);
+    byId("w-clock").textContent = view.clock.value;
+    byId("w-clock-label").textContent = view.clock.label;
+    byId("w-others").textContent = String(view.othersWaiting);
+    for (const role of ROLES) byId(`w-role-${role}`).setAttribute("aria-pressed", String(view.nextRole === role));
+    byId("w-partner").textContent = view.partnerName ? `Paired with ${view.partnerName}` : "Looking for a partner";
+    byId("w-alone").hidden = view.partnerName === null;
+    const pair = byId("w-pair");
+    const wanted = view.pairWith.map((o) => o.id).join(",");
+    if (pair.dataset.ids !== wanted) {
+      pair.dataset.ids = wanted;
+      pair.replaceChildren(...view.pairWith.map((other) => {
+        const button = document.createElement("button");
+        button.textContent = `Pair with ${other.name}`;
+        button.onclick = () => room.send(ClientMessage.PairWith, { player: other.id });
+        return button;
+      }));
+    }
+  }
+
   /** This player's crew right now (for the role buttons), or null without one. */
   let myCrewNow: number | null = null;
 
@@ -267,7 +315,7 @@ export function startLobby(): void {
     const mine = myCrew(players, room.sessionId);
     myCrewNow = mine?.crew ?? null;
     byId("my-crew").hidden = mine === null;
-    byId("no-crew").hidden = mine !== null || !matchOn;
+    renderWaiting(room, state, mine === null && matchOn);
     // Read by the browser tests: this player's crew (from 0) and role.
     const crewBox = byId("my-crew");
     if (mine) {

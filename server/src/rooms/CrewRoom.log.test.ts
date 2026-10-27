@@ -124,12 +124,12 @@ describe("match event log", () => {
     expect(lines().at(-1)).toMatchObject({ type: "matchEnd", endedEarly: false, t: TUNING.match.duration * 1000 });
   });
 
-  it("logs players joining and reconnecting mid-match, and seats taken", async () => {
+  it("logs players joining and reconnecting mid-match (a late joiner waits for the next round: no seat taken)", async () => {
     const { room, gunner, lines, start } = await loggedRoom();
     await start();
     const late = await colyseus.sdk.joinById(room.roomId, { name: "Late" });
     late.send(ClientMessage.TakeSeat, { crew: 1, role: "pilot" });
-    await waitFor(() => room.state.players.get(late.sessionId)?.role === "pilot");
+    await waitFor(() => room.state.players.has(late.sessionId));
     const token = gunner.reconnectionToken;
     gunner.reconnection.enabled = false;
     gunner.connection.close(4010);
@@ -140,7 +140,7 @@ describe("match event log", () => {
 
     const log = lines();
     expect(ofType(log, "playerJoined")[0]).toMatchObject({ player: "Late", ship: null, role: null });
-    expect(ofType(log, "seatTaken")[0]).toMatchObject({ player: "Late", ship: 1, role: "pilot" });
+    expect(ofType(log, "seatTaken")).toEqual([]);
     expect(ofType(log, "playerDropped")[0]).toMatchObject({ player: "Gunner", ship: 0, role: "gunner" });
     expect(ofType(log, "playerReconnected")[0]).toMatchObject({ player: "Gunner", ship: 0, role: "gunner" });
   });
