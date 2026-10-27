@@ -40,6 +40,20 @@ export interface CrewSummary {
   /** Stage 2: times a kraken grabbed this crew's ship, and the damage those grabs did. */
   krakenGrabs: number;
   krakenDamage: number;
+  /** Stage 2: damage this crew's ship took ramming wrecks. */
+  wreckRamDamage: number;
+  /** Stage 2: this crew's shots and torpedoes that hit a kraken. */
+  krakenHits: number;
+}
+
+/** Stage 2: one kind of dynamic hazard over the match (with hazards on). */
+export interface HazardOverview {
+  kind: "movingStorm" | "whirlpool" | "kraken";
+  /** Signalled in the match, and how many of those a zone's haunting set off. */
+  count: number;
+  haunted: number;
+  /** How they stopped acting: time up, a storm left the sea, a kraken's grab ended, a kraken was shot. */
+  ended: { time: number; edge: number; grab: number; shot: number };
 }
 
 /** Stage 2: Last Afloat figures for one crew. */
@@ -112,6 +126,8 @@ export interface MatchSummary {
   lastAfloat: CrewLastAfloat[] | null;
   /** Per crew, in the same order as crews; null with packs off. */
   packs: CrewPacks[] | null;
+  /** Stage 2: each kind of dynamic hazard over the match; null with hazards off. */
+  hazards: HazardOverview[] | null;
 }
 
 export function parseLog(text: string): Line[] {
@@ -213,6 +229,8 @@ export function summarise(lines: readonly Line[]): MatchSummary {
       whirlpoolTime: timeIn("whirlpoolEntered", "whirlpoolLeft"),
       krakenGrabs: mine("krakenGrab").length,
       krakenDamage: Math.round(mine("krakenDamage").reduce((sum, l) => sum + (l.damage as number), 0) * 10) / 10,
+      wreckRamDamage: Math.round(mine("wreckHit").filter((l) => l.weapon === "bump").reduce((sum, l) => sum + ((l.shipDamage as number | undefined) ?? 0), 0) * 10) / 10,
+      krakenHits: mine("krakenHit").length,
     };
   });
 
@@ -237,7 +255,21 @@ export function summarise(lines: readonly Line[]): MatchSummary {
     crews: summaries,
     lastAfloat: mode === "lastAfloat" ? lastAfloatFigures(lines, crews, scores, winner, endT, afloat) : null,
     packs: packsOn ? crews.map((c) => packFigures(lines, c.ship)) : null,
+    hazards: start?.hazardsOn === true ? hazardOverview(lines) : null,
   };
+}
+
+const HAZARD_KINDS = ["movingStorm", "whirlpool", "kraken"] as const;
+
+function hazardOverview(lines: readonly Line[]): HazardOverview[] {
+  const kindOf = new Map(lines.filter((l) => l.type === "hazardSignalled").map((l) => [l.hazard, l.kind]));
+  const haunted = new Set(lines.filter((l) => l.type === "hauntingTriggered").map((l) => l.hazard));
+  return HAZARD_KINDS.map((kind) => {
+    const ids = [...kindOf].filter(([, k]) => k === kind).map(([id]) => id);
+    const ends = lines.filter((l) => l.type === "hazardEnded" && l.kind === kind);
+    const ended = (reason: string) => ends.filter((l) => l.reason === reason).length;
+    return { kind, count: ids.length, haunted: ids.filter((id) => haunted.has(id)).length, ended: { time: ended("time"), edge: ended("edge"), grab: ended("grab"), shot: ended("shot") } };
+  });
 }
 
 function lastAfloatFigures(
@@ -365,11 +397,27 @@ export function formatSummary(s: MatchSummary): string {
     `${r1(c.emptySeconds)} s`,
     `${r1(c.averageSurvivalSeconds)} s (${c.lives})`,
     Object.entries(c.sunkBy).map(([cause, n]) => `${cause} ${n}`).join(" · ") || "—",
-    ...(s.hazardsOn ? [r1(c.movingStormTime), r1(c.whirlpoolTime), `${c.krakenGrabs} (${r1(c.krakenDamage)})`, `${c.reefHits} (${r1(c.reefDamage)})`, `${c.wrecksDestroyed} (${c.wreckPacksReleased})`] : []),
-    ...(s.stormOn ? [r1(c.stormDamage)] : []),
   ]);
-  const head = ["Crew", "Pilot & Gunner", "Sinkings", "Shots", "Hits", "Blocked", "Accuracy", "Energy boost / shield", "Empty bar", "Avg survival (lives)", "Sunk by", ...(s.hazardsOn ? ["Time in moving storms (s)", "Whirlpool time (s)", "Kraken grabs (damage)", "Reef hits (damage)", "Wrecks destroyed (packs released)"] : []), ...(s.stormOn ? ["Storm damage"] : [])];
+  const head = ["Crew", "Pilot & Gunner", "Sinkings", "Shots", "Hits", "Blocked", "Accuracy", "Energy boost / shield", "Empty bar", "Avg survival (lives)", "Sunk by"];
   const out = [header, "", ...table(head, rows)];
+  if (s.hazards) {
+    // Stage 2: each crew's hazard figures, then the match's dynamic hazards.
+    const hazardRows = s.crews.map((c) => [
+      `Crew ${c.ship + 1}`,
+      `${c.reefHits} (${r1(c.reefDamage)})`,
+      r1(c.wreckRamDamage),
+      `${c.wrecksDestroyed} (${c.wreckPacksReleased})`,
+      ...(s.stormOn ? [r1(c.stormDamage)] : []),
+      r1(c.movingStormTime),
+      r1(c.whirlpoolTime),
+      `${c.krakenGrabs} (${r1(c.krakenDamage)})`,
+      String(c.krakenHits),
+    ]);
+    const hazardHead = ["Crew", "Reef hits (damage)", "Wreck ram damage", "Wrecks destroyed (packs released)", ...(s.stormOn ? ["Storm damage"] : []), "Time in moving storms (s)", "Whirlpool time (s)", "Kraken grabs (damage)", "Kraken hits"];
+    out.push("", "Hazards", ...table(hazardHead, hazardRows));
+    const kindRows = s.hazards.map((h) => [HAZARD_NAMES[h.kind], String(h.count), String(h.haunted), `${h.ended.time} · ${h.ended.edge} · ${h.ended.grab} · ${h.ended.shot}`]);
+    out.push("", "Hazards this match", ...table(["Kind", "Came", "From haunting", "Ended: time up · left the sea · grab over · shot"], kindRows));
+  }
   if (s.lastAfloat) {
     // Time as a ghost only for a match that had one.
     const ghosts = s.lastAfloat.some((c) => c.ghostSeconds > 0);
@@ -381,6 +429,7 @@ export function formatSummary(s: MatchSummary): string {
 }
 
 const REEF_NAMES: Record<string, string> = { none: "None", few: "Few", all: "All" };
+const HAZARD_NAMES: Record<HazardOverview["kind"], string> = { movingStorm: "Moving storm", whirlpool: "Whirlpool", kraken: "Kraken" };
 const hazardsText = (s: MatchSummary) => (s.hazardsOn ? `Hazards on, reefs ${REEF_NAMES[s.reefs] ?? s.reefs}` : "Hazards off");
 const modeText = (s: MatchSummary) => (s.mode === "lastAfloat" ? `Last Afloat, ${s.lives ?? "?"} lives` : "Sink Count");
 const ordinal = (n: number) => `${n}${n === 1 ? "st" : n === 2 ? "nd" : n === 3 ? "rd" : "th"}`;

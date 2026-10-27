@@ -127,3 +127,61 @@ _(to fill in after the playtest)_
 - **After a rebuild:** pages left open reload themselves when they next join or reconnect, and rejoin their seat. If a phone still acts strangely (e.g. the top bar still says "Pack:" instead of "Packs:"), reload its page by hand.
 - **Something looks old or broken after a code change:** rebuild (step 1) and check the build output.
 - **Server output:** `sudo docker compose logs --tail 100` (normal terminal).
+
+---
+
+# Stage 2 playtest
+
+One question: **do hazards and ghosts keep sunk crews involved?**
+
+Play **Last Afloat rounds with hazards on and with hazards off** (at least 2 off, then at least 3 on), with the same people. Ghosts only come with **3 ships** (5–6 players): with 2 ships, the first crew out ends the match. So play 3-ship rounds whenever there are enough people. It can run in the same session as the combined playtest above.
+
+## Setting up a round
+
+Start the game and join as in "Before the players arrive" and "Running a round" above. Then the host sets, in the room screen:
+
+- **Mode:** tap **Last Afloat**; pick **Lives** (1–5; 1 gets crews out, and ghosts in, soonest).
+- **Hazards on / off**, and with hazards on the **Reefs** amount (None, Few, All).
+- **Layout:** one of the nine, or **Random** (never the same twice in a row).
+
+Every crew with a ship needs at least one player, or Start shows a message.
+
+## What players will see (hazards on)
+
+- **Reefs** (light, dotted shallows): slow you down and hit you once on entering.
+- **Shipwrecks** (broken brown hulls): solid until shot, rammed or blasted to pieces; a glint means it holds a pack.
+- **Closing storm** (Last Afloat): "Storm in 1:00" at the top, then a dark storm closing in from the edge; outside the circle you lose health every second.
+- **Dynamic hazards**, signalled 3 s before they act (the first at 0:30, then 30–50 s after the last one has gone; one at a time, plus one set off by haunting):
+  - **Moving storm** (dashed ring and arrow): a dark cloud that drifts, carries ships along and hides what's inside it from everyone else.
+  - **Whirlpool** (dashed ring with turning arrows): pulls ships in and swirls them round; only boosting gets you out of the eye; riding the swirl is a slingshot.
+  - **Kraken** (ripples and bubbles): swims to the nearest ship, grabs it for 3 s and hurts it; three shots (or a torpedo and a shot) make it let go.
+- **Ghosts** (a crew that is out): a dashed outline in the crew's colour; both crewmates steer it (WASD, or the stick on a phone). It can't touch anyone, but where it lingers, fog builds ("Haunting ▮▮▮▯▯" on its crew's top bar) until a hazard comes in that zone.
+
+## Notes sheet (one row per round)
+
+| Round | Layout | Ships · lives | Hazards on/off | Crews (pilot / gunner) | Winner | Sunk crews: stayed involved as ghosts? What did they do? | Hazards noticed / avoided / used | Asked for another round? | Anything else (confusing, annoying, broken) |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | | | off | | | | — | | |
+| 2 | | | off | | | | — | | |
+| 3 | | | on | | | | | | |
+| 4 | | | on | | | | | | |
+| 5 | | | on | | | | | | |
+
+## After the playtest
+
+Summarise the logs as above (`npm run summary -- logs/*.jsonl`). For Stage 2 the summary adds:
+
+- **Header:** mode and lives, layout (and whether Random picked it), hazards and reefs.
+- **Main table:** "Sunk by" (how each crew was sunk, by cause).
+- **Hazards table** (hazards on), per crew: reef hits and damage, damage ramming wrecks, wrecks destroyed (and packs they released), closing-storm damage, time in moving storms and whirlpools, kraken grabs (and their damage), hits on krakens.
+- **Hazards this match:** per kind, how many came, how many haunting set off, and how they ended.
+- **Last Afloat table:** finishing place, time afloat, lives used, and (with a ghost) time as a ghost and hazards set off by haunting.
+
+Compare them with your notes. For example:
+- Did crews with long "time as a ghost" also set off hazards, or just drift?
+- Which hazards ended by "time up" with nobody caught (ignored), and which caught or were shot?
+- Did rounds with hazards on get more "another round?" than rounds with hazards off?
+
+## Findings
+
+_(to fill in after the playtest)_

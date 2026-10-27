@@ -506,6 +506,18 @@ Agreed after Stage 2 slice 7, before the kraken.
   - **Test server:** the ghost server (port 2582) now uses `HAZARDS_FIRST_AT=999` (haunting on, no timer hazard during the test); the ghost test also checks the ghost crew's top bar shows the meter filling while the living crews keep their pack slots. Running one file from a later test group needs `--no-deps` (otherwise the "main" group runs first).
   - **Runs:** `npm test` passed (870 unit plus 1 skipped, 22 browser), and another full browser run passed 22 of 22.
 
+### 2026-10-27 — Stage 2 slice 10 plan: summary script additions and home-network check matches
+
+- **Question 1:** a) the summary adds wreck-ram damage, a match-level hazard overview (per kind: how many, how many set off by haunting, how they ended; who shot krakens), and moves every hazard column out of the main per-crew table into a separate per-crew "Hazards" table (hazards on only; same numbers, printed elsewhere). Tested on a hand-made sample log of a full Stage 2 match.
+- **Question 2, ok:** five check matches in Docker over the Wi-Fi, phones and laptops mixed: 1) Sink Count, packs on, hazards off, One Island; 2) Sink Count, hazards on, Random layout; 3) Last Afloat, 2 ships, 2 lives, hazards on; 4) Last Afloat, 3 ships (5–6 players), 1 life, hazards on (ghosts and haunting); 5) Last Afloat, hazards off. Fix only what blocks a full match; the rest goes to NOTES.md (watch items or Later) for the user to decide.
+- **Question 3:** a) add the Stage 2 playtest notes sheet to `docs/playtest.md` in this slice (the Stage 1 combined playtest is still owed; both can run in one session).
+- **Question 4:** a) part 1 (summary and playtest sheet) is built and committed first, then the check matches.
+- **Part 1 built (2026-10-27):**
+  - **Summary:** per crew, `wreckRamDamage` (from `wreckHit` rams' ship damage) and `krakenHits` (shots and torpedoes that hit a kraken); a match-level `hazards` overview (per kind: how many signalled, how many by haunting, ended by time, edge, grab or shot; null with hazards off). Printing: the main table keeps the Stage 0/1 columns and "Sunk by"; with hazards on a **Hazards** table follows (reef hits, wreck ram damage, wrecks destroyed, closing-storm damage, time in moving storms, whirlpool time, kraken grabs, kraken hits) and a **Hazards this match** table (kind, came, from haunting, how they ended). Existing summary tests whose column checks named the old positions now check the same figures in the Hazards table. A hand-made full Stage 2 log (3 ships, every hazard kind, a ghost that haunts) is checked figure by figure.
+  - **`docs/playtest.md`:** a Stage 2 playtest section (setting up Last Afloat rounds, what players will see, a notes sheet, what the summary adds, findings to fill in).
+  - **Noticed, not changed:** the summary header says "Last Afloat, 1 lives" (singular not handled).
+  - **Runs:** `npm test` passed (875 unit plus 1 skipped, 22 browser).
+
 ## Later
 
 - **(2026-10-25, Stage 5) Ship types**, discussed with the user ahead of Stage 5 (not to build before then):
