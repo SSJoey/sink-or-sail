@@ -518,6 +518,26 @@ Agreed after Stage 2 slice 7, before the kraken.
   - **Noticed, not changed:** the summary header says "Last Afloat, 1 lives" (singular not handled).
   - **Runs:** `npm test` passed (875 unit plus 1 skipped, 22 browser).
 
+### 2026-10-27 — Stage 2 wrap-up deferred; Stage 3 planning starts
+
+- **Deferred, still owed (user's choice):** Stage 2 slice 10 part 2 (the five home-network check matches) and the Stage 2 playtest (`docs/playtest.md`), like the Stage 1 combined playtest. Stage 2's definition of done items 1 and 5 stay open; they can be run any time, for example alongside Stage 3 testing.
+- **Stage 3 planning starts:** Claude drafts the plan from `docs/design.md`; nothing is built until the user approves it.
+
+### 2026-10-27 — Stage 3 planning (full lobby)
+
+Drafted from `docs/design.md` and the lobby mock-ups on the look-options canvas (Join, Crew and role, Host settings, Waiting; Fleets is Stage 5). Scope: lobby screens, changing your name, the QR code, the waiting screen for late joiners, bots (partner and whole ships), results and awards with Play again / Back to lobby, spectator view, a simple lifebar, log and summary additions. Out: Fleet Battle, map size, more than 3 ships (Stage 5); sea-chart art, sound, cloud hosting, the spectator delay (Stage 4).
+
+- **Question 1 (lobby model):** a) switch to the mock-ups' **crew-based model**: your crew gets a colour automatically; you pick Pilot or Gunner; then Find me a partner, join a crew from the room's list, or Play with a bot (instead of today's seat grid).
+- **Question 2 (look):** a) the mock-ups' layout and flow now, in today's plain style; the sea-chart look comes with Stage 4's art.
+- **Question 3:** a) a **Ready** button per crew, and "x of y crews ready" for the host; the host can still start without everyone ready.
+- **Question 4:** yes, the **QR code** moves into Stage 3 (slice 1).
+- **Question 5:** a) **all 17 awards**. Still to settle in the awards slice's plan: what "Storm Chaser" counts (closing storm, moving storms, or both) and the speed below which a ship counts as standing still for "Sitting Duck".
+- **Question 6:** a) **partner bots, then bot ships**, in both modes; bots steer round islands, reefs and hazards and use packs; bot crews don't become ghosts.
+- **Question 7, ok:** the spectator view is live (no delay until online play in Stage 4), shown on its own laptop or TV.
+- **Question 8, ok:** a thin lifebar above every ship (green, amber, red), the same for everyone.
+- **Question 9, ok:** done includes a Stage 3 playtest timing how long a fresh group takes from opening the page to playing (target 30 s), plus the usual tests.
+- **Question 10, ok (slice order):** 1 changing your name and the QR code; 2 the new lobby screens and crew pairing (with Ready); 3 the waiting screen and late joiners; 4 the lifebar; 5 results screen, Play again, back to the lobby; 6 awards; 7 spectator view; 8 partner bots (bot gunner and bot pilot); 9 bot ships; 10 log and summary additions, then check matches.
+
 ## Later
 
 - **(2026-10-25, Stage 5) Ship types**, discussed with the user ahead of Stage 5 (not to build before then):

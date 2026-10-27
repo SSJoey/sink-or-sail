@@ -10,7 +10,8 @@ Full design: `docs/design.md` (exported from the "Sink or Sail — Game Design" 
 - **Stage 1 is built and committed** (8 slices: pack basics and health, mine, torpedo, EMP, summary script additions, home network play; slice 7, changes after the check matches: unpicked packs disappear, leaving a seat, two pack slots; slice 8, a third ship: up to 3 crews and 6 players, Frigates only). Slice 6 ran five packs-on check matches in Docker over the Wi-Fi, two of them with 4 players. The **combined playtest is deferred, still owed** (2026-10-26).
 - **Stage 2 is planned** (2026-10-26). **Slice 1 is built and committed** (2026-10-26, `57029bf`): mode choice and Last Afloat. **Slice 2 is built and committed** (2026-10-26): nine island layouts, a host Layout dropdown with Random. **Slice 3 is built and committed** (2026-10-26): the host's Hazards on/off toggle and reefs (None / Few / All). **Slice 4 is built and committed** (2026-10-26): shipwrecks (solid until shot, rammed or blasted to pieces; half of them hold a pack, shown by a glint). **Slice 5 is built and committed** (2026-10-26): the closing storm (Last Afloat with hazards on). **Slice 6 is built and committed** (2026-10-26): the hazard timer and the moving storm (both modes, hazards on). **Slice 7 is built and committed** (2026-10-27): the whirlpool. **Slice 8 is built and committed** (2026-10-27): the kraken. **Slice 9 is split in two** (9a ghosts, 9b haunting); **9a is built and committed** (2026-10-27): ghosts (Last Afloat; only in 3-ship matches, since a 2-ship match ends at the first crew out). **9b is built and committed** (2026-10-27): haunting (zones, meters, fog, hazards set off by haunting). **Browser-test reliability** (2026-10-27): the browser tests draw on the graphics chip, at 20 frames a second, 2 at a time; 5 clean full runs in a row.
 - **Tests now:** 875 unit tests (plus 1 skipped: the mirror check for One Island, which is today's irregular island) and 22 browser tests, type-check clean. Browser runs still fail sometimes under load (see the watch item).
-- **Stage 2 slice 10 is planned** (2026-10-27): **part 1 is built and committed** (summary additions, Stage 2 playtest sheet in `docs/playtest.md`). **Next:** part 2, the five home-network check matches in Docker over the Wi-Fi (NOTES.md, slice 10 plan).
+- **Stage 2 slice 10 is planned** (2026-10-27): **part 1 is built and committed** (summary additions, Stage 2 playtest sheet in `docs/playtest.md`). Part 2 (the five home-network check matches) and the Stage 2 playtest are **deferred, still owed** (2026-10-27), like the Stage 1 combined playtest.
+- **Stage 3 is planned** (2026-10-27; see "Current goal: Stage 3" below, answers in `NOTES.md`). **Next:** Stage 3 slice 1 (changing your name and the QR code), starting with its own plan and a go-ahead.
 
 Every decision, with its date, is in `NOTES.md`.
 
@@ -87,7 +88,56 @@ Every decision, with its date, is in `NOTES.md`.
 - **Known open question for Stage 2:** with 2 ships, Last Afloat ends at the first sinking, so ghosts get no time. The approach (for example extra lives per ship before a crew becomes a ghost) will be decided when Stage 2 is planned. Don't solve it in code.
 - When work on the current stage suggests something for a later stage (for example a lifebar would help now), note it in `NOTES.md` under "Later" and say so; don't build it.
 
-## Current goal: Stage 2 — the sea fights back
+## Current goal: Stage 3 — full lobby
+
+Answer one question: **can a group get playing within 30 seconds?** Build on Stage 2 without changing how a match plays. Planned with the user on 2026-10-27 (answers in `NOTES.md`). Stage 2's check matches and playtest, and the Stage 1 combined playtest, are deferred, still owed, and can run alongside Stage 3 testing.
+
+### Stage 3 scope (in)
+
+Following the lobby mock-ups (Join, Crew and role, Host settings, Waiting) in **layout and flow**, in today's plain style (the sea-chart look is Stage 4):
+
+- **Join screen:** room code (filled in from a QR code's link), your name, Join room; or Host a new room.
+- **Changing your name** in the lobby before a match.
+- **QR code** on the host's screen: the laptop's address and the room code, so phones scan instead of typing.
+- **Crew-based lobby** (replaces the seat grid): your crew's colour is assigned automatically; you pick **Pilot** or **Gunner**; then **Find me a partner**, join a crew from the room's list, or **Play with a bot**. A **Ready** button per crew; the host sees "x of y crews ready" and can start anyway.
+- **Host settings:** room code and QR code, mode, lives, packs, hazards and reefs, layout, **bot ships**, Start.
+- **Waiting screen** for late joiners ("A match is under way": ships afloat, storm timer, others waiting); they set up their crew and join at the next round.
+- **Bots:** a solo player picks a role and a bot takes the other (a friend replaces it from the next round); the host can add whole bot ships (still at most 3 ships). A bot pilot heads for packs and steers round islands, reefs and hazards; a bot gunner aims at the nearest enemy and shields when hit; they use packs. Decent, never brilliant. Bot crews don't become ghosts. Both modes.
+- **Results and awards:** a winner banner and a results table (place, crew, sinkings, time afloat); 3–4 awards picked at random from those earned, at most one per crew (all 17 from `docs/design.md`); **Play again** (same crews and settings, when the host confirms) or **Back to lobby**, everyone back in the lobby after 20 s.
+- **Spectator view:** **Watch** with the room code (live, no delay): the whole sea, the scoreboard, ships left, the storm and haunted zones; **Play next round** joins the next round. A host can host without playing.
+- **A simple lifebar** above every ship (green, amber, red), the same for everyone.
+- Stage 3 events in the match log (bots, spectators, awards) and the summary.
+
+### Stage 3 scope (out — do not build yet)
+
+Fleet Battle, fleet numbers, map size, more than 3 ships, ship types (Stage 5); sea-chart art for the lobby and the game, sound and countdown beeps, cloud hosting, the spectator delay for online play, a styled lifebar, visible damage (Stage 4).
+
+### Stage 3 starting values
+
+As in Stage 2, each slice's plan proposes its values (bot reaction times and aim, results timings, award definitions, lifebar colours) and they are approved before building. Still open for the awards slice: what "Storm Chaser" counts, and the speed below which a ship counts as standing still ("Sitting Duck").
+
+### Build order for Stage 3
+
+Same rules as before: plan, go-ahead, build with tests, summary, stop.
+
+1. **Changing your name and the QR code.**
+2. **The new lobby screens and crew pairing** (Find me a partner, join a crew, Ready).
+3. **The waiting screen and late joiners.**
+4. **The lifebar.**
+5. **Results screen, Play again, back to the lobby** (20 s).
+6. **Awards.**
+7. **Spectator view.**
+8. **Partner bots** (bot gunner and bot pilot).
+9. **Bot ships.**
+10. **Log and summary additions, then check matches** in Docker over the Wi-Fi.
+
+### Definition of done for Stage 3 (proposed)
+
+1. A fresh group gets from opening the page to playing within about 30 seconds, on phones and laptops, timed in a Stage 3 playtest recorded in `docs/playtest.md`.
+2. Everything in scope works as described, including solo players with a bot partner, bot ships, spectators and late joiners.
+3. Every slice's tests pass (including all earlier tests), type-check is clean, and every decision is in `NOTES.md`.
+
+## Stage 2 — the sea fights back (built; check matches and playtest deferred)
 
 Answer one question: **do hazards and ghosts keep sunk crews involved?** Build on Stage 1 without changing how it plays on the default map with hazards off. Planned with the user on 2026-10-26 (answers in `NOTES.md`); the Stage 1 combined playtest is deferred, still owed, and can run alongside Stage 2 testing.
 
