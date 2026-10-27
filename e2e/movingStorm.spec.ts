@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { join } from "./helpers.ts";
+import { join, seatAs } from "./helpers.ts";
 
 // The third test server's first dynamic hazard comes at 0:02 (playwright.config.ts). With seed 14 it is a moving
 // storm signalled 250 from Crew 2's start; it forms at 0:05, swallows Crew 2's waiting ship from about 0:08 and
@@ -14,8 +14,8 @@ test("moving storm: signalled, then forms and moves; the ship inside is hidden f
   const code = (await host.textContent("#code"))!;
   const other = await page();
   await join(other, "Other", code);
-  await host.getByRole("button", { name: /Crew 1 · Pilot — free/ }).click();
-  await other.getByRole("button", { name: /Crew 2 · Pilot — free/ }).click();
+  // The host is Crew 1's pilot (first to join); the other player is paired in as its gunner, then starts Crew 2.
+  await seatAs(other, 2, "pilot");
   await expect(host.locator("#hazards-toggle")).toBeChecked();
   await host.click("#start");
 

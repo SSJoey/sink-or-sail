@@ -1,7 +1,6 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { boot, type ColyseusTestServer } from "@colyseus/testing";
-import type { Room as ClientRoom } from "@colyseus/sdk";
-import { ClientMessage, Phase, ROOM_NAME, TUNING, type Crew, type Role } from "@sink-or-sail/shared";
+import { ClientMessage, Phase, ROOM_NAME, TUNING } from "@sink-or-sail/shared";
 import { server } from "../app.config.ts";
 import { memorySink, type LogSink } from "../log/matchLog.ts";
 import type { CrewRoom } from "./CrewRoom.ts";
@@ -14,18 +13,15 @@ beforeEach(async () => { await colyseus.cleanup(); });
 
 type Line = { t: number; type: string } & Record<string, unknown>;
 
-/** A crewed room whose match log goes to memory; returns the file names asked for and the lines written. */
+/**
+ * A room with Crew 1's pilot (the host) and gunner (paired in on joining; Stage 3), Crew 2 empty, whose match log
+ * goes to memory; returns the file names asked for and the lines written.
+ */
 async function loggedRoom() {
   const pilot = await colyseus.sdk.create(ROOM_NAME, { name: "Pilot" });
   const room = colyseus.getRoomById<CrewRoom>(pilot.roomId) as CrewRoom;
   const gunner = await colyseus.sdk.joinById(pilot.roomId, { name: "Gunner" });
-  const watcher = await colyseus.sdk.joinById(pilot.roomId, { name: "Watcher" });
-  const seat = async (client: ClientRoom, crew: Crew, role: Role) => {
-    client.send(ClientMessage.TakeSeat, { crew, role });
-    await waitFor(() => room.state.players.get(client.sessionId)?.role === role);
-  };
-  await seat(pilot, 0, "pilot");
-  await seat(gunner, 0, "gunner");
+  await waitFor(() => room.state.players.get(gunner.sessionId)?.role === "gunner");
 
   const files: string[] = [];
   const sink = memorySink();
@@ -36,7 +32,7 @@ async function loggedRoom() {
     pilot.send(ClientMessage.Start);
     await waitFor(() => room.state.phase === Phase.Running);
   };
-  return { room, pilot, gunner, watcher, files, lines, start };
+  return { room, pilot, gunner, files, lines, start };
 }
 
 const ofType = (lines: Line[], type: string) => lines.filter((l) => l.type === type);
@@ -56,8 +52,10 @@ describe("match event log", () => {
   });
 
   it("logs a whole match: start with crews and tuning, actions with names and roles, pause, early end", async () => {
-    const { room, pilot, gunner, watcher, lines, start } = await loggedRoom();
+    const { room, pilot, gunner, lines, start } = await loggedRoom();
     await start();
+    // Joining mid-match with no crew waiting for a partner: no crew until the next round.
+    const watcher = await colyseus.sdk.joinById(room.roomId, { name: "Watcher" });
     pilot.send(ClientMessage.Input, { steer: { x: 0, y: -1 }, boost: true });
     gunner.send(ClientMessage.Input, { aim: { x: 1, y: 0 }, fire: true, shield: false });
     await sleep(1300);

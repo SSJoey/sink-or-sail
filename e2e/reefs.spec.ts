@@ -1,11 +1,10 @@
 import { expect, test } from "@playwright/test";
-import { join, ownPosition } from "./helpers.ts";
+import { join, ownPosition, seatAs } from "./helpers.ts";
 
 test("reefs: a ship sailing onto a reef slows down", async ({ page }) => {
   test.setTimeout(60_000);
   await join(page, "Reef");
-  await page.getByRole("button", { name: /Crew 1 · Pilot — free/ }).click();
-  await expect(page.getByRole("button", { name: /Crew 1 · Pilot — Reef/ })).toBeVisible();
+  await seatAs(page, 1, "pilot");
   // Twin Isles: Crew 1 starts at (150, 450) facing east; the middle reef lies across that line at x 710–890.
   await page.uncheck("#packs-toggle");
   await page.selectOption("#layout-select", "twinIsles");

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { join } from "./helpers.ts";
+import { join, seatAs } from "./helpers.ts";
 
 // The second test server's closing storm closes from 0:02 to 0:12 (playwright.config.ts), so a ship left at
 // its start (650 from the middle) is outside the circle from about 0:06.
@@ -13,8 +13,8 @@ test("closing storm: Last Afloat with hazards on; a ship left at its start ends 
   const code = (await host.textContent("#code"))!;
   const other = await page();
   await join(other, "Other", code);
-  await host.getByRole("button", { name: /Crew 1 · Pilot — free/ }).click();
-  await other.getByRole("button", { name: /Crew 2 · Pilot — free/ }).click();
+  // The host is Crew 1's pilot (first to join); the other player is paired in as its gunner, then starts Crew 2.
+  await seatAs(other, 2, "pilot");
   await host.getByRole("button", { name: "Last Afloat" }).click();
   await expect(host.locator("#hazards-toggle")).toBeChecked();
   await host.click("#start");

@@ -35,9 +35,10 @@ import {
 import { LOG_DIR, firstHazardAt, fixedSeed, fixedStormTimes, joinAddress, testSink } from "../config.ts";
 import { controlLine, matchEndLine, matchMs, matchStartLine, playerLine, positionLines, seatLine, simEventLines, type LogLine, type Roster } from "../log/events.ts";
 import { MatchLog, fileSink, logFileName, type LogSink } from "../log/matchLog.ts";
-import { canChangeSeat, canEndMatch, canPause, canResume, canSetPacks, canStart, crewHasShip, everyCrewManned, nextHost, readLayout, readOnOff, readReefs, readLives, readMode, shipCount } from "./matchFlow.ts";
+import { canChangeSeat, canEndMatch, canPause, canResume, canSetPacks, canStart, crewHasShip, everyCrewManned, nextHost, readLayout, readOnOff, readReefs, readLives, readMode, readReady, shipCount } from "./matchFlow.ts";
 import { generateUniqueCode } from "./roomCode.ts";
-import { isNameTaken, leaveSeat, takeSeat, type SeatMap } from "./seats.ts";
+import { isNameTaken, takeSeat, type SeatMap } from "./seats.ts";
+import { closeUpCrews, findPartner, leaveCrew, placeJoiner, refreshWaiting, type CrewResult, type CrewRoster } from "./crews.ts";
 import { CrewState, Player } from "./state.ts";
 import { GhostControl } from "./ghostControl.ts";
 import { applyEvents, syncWorld } from "./sync.ts";
@@ -76,6 +77,9 @@ export class CrewRoom extends Room<{ state: CrewState }> {
   private packPressed = new Set<string>();
   /** Order players joined in, for passing on the host. */
   private joinOrder = new Map<string, number>();
+  /** Stage 3: crews with one player, and when each started waiting for a partner (on `crewClock`). */
+  private crewWaiting = new Map<number, number>();
+  private crewClock = 0;
   private joinCount = 0;
   /** Where each match's log goes; fields so tests can capture it in memory. */
   logSinkFor: (fileName: string) => LogSink = (fileName) => fileSink(join(LOG_DIR, fileName));
@@ -114,25 +118,27 @@ export class CrewRoom extends Room<{ state: CrewState }> {
         client.send(ServerMessage.Rejected, { reason: RejectReason.CrewNotInMatch } satisfies RejectedMessage);
         return;
       }
-      this.applySeat(client.sessionId, seat);
-      if (this.log && seat) {
-        this.roster = this.buildRoster();
-        this.logLine(seatLine(this.logTime(), this.nameOf(client.sessionId), seat));
-      }
+      this.applyCrews({ seats: result.seats, waiting: this.crewWaiting });
     });
 
-    this.onMessage(ClientMessage.LeaveSeat, (client) => {
+    // Stage 3: Find me a partner, and Leave this crew (between matches, like switching seats).
+    const crewAction = (client: Client, act: (roster: CrewRoster, id: string, now: number) => CrewResult) => {
       if (!canChangeSeat(this.state.phase, this.seatOf(client.sessionId) !== null)) {
         client.send(ServerMessage.Rejected, { reason: RejectReason.SeatLocked } satisfies RejectedMessage);
         return;
       }
-      const result = leaveSeat(this.seatMap(), client.sessionId);
-      if (!result.ok) {
-        client.send(ServerMessage.Rejected, { reason: result.reason } satisfies RejectedMessage);
-        return;
-      }
-      this.applySeat(client.sessionId, null);
-      if (this.log) this.roster = this.buildRoster();
+      const result = act(this.crewRoster(), client.sessionId, this.crewClock++);
+      if (result.ok) this.applyCrews(result.roster);
+      else client.send(ServerMessage.Rejected, { reason: result.reason } satisfies RejectedMessage);
+    };
+    this.onMessage(ClientMessage.FindPartner, (client) => crewAction(client, findPartner));
+    this.onMessage(ClientMessage.LeaveCrew, (client) => crewAction(client, leaveCrew));
+
+    this.onMessage(ClientMessage.SetReady, (client, message: unknown) => {
+      const player = this.state.players.get(client.sessionId);
+      const ready = readReady(message);
+      if (!player || ready === null || this.matchOn() || player.crew === undefined) return;
+      player.ready = ready;
     });
 
     this.onMessage(ClientMessage.Start, (client) => {
@@ -234,6 +240,9 @@ export class CrewRoom extends Room<{ state: CrewState }> {
     this.joinOrder.set(client.sessionId, this.joinCount++);
     if (!this.state.hostId) this.state.hostId = client.sessionId;
     this.logLine(playerLine(this.logTime(), "playerJoined", name, null));
+    // Stage 3: into the crew waiting longest for a partner, or a new crew of their own (during a match: only a
+    // waiting crew that has a ship; otherwise no crew until the match is over).
+    this.applyCrews(placeJoiner(this.crewRoster(), client.sessionId, this.crewClock++, this.matchOn() ? (this.world?.ships.length ?? 0) : null));
   }
 
   onDrop(client: Client): void {
@@ -259,6 +268,7 @@ export class CrewRoom extends Room<{ state: CrewState }> {
     this.ghostControl.forget(client.sessionId);
     this.joinOrder.delete(client.sessionId);
     if (this.state.hostId === client.sessionId) this.state.hostId = nextHost(this.joinOrder);
+    this.applyCrews(this.crewRoster());
   }
 
   async onDispose(): Promise<void> {
@@ -271,6 +281,8 @@ export class CrewRoom extends Room<{ state: CrewState }> {
   /** A fresh world, scores and result reset, then the 3-2-1 countdown with ships frozen. */
   private startMatch(): void {
     void this.closeLog();
+    // Stage 3: everyone's Ready clears with each match.
+    this.state.players.forEach((player) => { player.ready = false; });
     const seed = this.seedForMatch() >>> 0;
     const packsOn = this.state.packsEnabled;
     // A third ship only when someone sits in Crew 3 as the match starts.
@@ -322,6 +334,7 @@ export class CrewRoom extends Room<{ state: CrewState }> {
     this.logLine(controlLine(this.logTime(), "endedEarly", this.nameOf(sessionId), this.seatOf(sessionId)));
     this.logLine(matchEndLine(this.world, winner, true));
     void this.closeLog();
+    this.settleCrews();
   }
 
   private tick(dt: number): void {
@@ -354,6 +367,7 @@ export class CrewRoom extends Room<{ state: CrewState }> {
     if (this.world.over) {
       this.logLine(matchEndLine(this.world, matchResult(this.world).winner, false));
       void this.closeLog();
+      this.settleCrews();
     }
   }
 
@@ -431,6 +445,45 @@ export class CrewRoom extends Room<{ state: CrewState }> {
       if (ship) ship.ghost = this.ghostControl.steer(crew);
     }
     return inputs;
+  }
+
+  private matchOn(): boolean {
+    const phase = this.state.phase;
+    return phase === Phase.Countdown || phase === Phase.Running || phase === Phase.Paused;
+  }
+
+  private crewRoster(): CrewRoster {
+    return { seats: this.seatMap(), waiting: this.crewWaiting };
+  }
+
+  /**
+   * Stage 3: applies a crew roster. Crews with one player wait for a partner; between matches crew numbers close up
+   * (so the ships are Crew 1, 2 and 3 in order). A player whose crew or role changed is no longer ready. During a
+   * match, a seat taken is logged (as before).
+   */
+  private applyCrews(roster: CrewRoster): void {
+    let next = refreshWaiting(roster, this.crewClock++);
+    if (!this.matchOn()) next = closeUpCrews(next);
+    for (const [id, seat] of next.seats) {
+      const before = this.seatOf(id);
+      const same = before && seat ? before.crew === seat.crew && before.role === seat.role : before === seat;
+      if (same) continue;
+      this.applySeat(id, seat);
+      const player = this.state.players.get(id);
+      if (player) player.ready = false;
+      if (this.log && seat && this.matchOn()) this.logLine(seatLine(this.logTime(), this.nameOf(id), seat));
+    }
+    this.crewWaiting = new Map(next.waiting);
+    if (this.log) this.roster = this.buildRoster();
+  }
+
+  /** After a match: players who joined during it without a crew get one, and crew numbers close up. */
+  private settleCrews(): void {
+    let roster = this.crewRoster();
+    for (const [id, seat] of roster.seats) {
+      if (!seat) roster = placeJoiner(roster, id, this.crewClock++, null);
+    }
+    this.applyCrews(roster);
   }
 
   private seatOf(sessionId: string): Seat | null {

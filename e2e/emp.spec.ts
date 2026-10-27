@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { join, ownPosition, sailWithKeys, slotEmpty } from "./helpers.ts";
+import { join, ownPosition, sailWithKeys, seatAs, slotEmpty } from "./helpers.ts";
 
 // This test runs against the second test server (playwright.config.ts): MATCH_SEED=8 puts an EMP first,
 // at (800, 150), on the water at 0:11.
@@ -17,9 +17,10 @@ test("the gunner's EMP disables the enemy ship in range; its crew sees it and ca
   await join(gunner, "Gunner", code);
   const enemy = await page();
   await join(enemy, "Enemy", code);
-  await gunner.getByRole("button", { name: /Crew 1 · Gunner — free/ }).click();
-  await enemy.getByRole("button", { name: /Crew 2 · Pilot — free/ }).click();
-  await pilot.getByRole("button", { name: /Crew 1 · Pilot — free/ }).click();
+  // Players are paired into crews as they join: Crew 1's pilot and gunner, then Crew 2's pilot.
+  await seatAs(gunner, 1, "gunner");
+  await seatAs(enemy, 2, "pilot");
+  await seatAs(pilot, 1, "pilot");
   await pilot.click("#start");
 
   // Crew 1 picks up the EMP, approaching level with it from the left (straight in, so drift can't carry the

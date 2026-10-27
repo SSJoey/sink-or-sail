@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { GAME_PAGE } from "./helpers.ts";
+import { GAME_PAGE, join, seatAs } from "./helpers.ts";
 
 test("loads, joins a room and shows a ship", async ({ page }) => {
   await page.goto(GAME_PAGE);
@@ -7,8 +7,9 @@ test("loads, joins a room and shows a ship", async ({ page }) => {
   await page.click("#create");
   await expect(page.locator("#code")).toHaveText(/^[A-Z]{4}$/);
 
-  await page.getByRole("button", { name: /Crew 1 · Pilot — free/ }).click();
-  await expect(page.getByRole("button", { name: /Crew 1 · Pilot — Smoke/ })).toBeVisible();
+  // The creator starts Crew 1 as its pilot (Stage 3: everyone is in a crew).
+  await seatAs(page, 1, "pilot");
+  await expect(page.locator("#my-crew-title")).toHaveText("Your crew: ● Crew 1");
 
   await expect(page.locator("#start")).toBeVisible(); // the creator is the host
   await page.click("#start");
@@ -20,26 +21,36 @@ test("loads, joins a room and shows a ship", async ({ page }) => {
   await expect(page.locator("#countdown")).toBeHidden({ timeout: 10_000 }); // 3-2-1, then "Go!" for a second
 });
 
-test("a player leaves their seat by tapping it again or with Leave seat, freeing it", async ({ page }) => {
-  await page.goto(GAME_PAGE);
-  await page.fill("#name", "Seats");
-  await page.click("#create");
-  await expect(page.locator("#code")).toHaveText(/^[A-Z]{4}$/);
-  await expect(page.locator("#leave-seat")).toBeHidden();
+test("crews: switch role, get paired on joining, leave the crew, find a partner again; Ready shows to the host", async ({ browser }) => {
+  const a = await (await browser.newContext()).newPage();
+  await join(a, "Ana");
+  const code = (await a.textContent("#code"))!;
+  await expect(a.locator("#find-partner")).toBeVisible(); // alone in Crew 1
+  await expect(a.locator("#leave-crew")).toBeHidden();
+  await seatAs(a, 1, "gunner"); // the free role in your own crew
+  await expect(a.locator("#role-pilot-who")).toHaveText("Waiting for a partner");
 
-  await page.getByRole("button", { name: /Crew 1 · Pilot — free/ }).click();
-  await expect(page.getByRole("button", { name: /Crew 1 · Pilot — Seats/ })).toBeVisible();
-  await expect(page.locator("#leave-seat")).toBeVisible();
-  await page.getByRole("button", { name: /Crew 1 · Pilot — Seats/ }).click(); // tap your own seat again
-  await expect(page.getByRole("button", { name: /Crew 1 · Pilot — free/ })).toBeVisible();
-  await expect(page.locator("#unseated")).toHaveText("Seats ★");
-  await expect(page.locator("#leave-seat")).toBeHidden();
+  // Ben joins and is paired into Ana's crew, in its free role.
+  const b = await (await browser.newContext()).newPage();
+  await join(b, "Ben", code);
+  await expect(b.locator("#my-crew")).toHaveAttribute("data-crew", "0");
+  await expect(b.locator("#my-crew")).toHaveAttribute("data-role", "pilot");
+  await expect(a.locator("#role-pilot-who")).toHaveText("Ben");
 
-  await page.getByRole("button", { name: /Crew 2 · Gunner — free/ }).click();
-  await expect(page.getByRole("button", { name: /Crew 2 · Gunner — Seats/ })).toBeVisible();
-  await page.click("#leave-seat");
-  await expect(page.getByRole("button", { name: /Crew 2 · Gunner — free/ })).toBeVisible();
-  await expect(page.locator("#unseated")).toHaveText("Seats ★");
+  // Ben leaves for a crew of his own (Crew 2), then finds his partner again.
+  await b.click("#leave-crew");
+  await expect(b.locator("#my-crew")).toHaveAttribute("data-crew", "1");
+  await expect(a.locator('#crew-list li[data-crew="1"]')).toContainText("Needs a gunner");
+  await b.click("#find-partner");
+  await expect(b.locator("#my-crew")).toHaveAttribute("data-crew", "0");
+  await expect(a.locator("#crew-list li")).toHaveCount(1);
+
+  // Ready: each player's own; the host sees the count.
+  await expect(a.locator("#ready-count")).toHaveText("0 of 1 crews ready");
+  await a.click("#ready");
+  await b.click("#ready");
+  await expect(a.locator("#ready-count")).toHaveText("1 of 1 crews ready");
+  await expect(a.locator('#crew-list li[data-crew="0"]')).toContainText("Ready");
 });
 
 test("laptop: the gunner aims with the mouse and fires only while the left button is held", async ({ page }) => {
@@ -47,7 +58,7 @@ test("laptop: the gunner aims with the mouse and fires only while the left butto
   await page.fill("#name", "Mouse");
   await page.click("#create");
   await expect(page.locator("#code")).toHaveText(/^[A-Z]{4}$/);
-  await page.getByRole("button", { name: /Crew 1 · Gunner — free/ }).click();
+  await seatAs(page, 1, "gunner");
   await page.click("#start");
   await expect(page.locator("#countdown")).toBeHidden({ timeout: 10_000 });
 
@@ -68,7 +79,7 @@ test("laptop: pause, host resumes with a countdown, host exits to the scoreboard
   await page.fill("#name", "Host");
   await page.click("#create");
   await expect(page.locator("#code")).toHaveText(/^[A-Z]{4}$/);
-  await page.getByRole("button", { name: /Crew 1 · Pilot — free/ }).click();
+  await seatAs(page, 1, "pilot");
   await page.click("#start");
   await expect(page.locator("#countdown")).toBeHidden({ timeout: 10_000 });
 
@@ -116,5 +127,6 @@ test("a page left open across a rebuild reloads itself and rejoins its seat", as
   // Back in the same room after the reload, via the saved reconnection token.
   await expect(page.locator("#code")).toHaveText(/^[A-Z]{4}$/);
   await expect(page.locator("#room-screen")).toBeVisible();
-  await expect(page.getByText(/Not seated: Stale/)).toBeVisible();
+  await expect(page.locator("#my-crew")).toHaveAttribute("data-crew", "0");
+  await expect(page.locator("#crew-list")).toContainText("Stale");
 });

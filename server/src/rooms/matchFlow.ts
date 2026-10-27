@@ -95,3 +95,9 @@ export function readOnOff(message: unknown): boolean | null {
   const on = onlyKey(message, "on");
   return typeof on === "boolean" ? on : null;
 }
+
+/** Stage 3: the Ready from a SetReady message ({ ready: boolean }); null if not valid. */
+export function readReady(message: unknown): boolean | null {
+  const ready = onlyKey(message, "ready");
+  return typeof ready === "boolean" ? ready : null;
+}

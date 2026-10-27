@@ -23,5 +23,9 @@ export function rejectedText(message: RejectedMessage): string {
     case RejectReason.NameTaken: return joinErrorText(new Error(JoinError.NameTaken));
     case RejectReason.InvalidName: return joinErrorText(new Error(JoinError.InvalidName));
     case RejectReason.NameLocked: return "Names can be changed between matches.";
+    case RejectReason.NoPartnerWaiting: return "Nobody is waiting for a partner yet: the next player to join will be paired with you.";
+    case RejectReason.AlreadyPaired: return "You already have a partner.";
+    case RejectReason.NoFreeCrew: return "There are already 3 crews.";
+    case RejectReason.AlreadyAlone: return "You're already in a crew of your own.";
   }
 }

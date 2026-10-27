@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { join, ownPosition, sailWithKeys } from "./helpers.ts";
+import { join, ownPosition, sailWithKeys, seatAs } from "./helpers.ts";
 
 test("Last Afloat: the host picks it with 1 life; sinking the other ship ends the match with a winner", async ({ browser }) => {
   test.setTimeout(120_000);
@@ -11,19 +11,22 @@ test("Last Afloat: the host picks it with 1 life; sinking the other ship ends th
   await join(enemy, "Enemy", code);
 
   // The host sets up the next match: packs off (nothing in the way), Last Afloat, 1 life.
-  await host.getByRole("button", { name: /Crew 1 · Gunner — free/ }).click();
+  // The enemy was paired into the host's crew on joining: Crew 1 is the only crew so far.
+  await seatAs(enemy, 1, "gunner");
   await host.uncheck("#packs-toggle");
   await host.getByRole("button", { name: "Last Afloat" }).click();
   await expect(host.getByRole("button", { name: "Last Afloat" })).toHaveAttribute("aria-pressed", "true");
   await host.selectOption("#lives-select", "1");
   await expect(enemy.locator("#mode-status")).toHaveText("Mode: Last Afloat · Lives: 1");
 
-  // Crew 2 has nobody yet: Last Afloat won't start.
+  // Crew 2 has nobody yet (2 ships, one empty): Last Afloat won't start.
   await host.click("#start");
   await expect(host.locator("#error")).toHaveText("Every crew needs a player for Last Afloat.");
 
-  await enemy.getByRole("button", { name: /Crew 2 · Pilot — free/ }).click();
-  await expect(host.getByRole("button", { name: /Crew 2 · Pilot — Enemy/ })).toBeVisible();
+  // The enemy starts Crew 2 and takes its pilot seat; the host switches to Crew 1's gunner.
+  await seatAs(enemy, 2, "pilot");
+  await seatAs(host, 1, "gunner");
+  await expect(host.locator('#crew-list li[data-crew="1"]')).toContainText("Enemy");
   await host.click("#start");
   await expect(host.locator("#countdown")).toBeHidden({ timeout: 10_000 });
   await expect(host.locator("#hud-score")).toHaveText("● ♥ – ■ ♥");

@@ -42,7 +42,7 @@ test("a player changes their name between matches; a taken name is refused; the 
   await b.fill("#name-new", "Robin");
   await b.click("#name-save");
   await expect(b.locator("#my-name")).toHaveText("Robin");
-  await expect(a.locator("#unseated")).toContainText("Robin");
+  await expect(a.locator("#crew-list")).toContainText("Robin");
 
   // The next visit on Ana's device starts with her name filled in.
   const again = await context.newPage();

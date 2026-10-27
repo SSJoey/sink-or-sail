@@ -9,7 +9,7 @@ export const EMP_PORT = 2578;
 export const HAZARD_PORT = 2579;
 export const WHIRLPOOL_PORT = 2580;
 export const KRAKEN_PORT = 2581;
-/** Sixth test server, for the ghost test: TEST_SINK sinks Crew 3 at 0:04. */
+/** Sixth test server, for the ghost test: TEST_SINK sinks Crew 2 at 0:04. */
 export const GHOST_PORT = 2582;
 
 export default defineConfig({
@@ -87,14 +87,14 @@ export default defineConfig({
       env: { LOG_DIR: join(tmpdir(), "sink-or-sail-test-logs"), MATCH_SEED: "8", HAZARDS_FIRST_AT: "2" },
     },
     {
-      // A sixth server for the ghost test: TEST_SINK sinks Crew 3's ship at 0:04 (in a 1-life Last Afloat match its
+      // A sixth server for the ghost test: TEST_SINK sinks Crew 2's ship at 0:04 (in a 1-life Last Afloat match its
       // crew is out, and its ghost appears at 0:06). The hazard timer's first hazard is far off (999 s), so haunting
       // is on but no timer hazard comes during the test.
       command: `PORT=${GHOST_PORT} npm start`,
       url: `http://localhost:${GHOST_PORT}`,
       reuseExistingServer: false,
       timeout: 60_000,
-      env: { LOG_DIR: join(tmpdir(), "sink-or-sail-test-logs"), MATCH_SEED: "367", HAZARDS_FIRST_AT: "999", TEST_SINK: "3@4" },
+      env: { LOG_DIR: join(tmpdir(), "sink-or-sail-test-logs"), MATCH_SEED: "367", HAZARDS_FIRST_AT: "999", TEST_SINK: "2@4" },
     },
   ],
 });

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { join } from "./helpers.ts";
+import { join, seatAs } from "./helpers.ts";
 
 test("three crews: a pilot in each crew gets 3 ships, and the top bar still fits a 667 px phone", async ({ browser }) => {
   const laptop = async () => (await browser.newContext()).newPage();
@@ -12,10 +12,10 @@ test("three crews: a pilot in each crew gets 3 ships, and the top bar still fits
   const phone = await (await browser.newContext({ viewport: { width: 667, height: 375 }, hasTouch: true, isMobile: true })).newPage();
   await join(phone, "Three", code);
 
-  await host.getByRole("button", { name: /Crew 1 · Pilot — free/ }).click();
-  await two.getByRole("button", { name: /Crew 2 · Pilot — free/ }).click();
-  await phone.getByRole("button", { name: /Crew 3 · Pilot — free/ }).click();
-  await expect(host.getByRole("button", { name: /Crew 3 · Pilot — Three/ })).toBeVisible();
+  // Paired as they join: One and Two make Crew 1, Three starts Crew 2 as pilot. Two then starts Crew 3 as its pilot.
+  await seatAs(phone, 2, "pilot");
+  await seatAs(two, 3, "pilot");
+  await expect(host.locator("#crew-list li")).toHaveCount(3);
   await host.click("#start");
 
   // Under load the game view can take a while to appear (see the watch item in CLAUDE.md).

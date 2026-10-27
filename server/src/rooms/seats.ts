@@ -30,15 +30,6 @@ export function takeSeat(seats: SeatMap, sessionId: string, seat: unknown): Seat
   return { ok: true, seats: next };
 }
 
-/** Frees the player's seat; they stay in the room, unseated. */
-export function leaveSeat(seats: SeatMap, sessionId: string): SeatResult {
-  if (!seats.has(sessionId)) return { ok: false, reason: RejectReason.InvalidSeat };
-  if (seats.get(sessionId) === null) return { ok: true, seats };
-  const next = new Map(seats);
-  next.set(sessionId, null);
-  return { ok: true, seats: next };
-}
-
 export function isNameTaken(names: Iterable<string>, name: string): boolean {
   const wanted = name.toLowerCase();
   for (const existing of names) {

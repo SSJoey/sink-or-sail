@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { join, ownPosition, sailWithKeys } from "./helpers.ts";
+import { join, ownPosition, sailWithKeys, seatAs } from "./helpers.ts";
 
 // The fourth test server's first dynamic hazard comes at 0:02 (playwright.config.ts). With seed 3 it is a whirlpool
 // at (305, 241), 260 from Crew 1's start; it forms at 0:05 and lasts until 0:20.
@@ -16,8 +16,8 @@ test("whirlpool: signalled, then forms; the laptop pilot sails into the eye and 
   const code = (await host.textContent("#code"))!;
   const other = await page();
   await join(other, "Other", code);
-  await host.getByRole("button", { name: /Crew 1 · Pilot — free/ }).click();
-  await other.getByRole("button", { name: /Crew 2 · Pilot — free/ }).click();
+  // The host is Crew 1's pilot (first to join); the other player is paired in as its gunner, then starts Crew 2.
+  await seatAs(other, 2, "pilot");
   await expect(host.locator("#hazards-toggle")).toBeChecked();
   await host.click("#start");
 

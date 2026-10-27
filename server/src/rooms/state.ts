@@ -7,6 +7,8 @@ export const Player = schema({
   crew: t.int8().optional(),
   role: t.string().optional(),
   connected: t.boolean().default(true),
+  /** Stage 3: ready for the next match (cleared when they move crew or role, and when a match starts). */
+  ready: t.boolean().default(false),
 }, "Player");
 export type Player = SchemaType<typeof Player>;
 

@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { GAME_PAGE } from "./helpers.ts";
+import { GAME_PAGE, seatAs } from "./helpers.ts";
 
 // A landscape phone: touch is the main pointer.
 test.use({ viewport: { width: 915, height: 412 }, hasTouch: true, isMobile: true });
@@ -9,7 +9,7 @@ test("phone: touch controls show for the pilot and the stick sails the ship", as
   await page.fill("#name", "Thumb");
   await page.click("#create");
   await expect(page.locator("#code")).toHaveText(/^[A-Z]{4}$/);
-  await page.getByRole("button", { name: /Crew 1 · Pilot — free/ }).click();
+  await seatAs(page, 1, "pilot");
   await page.click("#start");
   await expect(page.locator("#game")).toHaveAttribute("data-ships", "2");
 
@@ -35,7 +35,7 @@ test("phone: the gunner's aiming stick aims without firing; only Fire fires", as
   await page.fill("#name", "Aimer");
   await page.click("#create");
   await expect(page.locator("#code")).toHaveText(/^[A-Z]{4}$/);
-  await page.getByRole("button", { name: /Crew 1 · Gunner — free/ }).click();
+  await seatAs(page, 1, "gunner");
   await page.click("#start");
   await expect(page.locator("#btn-fire")).toBeVisible();
   await expect(page.locator("#countdown")).toBeHidden({ timeout: 10_000 });

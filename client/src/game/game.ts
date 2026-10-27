@@ -23,6 +23,8 @@ export interface PlayerView {
   crew?: number;
   role?: string;
   connected: boolean;
+  /** Stage 3: ready for the next match. */
+  ready: boolean;
 }
 export interface RoomStateView extends GameStateView {
   players: {

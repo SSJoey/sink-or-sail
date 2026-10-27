@@ -87,3 +87,22 @@ export async function sailWithKeys(page: Page, target: { x: number; y: number },
   }
   await releaseAll();
 }
+
+/**
+ * Stage 3 crews: moves this page's player into `crew` (numbered from 1) as `role`, through the room screen:
+ * Join on that crew's row (its free role), or Leave this crew for a new one (which must be that crew), then the
+ * role button in their own crew if the role differs. Players are paired into crews as they join, so call this
+ * in an order where the seat wanted is free.
+ */
+export async function seatAs(page: Page, crew: number, role: "pilot" | "gunner") {
+  const box = page.locator("#my-crew");
+  await expect(box).toHaveAttribute("data-crew", /^\d$/);
+  if (Number(await box.getAttribute("data-crew")) !== crew - 1) {
+    const join = page.locator(`#crew-list li[data-crew="${crew - 1}"] button`);
+    if (await join.count()) await join.click();
+    else await page.click("#leave-crew");
+    await expect(box).toHaveAttribute("data-crew", String(crew - 1));
+  }
+  if ((await box.getAttribute("data-role")) !== role) await page.click(`#role-${role}`);
+  await expect(box).toHaveAttribute("data-role", role);
+}

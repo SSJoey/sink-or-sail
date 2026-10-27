@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { join, sailWithKeys } from "./helpers.ts";
+import { join, sailWithKeys, seatAs } from "./helpers.ts";
 
 // With MATCH_SEED=367 (playwright.config.ts), One Island's wreck 1, at (1150, 125) up and left of Crew 2's
 // start, holds a mine. Hazards and packs are on by default.
@@ -8,15 +8,19 @@ const WRECK = { x: 1150, y: 125 };
 test("wrecks: the laptop gunner shoots a wreck to pieces; the pilot sails over the pack it held", async ({ browser }) => {
   test.setTimeout(90_000);
   const page = async () => (await browser.newContext()).newPage();
+  // A host sits in Crew 1 so the shooting crew can be Crew 2, next to the wreck (crews close up from Crew 1).
+  const host = await page();
+  await join(host, "Host");
+  const code = (await host.textContent("#code"))!;
   const gunner = await page();
-  await join(gunner, "Gunner");
-  const code = (await gunner.textContent("#code"))!;
+  await join(gunner, "Gunner", code);
   const pilot = await page();
   await join(pilot, "Pilot", code);
-  await gunner.getByRole("button", { name: /Crew 2 · Gunner — free/ }).click();
-  await pilot.getByRole("button", { name: /Crew 2 · Pilot — free/ }).click();
-  await expect(gunner.locator("#hazards-toggle")).toBeChecked();
-  await gunner.click("#start");
+  // Paired as they join: Host and Gunner make Crew 1, Pilot starts Crew 2; Gunner joins Crew 2 as its gunner.
+  await seatAs(pilot, 2, "pilot");
+  await seatAs(gunner, 2, "gunner");
+  await expect(host.locator("#hazards-toggle")).toBeChecked();
+  await host.click("#start");
 
   const game = gunner.locator("#game");
   // Under load the game view can take a while to appear (see the watch item in CLAUDE.md).

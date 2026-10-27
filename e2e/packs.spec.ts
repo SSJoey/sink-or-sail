@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { join, ownPosition, sailWithKeys, slotEmpty } from "./helpers.ts";
+import { join, ownPosition, sailWithKeys, seatAs, slotEmpty } from "./helpers.ts";
 
 // With MATCH_SEED=367 (playwright.config.ts) the first pack is a mine at (450, 300), on the water at
 // 0:11, and the second a torpedo at (450, 600), on the water at 0:22. Both are near Crew 1's start.
@@ -11,7 +11,7 @@ const PHONE = { viewport: { width: 915, height: 412 }, hasTouch: true, isMobile:
 async function startAsPilot(page: Page, packPattern: RegExp) {
   await join(page, "Packer");
   await expect(page.locator("#packs-toggle")).toBeChecked(); // packs are on by default
-  await page.getByRole("button", { name: /Crew 1 · Pilot — free/ }).click();
+  await seatAs(page, 1, "pilot");
   await page.click("#start");
   await expect(page.locator("#hud-pack")).toHaveText("Packs: — · —");
   await expect(page.locator("#game")).toHaveAttribute("data-packs", packPattern, { timeout: 30_000 });
@@ -77,8 +77,9 @@ async function crewWithTorpedo(browser: Browser, gunnerOptions: Parameters<Brows
     navigator.vibrate = ((pattern: number) => { buzzes.push(pattern); return true; }) as Navigator["vibrate"];
   });
   await join(gunner, "Gunner", code);
-  await gunner.getByRole("button", { name: /Crew 1 · Gunner — free/ }).click();
-  await pilot.getByRole("button", { name: /Crew 1 · Pilot — free/ }).click();
+  // Paired as they join: the pilot (host) and gunner make Crew 1.
+  await seatAs(gunner, 1, "gunner");
+  await seatAs(pilot, 1, "pilot");
   await pilot.click("#start");
   // Wait for the torpedo (the second pack), then sail onto it; the mine at (450, 300) is out of the way.
   await expect(pilot.locator("#game")).toHaveAttribute("data-packs", /torpedo@450,600/, { timeout: 40_000 });

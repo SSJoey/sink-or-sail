@@ -11,14 +11,13 @@ import {
   ServerMessage,
   normaliseCode,
   normaliseName,
-  type Crew,
   type RejectedMessage,
   type Role,
 } from "@sink-or-sail/shared";
-import { renderResult, startGame, type GameHandle, type PlayerView, type RoomStateView } from "../game/game.ts";
+import { renderResult, startGame, type GameHandle, type RoomStateView } from "../game/game.ts";
 import { joinErrorText, rejectedText } from "./messages.ts";
 import { reloadIfNewBuild } from "./newBuild.ts";
-import { leaveSeatShown, seatAction } from "./seatButtons.ts";
+import { crewRows, myCrew, readyCount, type LobbyPlayer } from "./crewList.ts";
 import { LAYOUT_CHOICES, LIFE_CHOICES, REEF_CHOICES, hazardsText, layoutText, livesShown, settingsText } from "./settings.ts";
 import { clearToken, loadToken, saveToken } from "./reconnectToken.ts";
 import { codeFromSearch, joinBase, joinLink } from "./joinLink.ts";
@@ -122,7 +121,11 @@ export function startLobby(): void {
       closeNameEdit();
     };
     byId("leave").onclick = () => { void room.leave(); };
-    byId("leave-seat").onclick = () => leaveSeat(room);
+    // Stage 3 crews: switch role in your crew, find a partner, leave your crew, and Ready.
+    for (const role of ROLES) byId(`role-${role}`).onclick = () => takeSeat(room, myCrewNow ?? 0, role);
+    byId("find-partner").onclick = () => { showError(""); room.send(ClientMessage.FindPartner); };
+    byId("leave-crew").onclick = () => { showError(""); room.send(ClientMessage.LeaveCrew); };
+    byId("ready").onclick = () => room.send(ClientMessage.SetReady, { ready: byId("ready").getAttribute("aria-pressed") !== "true" });
     // Only the host sees Start; the server checks it too.
     byId("start").onclick = () => { showError(""); room.send(ClientMessage.Start); };
     byId<HTMLInputElement>("packs-toggle").onchange = (e) =>
@@ -184,37 +187,7 @@ export function startLobby(): void {
     } else if (byId("name-edit").hidden) {
       byId("name-change").hidden = false;
     }
-    const host = (sessionId: string) => (sessionId === state.hostId ? " ★" : "");
-    let iAmSeated = false;
-    state.players.forEach((p, id) => { if (id === room.sessionId && p.role !== undefined) iAmSeated = true; });
-
-    const seats = byId("seats");
-    seats.replaceChildren();
-    const unseated: string[] = [];
-    const holders = new Map<string, { player: PlayerView; sessionId: string }>();
-    state.players.forEach((player, sessionId) => {
-      if (player.crew === undefined || player.role === undefined) unseated.push(player.name + host(sessionId));
-      else holders.set(`${player.crew}:${player.role}`, { player, sessionId });
-    });
-
-    for (const crew of CREWS) {
-      for (const role of ROLES) {
-        const holder = holders.get(`${crew}:${role}`);
-        const button = document.createElement("button");
-        let label = `Crew ${crew + 1} · ${roleLabel[role]} — `;
-        if (!holder) label += "free";
-        else label += holder.player.name + host(holder.sessionId) + (holder.player.connected ? "" : " (reconnecting)");
-        if (holder?.sessionId === room.sessionId) label += " ✓";
-        button.textContent = label;
-        // Tap a free seat to take it, or your own to leave it (seated players are locked in during a match).
-        const action = seatAction({ holder: !holder ? "none" : holder.sessionId === room.sessionId ? "me" : "other", matchOn, iAmSeated });
-        button.disabled = action === null;
-        button.onclick = () => (action === "leave" ? leaveSeat(room) : takeSeat(room, crew, role));
-        seats.append(button);
-      }
-    }
-    byId("unseated").textContent = unseated.join(", ") || "nobody";
-    byId("leave-seat").hidden = !leaveSeatShown({ matchOn, iAmSeated });
+    renderCrews(room, state, matchOn);
 
     // The game view runs from the countdown until the player leaves the scoreboard.
     // A countdown straight after "over" is a new match (a fresh game view); after a pause it's a resume.
@@ -276,14 +249,82 @@ export function startLobby(): void {
     if (phase === Phase.Over) renderResult(lastResult, state);
   }
 
-  function takeSeat(room: Room, crew: Crew, role: Role): void {
+  function takeSeat(room: Room, crew: number, role: Role): void {
     showError("");
     room.send(ClientMessage.TakeSeat, { crew, role });
   }
 
-  function leaveSeat(room: Room): void {
-    showError("");
-    room.send(ClientMessage.LeaveSeat);
+  /** This player's crew right now (for the role buttons), or null without one. */
+  let myCrewNow: number | null = null;
+
+  /**
+   * Stage 3: your crew (its colour, the Pilot and Gunner buttons, Find me a partner, Leave this crew), the crews
+   * in the room (with Join), and Ready. Crews are locked during a match; a player without a crew can still Join.
+   */
+  function renderCrews(room: Room, state: StateView, matchOn: boolean): void {
+    const players: LobbyPlayer[] = [];
+    state.players.forEach((pl, id) => players.push({ id, name: pl.name, crew: pl.crew, role: pl.role, ready: pl.ready, connected: pl.connected }));
+    const mine = myCrew(players, room.sessionId);
+    myCrewNow = mine?.crew ?? null;
+    byId("my-crew").hidden = mine === null;
+    byId("no-crew").hidden = mine !== null || !matchOn;
+    // Read by the browser tests: this player's crew (from 0) and role.
+    const crewBox = byId("my-crew");
+    if (mine) {
+      crewBox.dataset.crew = String(mine.crew);
+      crewBox.dataset.role = mine.role;
+    } else {
+      delete crewBox.dataset.crew;
+      delete crewBox.dataset.role;
+    }
+    if (mine) {
+      const title = byId("my-crew-title");
+      title.textContent = `Your crew: ${mine.label}`;
+      title.style.color = mine.colour;
+      for (const role of ROLES) {
+        const button = byId<HTMLButtonElement>(`role-${role}`);
+        const who = mine[role];
+        button.setAttribute("aria-pressed", String(mine.role === role));
+        // Tap the free role to switch to it; locked during a match.
+        button.disabled = matchOn || who !== null;
+        byId(`role-${role}-who`).textContent = who ?? (mine.alone ? "Waiting for a partner" : "");
+      }
+      byId("find-partner").hidden = matchOn || !mine.alone;
+      byId("leave-crew").hidden = matchOn || mine.alone || mine.crews >= CREWS.length;
+    }
+
+    const list = byId("crew-list");
+    list.replaceChildren(
+      ...crewRows(players, state.hostId, room.sessionId).map((row) => {
+        const item = document.createElement("li");
+        item.dataset.crew = String(row.crew);
+        const swatch = document.createElement("span");
+        swatch.textContent = row.label;
+        swatch.style.color = row.colour;
+        const names = document.createElement("span");
+        names.className = "crew-name";
+        names.textContent = row.names;
+        const status = document.createElement("span");
+        status.textContent = row.status;
+        item.append(swatch, names, status);
+        // Join a crew with one player: between matches, or (without a crew) during one.
+        if (row.join && (!matchOn || !mine)) {
+          const join = document.createElement("button");
+          join.textContent = `Join as ${roleLabel[row.join].toLowerCase()}`;
+          join.onclick = () => takeSeat(room, row.crew, row.join!);
+          item.append(join);
+        }
+        return item;
+      }),
+    );
+
+    const me = state.players.get(room.sessionId);
+    const ready = byId<HTMLButtonElement>("ready");
+    ready.hidden = matchOn || !mine;
+    ready.setAttribute("aria-pressed", String(!!me?.ready));
+    ready.textContent = me?.ready ? "Ready ✓" : "Ready";
+    const count = readyCount(players);
+    byId("ready-count").textContent = state.hostId === room.sessionId && !matchOn ? `${count.ready} of ${count.crews} crews ready` : "";
   }
 
   function readName(): string | null {

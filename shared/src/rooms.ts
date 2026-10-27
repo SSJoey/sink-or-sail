@@ -28,8 +28,11 @@ export interface Seat {
 /** Messages a client may send to the room. */
 export const ClientMessage = {
   TakeSeat: "takeSeat",
-  /** Give up your seat and be unseated (locked for seated players during a match, like switching). */
-  LeaveSeat: "leaveSeat",
+  /** Stage 3 crews (between matches): into the crew that has waited longest for a partner; to a new crew of your
+   *  own ("Leave this crew"); and your Ready: { ready: boolean }. */
+  FindPartner: "findPartner",
+  LeaveCrew: "leaveCrew",
+  SetReady: "setReady",
   /** Start the match (host only). */
   Start: "start",
   /** The sender's role input; see input.ts. */
@@ -87,6 +90,12 @@ export const RejectReason = {
   NameTaken: "nameTaken",
   InvalidName: "invalidName",
   NameLocked: "nameLocked",
+  /** Stage 3 crews: Find me a partner with nobody waiting, or when you already have a partner; Leave this crew
+   *  with 3 crews already, or when you're alone in yours. */
+  NoPartnerWaiting: "noPartnerWaiting",
+  AlreadyPaired: "alreadyPaired",
+  NoFreeCrew: "noFreeCrew",
+  AlreadyAlone: "alreadyAlone",
 } as const;
 export type RejectReason = (typeof RejectReason)[keyof typeof RejectReason];
 

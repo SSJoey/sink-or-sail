@@ -33,3 +33,12 @@ describe("refused name changes (Stage 3)", () => {
     expect(rejectedText({ reason: RejectReason.NameLocked })).toBe("Names can be changed between matches.");
   });
 });
+
+describe("refused crew moves (Stage 3)", () => {
+  it("explains each", () => {
+    expect(rejectedText({ reason: RejectReason.NoPartnerWaiting })).toBe("Nobody is waiting for a partner yet: the next player to join will be paired with you.");
+    expect(rejectedText({ reason: RejectReason.AlreadyPaired })).toBe("You already have a partner.");
+    expect(rejectedText({ reason: RejectReason.NoFreeCrew })).toBe("There are already 3 crews.");
+    expect(rejectedText({ reason: RejectReason.AlreadyAlone })).toBe("You're already in a crew of your own.");
+  });
+});

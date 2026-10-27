@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { join } from "./helpers.ts";
+import { join, seatAs } from "./helpers.ts";
 
 test("layouts: the host picks Slalom and every page draws it; Random then picks a different one", async ({ browser }) => {
   const page = async () => (await browser.newContext()).newPage();
@@ -8,8 +8,8 @@ test("layouts: the host picks Slalom and every page draws it; Random then picks 
   const code = (await host.textContent("#code"))!;
   const other = await page();
   await join(other, "Other", code);
-  await host.getByRole("button", { name: /Crew 1 · Pilot — free/ }).click();
-  await other.getByRole("button", { name: /Crew 2 · Pilot — free/ }).click();
+  // The host is Crew 1's pilot (first to join); the other player is paired in as its gunner, then starts Crew 2.
+  await seatAs(other, 2, "pilot");
 
   await host.selectOption("#layout-select", "slalom");
   await expect(other.locator("#layout-status")).toHaveText("Layout: Slalom");

@@ -52,6 +52,20 @@
       #paused { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); background: rgba(11,37,69,0.95); padding: 16px 24px; border-radius: 12px; text-align: center; min-width: 280px; }
       #hud button { padding: 4px 12px; min-height: 36px; }
       #rotate { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: #0b2545; font-size: 24px; text-align: center; padding: 24px; }
+      /* Stage 3: your crew and the crews in the room. */
+      #my-crew-title { margin: 8px 0 0; }
+      .note { margin: 2px 0 8px; font-size: 13px; font-style: italic; }
+      #role-buttons { display: grid; grid-template-columns: repeat(2, minmax(0, 160px)); gap: 8px; }
+      .role-btn { display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: 56px; }
+      .role-btn[aria-pressed="true"] { background: #ffd166; font-weight: 600; }
+      /* A taken role can't be tapped, but stays easy to read (yours, or your partner's). */
+      .role-btn:disabled { color: #1b1b1b; opacity: 1; }
+      .role-btn:disabled:not([aria-pressed="true"]) { background: #d9d9d9; }
+      #crew-list { list-style: none; padding: 0; margin: 0; max-width: 520px; }
+      #crew-list li { display: flex; align-items: center; gap: 10px; min-height: 48px; border-bottom: 1px solid rgba(255,255,255,0.3); }
+      #crew-list .crew-name { flex: 1; }
+      #crew-list li > span:first-child { white-space: nowrap; }
+      #ready[aria-pressed="true"] { background: #7ee081; font-weight: 600; }
       /* Stage 3: the QR code and room code side by side. */
       #join-card { display: flex; align-items: center; gap: 16px; }
       #qr svg { width: 132px; height: 132px; display: block; background: #fff; }
@@ -86,9 +100,19 @@
         </span>
       </p>
       <p id="status"></p>
-      <div id="seats"></div>
-      <p><button id="leave-seat" hidden>Leave seat</button></p>
-      <p>Not seated: <span id="unseated"></span></p>
+      <section id="my-crew" hidden>
+        <h2 id="my-crew-title"></h2>
+        <p class="note">Colour assigned automatically</p>
+        <div id="role-buttons">
+          <button id="role-pilot" class="role-btn" aria-pressed="false"><strong>Pilot</strong><span id="role-pilot-who"></span></button>
+          <button id="role-gunner" class="role-btn" aria-pressed="false"><strong>Gunner</strong><span id="role-gunner-who"></span></button>
+        </div>
+        <p><button id="find-partner">Find me a partner</button> <button id="leave-crew">Leave this crew</button></p>
+      </section>
+      <p id="no-crew" hidden>A match is under way: you'll get a crew when it ends.</p>
+      <h2>Crews in this room</h2>
+      <ul id="crew-list"></ul>
+      <p><button id="ready" aria-pressed="false">Ready</button> <span id="ready-count"></span></p>
       <div id="last-result" hidden></div>
       <p>
         <label id="packs-host" hidden><input type="checkbox" id="packs-toggle" /> Packs on</label>

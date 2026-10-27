@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { join, ownPosition } from "./helpers.ts";
+import { join, ownPosition, seatAs } from "./helpers.ts";
 
 // The fifth test server's first dynamic hazard comes at 0:02 (playwright.config.ts). With seed 8 it is a kraken
 // surfacing at (449, 430), 300 from Crew 1's start; it swims to Crew 1's waiting ship, grabs it at about 0:09,
@@ -14,8 +14,8 @@ test("kraken: surfaces, grabs the waiting ship, holds it still and hurts it, the
   const code = (await host.textContent("#code"))!;
   const other = await page();
   await join(other, "Other", code);
-  await host.getByRole("button", { name: /Crew 1 · Pilot — free/ }).click();
-  await other.getByRole("button", { name: /Crew 2 · Pilot — free/ }).click();
+  // The host is Crew 1's pilot (first to join); the other player is paired in as its gunner, then starts Crew 2.
+  await seatAs(other, 2, "pilot");
   await expect(host.locator("#hazards-toggle")).toBeChecked();
   await host.click("#start");
 
