@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { empText, formatClock, livesHtml, packSlotText, scoreHtml } from "./hud.ts";
+import { empText, formatClock, livesHtml, packSlotLabel, scoreHtml } from "./hud.ts";
 
 describe("formatClock", () => {
   it("shows minutes and seconds, rounding up so 0:00 means time is up", () => {
@@ -12,12 +12,12 @@ describe("formatClock", () => {
   });
 });
 
-describe("packSlotText", () => {
-  it("shows both slots by letter, the pilot's first, with — for an empty one", () => {
-    expect(packSlotText("mine", "torpedo")).toBe("Packs: M · T");
-    expect(packSlotText(null, "emp")).toBe("Packs: — · E");
-    expect(packSlotText("mine", null)).toBe("Packs: M · —");
-    expect(packSlotText(null, null)).toBe("Packs: — · —");
+describe("packSlotLabel (Stage 3 pack icons: the top bar's spoken and hover text)", () => {
+  it("names both slots, the pilot's first, with — for an empty one", () => {
+    expect(packSlotLabel("mine", "torpedo")).toBe("Packs: Mine · Torpedo");
+    expect(packSlotLabel(null, "emp")).toBe("Packs: — · EMP");
+    expect(packSlotLabel("mine", null)).toBe("Packs: Mine · —");
+    expect(packSlotLabel(null, null)).toBe("Packs: — · —");
   });
 });
 

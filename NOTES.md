@@ -604,6 +604,34 @@ Drafted from `docs/design.md` and the lobby mock-ups on the look-options canvas 
   - **Tests changed:** the Last Afloat browser test checks the same facts (places, crews, sinkings, lives) in the table instead of the old one-line scoreboard. `scoreRows` and `resultLine` are no longer used by the game (kept, with their tests, for now).
   - **Runs:** `npm test` passed (929 unit plus 1 skipped, 28 browser).
 
+### 2026-10-27 — Stage 3 slice 6 plan: awards
+
+- **Plan as proposed:** the server tallies during the match (from the simulation's events and ship states), works out at the end which crews earned which awards, and picks among them at random with the match's seed, at most one per crew and at most 4. Shown under the results table ("**Sharpshooter** · ■ Crew 2 · most hits (7)"), and in the room screen's last match; an `awards` line in the match log and in the summary.
+- **Question 1, ok:** with today's 2 or 3 ships, "at most one per crew" means at most 2 or 3 awards a match (more with more ships in Stage 5).
+- **Question 2 (ties):** a) a tied award goes to nobody; **the tied crews get their next award they earned instead** (the one-per-crew pick moves on to their other awards).
+- **Question 3 ("Storm Chaser"):** a) time in the closing storm (outside its circle) plus time in moving storms, for a crew never sunk by the closing storm.
+- **Question 4, ok:** "Sitting Duck" counts time afloat below speed 15 (a tenth of top speed).
+- **Question 5, ok (definitions and minimums):** Untouchable: fewest hits taken (shots, torpedoes, mine blasts, bumps that hurt), afloat at the end. Sharpshooter: most hits landed (shots and torpedoes), 3+. Kraken's Favourite: most kraken grabs, 1+. Ghost of the Match: most hazards set off by haunting, 1+. Mine, All Mine: sunk by its own mine, 1+. Davy Jones' Express: the first ship sunk. Rock Collector: most reef hits, 2+. Bumper Boats: most bumps with other ships, 3+. Sitting Duck: most time stationary, 20 s+. Trigger Happy: most shots fired and also the worst accuracy, 10+ shots. Pack Rat: most packs picked up, 2+. Hoarder: longest time holding one pack without using it, 30 s+. Shield Hog: most energy on the shield, 50+. Speed Demon: most energy on boost, 50+. Close Shave: afloat at the end with the least health, below 25%. Storm Chaser: most storm time without being sunk by the closing storm, 10 s+. Whirlpool Tourist: most time in whirlpools, 5 s+.
+
+### 2026-10-27 — Pack icons (plan change, asked for by the user before awards)
+
+Pack icons are art (Stage 4's "sea-chart art"); the user asked to bring them forward.
+
+- **Question 1 (when):** a) **a short extra slice now, before awards**: Stage 3's slices become 1–5 as built, **6 pack icons**, 7 awards, 8 spectator view, 9 partner bots, 10 bot ships, 11 log and summary additions then check matches.
+- **Question 2 (where):** a) on the sea, in the top bar ("Packs: [mine] · [torpedo]") and on the phone's Pack button next to the name.
+- **Question 3 (pictures):** mine a round sea mine with spikes; torpedo from the side with fins and propeller; **EMP just a lightning bolt**; health a first-aid cross.
+- **Question 4:** a) keep the different outline shapes on the sea (circle, capsule, diamond, square) with the icon inside, and drop the letters; **the pack's name shows on hover on laptops**.
+- **Question 5:** a) our own simple SVG icons, one set for the sea (Phaser loads SVGs as images) and the page; no new dependency.
+- **Question 6:** a) keep today's single dark fill; the icons carry the difference.
+- **Follow-up (hover on the sea):** b) no; the sea shows icons only, names are on hover in the top bar.
+- **Built (2026-10-27):**
+  - **Icons:** four white 24 × 24 SVGs in `client/public/icons/packs/` (mine: round, spiked; torpedo: side view, fins and propeller; EMP: a lightning bolt; health: a first-aid cross), listed in `client/src/game/packIcons.ts`. They are plain files, not imported: Vite inlined them as data URLs, which Phaser's SVG loader couldn't read (the scene failed to load and every pack test failed; found at once and fixed).
+  - **Sea:** the scene loads the SVGs (drawn at 96 px, shown at 1.6 × the pack radius) and shows the icon inside each pack's outline shape instead of the letter; icons under a moving storm are hidden, as the letters were.
+  - **Top bar:** "Packs:" then the two slot icons ("—" when empty), with `aria-label` / `title` "Packs: Mine · —" and each icon's name as its alt and hover text. `packSlotText` (letters) became `packSlotLabel` (names); its unit test checks the names. A ghost crew's haunting meter still shows as text there.
+  - **Phone Pack button:** the icon above the name ("Pack" with nothing loaded).
+  - **Tests changed:** the browser tests' 17 top-bar checks now read its label ("Packs: Mine · —") instead of the letters ("Packs: M · —"); the laptop and phone mine tests also check the icon and its hover name. The wreck test now waits for Crew 2 to show on the gunner's page before joining it (a race in `seatAs`, seen once).
+  - **Runs:** `npm test` passed (929 unit plus 1 skipped, 28 browser).
+
 ## Later
 
 - **(2026-10-25, Stage 5) Ship types**, discussed with the user ahead of Stage 5 (not to build before then):

@@ -1,4 +1,5 @@
 import { PACK_LABELS, packButtonLit, type PackType, type Role } from "@sink-or-sail/shared";
+import { PACK_ICONS } from "./packIcons.ts";
 import type { TouchButton, TouchControls } from "./touchControls.ts";
 
 /** Where the stick rests when no thumb is on it: this far from the layer's bottom-left corner (CSS px). */
@@ -89,8 +90,22 @@ export function createTouchLayer(controls: TouchControls): TouchLayer {
       buttons.shield.hidden = role !== "gunner" || ghost;
       // Pack: shows what's in this role's own slot; lit when it can be used, otherwise dim (and does nothing).
       buttons.pack.hidden = !seated || ghost;
+      // Stage 3: the pack's icon above its name.
       const label = ownPack ? PACK_LABELS[ownPack] : "Pack";
-      if (buttons.pack.textContent !== label) buttons.pack.textContent = label;
+      if (buttons.pack.dataset.pack !== (ownPack ?? "")) {
+        buttons.pack.dataset.pack = ownPack ?? "";
+        const name = document.createElement("span");
+        name.textContent = label;
+        if (ownPack) {
+          const icon = document.createElement("img");
+          icon.src = PACK_ICONS[ownPack];
+          icon.alt = "";
+          icon.className = "pack-icon";
+          buttons.pack.replaceChildren(icon, name);
+        } else {
+          buttons.pack.replaceChildren(name);
+        }
+      }
       buttons.pack.classList.toggle("lit", role !== null && !disabled && packButtonLit(ownPack, role));
       if (!seated) {
         controls.releaseAll();

@@ -22,7 +22,7 @@ export async function ownPosition(page: Page) {
   return { x, y };
 }
 
-export const slotEmpty = async (page: Page) => (await page.locator("#hud-pack").textContent()) === "Packs: — · —";
+export const slotEmpty = async (page: Page) => (await page.locator("#hud-pack").getAttribute("aria-label")) === "Packs: — · —";
 
 /** Steering gives up after this long (a busy machine makes each correction slower, so time, not a count). */
 const SAIL_FOR_MS = 40_000;
@@ -92,7 +92,7 @@ export async function sailWithKeys(page: Page, target: { x: number; y: number },
  * Stage 3 crews: moves this page's player into `crew` (numbered from 1) as `role`, through the room screen:
  * Join on that crew's row (its free role), or Leave this crew for a new one (which must be that crew), then the
  * role button in their own crew if the role differs. Players are paired into crews as they join, so call this
- * in an order where the seat wanted is free.
+ * in an order where the seat wanted is free, and (to Join) once the page shows that crew.
  */
 export async function seatAs(page: Page, crew: number, role: "pilot" | "gunner") {
   const box = page.locator("#my-crew");

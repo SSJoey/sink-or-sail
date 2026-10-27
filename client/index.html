@@ -33,7 +33,10 @@
       /* Small Pack button above Boost / Fire; dim unless this role can use what's loaded. */
       #btn-pack { width: 76px; height: 76px; right: 57px; bottom: 175px; font-size: 14px; border-radius: 12px; opacity: 0.4; }
       #btn-pack.lit { opacity: 1; background: rgba(255,209,102,0.35); border-color: #ffd166; }
-      #hud-pack { white-space: nowrap; }
+      #hud-pack { white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; }
+      /* Stage 3 pack icons (white on the dark bar and button). */
+      .pack-icon { width: 20px; height: 20px; vertical-align: middle; }
+      #btn-pack { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
       /* Host's mode buttons: the chosen one is highlighted. */
       .mode-btn[aria-pressed="true"] { background: #ffd166; color: #0b2545; font-weight: bold; }
       #hazards-host { margin-right: 16px; }

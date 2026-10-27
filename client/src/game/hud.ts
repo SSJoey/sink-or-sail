@@ -1,4 +1,4 @@
-import { PACK_LETTERS, type PackType } from "@sink-or-sail/shared";
+import { PACK_LABELS, type PackType } from "@sink-or-sail/shared";
 import { CREW_STYLES } from "./crews.ts";
 
 /** Time left as m:ss, rounded up so the clock reads 0:00 only when time is up. */
@@ -7,9 +7,9 @@ export function formatClock(seconds: number): string {
   return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`;
 }
 
-/** Both pack slots in the top bar, by letter: the pilot's first, then the gunner's. */
-export const packSlotText = (pilotPack: PackType | null, gunnerPack: PackType | null) =>
-  `Packs: ${pilotPack ? PACK_LETTERS[pilotPack] : "—"} · ${gunnerPack ? PACK_LETTERS[gunnerPack] : "—"}`;
+/** Both pack slots in the top bar, by name (its spoken and hover text; the icons show them): the pilot's first. */
+export const packSlotLabel = (pilotPack: PackType | null, gunnerPack: PackType | null) =>
+  `Packs: ${pilotPack ? PACK_LABELS[pilotPack] : "—"} · ${gunnerPack ? PACK_LABELS[gunnerPack] : "—"}`;
 
 /** The score in the top bar: each crew's symbol and sinkings, in its colour. */
 export function scoreHtml(sinkings: readonly number[]): string {

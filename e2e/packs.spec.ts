@@ -13,7 +13,7 @@ async function startAsPilot(page: Page, packPattern: RegExp) {
   await expect(page.locator("#packs-toggle")).toBeChecked(); // packs are on by default
   await seatAs(page, 1, "pilot");
   await page.click("#start");
-  await expect(page.locator("#hud-pack")).toHaveText("Packs: — · —");
+  await expect(page.locator("#hud-pack")).toHaveAttribute("aria-label", "Packs: — · —");
   await expect(page.locator("#game")).toHaveAttribute("data-packs", packPattern, { timeout: 30_000 });
 }
 
@@ -21,12 +21,15 @@ test("laptop: sail onto a mine pack with WASD, then drop the mine with E", async
   test.setTimeout(90_000);
   await startAsPilot(page, /mine@450,300/);
   await sailWithKeys(page, MINE, async () => !(await slotEmpty(page)));
-  await expect(page.locator("#hud-pack")).toHaveText("Packs: M · —");
+  await expect(page.locator("#hud-pack")).toHaveAttribute("aria-label", "Packs: Mine · —");
+  // Stage 3 pack icons: the top bar shows the mine's icon, with its name on hover.
+  await expect(page.locator("#hud-pack img")).toHaveAttribute("alt", "Mine");
+  await expect(page.locator("#hud-pack img")).toHaveAttribute("title", "Mine");
 
   await expect(page.locator("#game")).toHaveAttribute("data-mines", "0");
   await page.keyboard.press("e");
   await expect(page.locator("#game")).toHaveAttribute("data-mines", "1");
-  await expect(page.locator("#hud-pack")).toHaveText("Packs: — · —");
+  await expect(page.locator("#hud-pack")).toHaveAttribute("aria-label", "Packs: — · —");
 });
 
 test.describe("phone", () => {
@@ -51,15 +54,16 @@ test.describe("phone", () => {
     }
     await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
 
-    await expect(page.locator("#hud-pack")).toHaveText("Packs: M · —");
+    await expect(page.locator("#hud-pack")).toHaveAttribute("aria-label", "Packs: Mine · —");
     await expect(page.locator("#btn-pack")).toHaveText("Mine");
+    await expect(page.locator("#btn-pack img")).toBeVisible(); // the mine's icon above its name
     await expect(page.locator("#btn-pack")).toHaveClass(/lit/); // a mine is the pilot's pack
 
     const pack = (await page.locator("#btn-pack").boundingBox())!;
     await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: pack.x + pack.width / 2, y: pack.y + pack.height / 2, id: 2 }] });
     await expect(page.locator("#game")).toHaveAttribute("data-mines", "1");
     await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
-    await expect(page.locator("#hud-pack")).toHaveText("Packs: — · —");
+    await expect(page.locator("#hud-pack")).toHaveAttribute("aria-label", "Packs: — · —");
     await expect(page.locator("#btn-pack")).not.toHaveClass(/lit/);
   });
 });
@@ -84,7 +88,7 @@ async function crewWithTorpedo(browser: Browser, gunnerOptions: Parameters<Brows
   // Wait for the torpedo (the second pack), then sail onto it; the mine at (450, 300) is out of the way.
   await expect(pilot.locator("#game")).toHaveAttribute("data-packs", /torpedo@450,600/, { timeout: 40_000 });
   await sailWithKeys(pilot, TORPEDO, async () => !(await slotEmpty(pilot)));
-  await expect(gunner.locator("#hud-pack")).toHaveText("Packs: — · T"); // shown to both crewmates
+  await expect(gunner.locator("#hud-pack")).toHaveAttribute("aria-label", "Packs: — · Torpedo"); // shown to both crewmates
   return { pilot, gunner };
 }
 
@@ -95,11 +99,11 @@ test("laptop: the gunner fires the crew's torpedo with E", async ({ browser }) =
   // The pilot's E does nothing for a torpedo.
   await pilot.keyboard.press("e");
   await pilot.waitForTimeout(300);
-  await expect(pilot.locator("#hud-pack")).toHaveText("Packs: — · T");
+  await expect(pilot.locator("#hud-pack")).toHaveAttribute("aria-label", "Packs: — · Torpedo");
 
   await gunner.keyboard.press("e");
   await expect(gunner.locator("#game")).toHaveAttribute("data-torpedoes", "1");
-  await expect(gunner.locator("#hud-pack")).toHaveText("Packs: — · —");
+  await expect(gunner.locator("#hud-pack")).toHaveAttribute("aria-label", "Packs: — · —");
 });
 
 test("phone: the gunner's lit Pack button fires the torpedo, after a buzz at pickup", async ({ browser }) => {
@@ -114,5 +118,5 @@ test("phone: the gunner's lit Pack button fires the torpedo, after a buzz at pic
   await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: pack.x + pack.width / 2, y: pack.y + pack.height / 2, id: 1 }] });
   await expect(gunner.locator("#game")).toHaveAttribute("data-torpedoes", "1");
   await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
-  await expect(gunner.locator("#hud-pack")).toHaveText("Packs: — · —");
+  await expect(gunner.locator("#hud-pack")).toHaveAttribute("aria-label", "Packs: — · —");
 });

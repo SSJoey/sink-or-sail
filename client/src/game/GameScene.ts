@@ -1,11 +1,12 @@
 import * as Phaser from "phaser";
-import { PACK_LETTERS, SEA_CENTRE, TUNING, circleOverlapsPolygon, packButtonLit, rolePack, wreckHull, zoneRect, type PackType, type Polygon, type Role, type Vec, type WreckSpot } from "@sink-or-sail/shared";
+import { SEA_CENTRE, TUNING, circleOverlapsPolygon, packButtonLit, rolePack, wreckHull, zoneRect, type Polygon, type Role, type Vec, type WreckSpot } from "@sink-or-sail/shared";
 import { CREW_STYLES } from "./crews.ts";
 import { ShipEffects, type ShipEffect } from "./effects.ts";
 import { EmpRings } from "./empRing.ts";
 import { aimGuide, dashes, hullPoints, turretEnd } from "./hull.ts";
 import { hazardAlpha, hiddenByStorms, krakenTentacles, whirlpoolArms } from "./hazardLook.ts";
 import { lifebarColour, lifebarFill } from "./lifebar.ts";
+import { PACK_ICONS } from "./packIcons.ts";
 import type { Frame, GhostView, HazardView, MineView, PackView, ShipView, WreckView } from "./interpolation.ts";
 import { blinkVisible, packBlinkVisible } from "./matchText.ts";
 import { gunnerFromMouse, pilotFromKeys } from "./laptopInput.ts";
@@ -56,8 +57,8 @@ const KRAKEN_EDGE = 0x2a0f33;
 export class GameScene extends Phaser.Scene {
   private g!: Phaser.GameObjects.Graphics;
   private keys!: Record<"W" | "A" | "S" | "D" | "SPACE" | "E", Phaser.Input.Keyboard.Key>;
-  /** One letter label per pack on the map (Graphics can't draw text). */
-  private packLetters = new Map<string, Phaser.GameObjects.Text>();
+  /** One icon per pack on the map (Stage 3 pack icons; Graphics can't draw images). */
+  private packIcons = new Map<string, Phaser.GameObjects.Image>();
   private mouseSeen = false;
   /** E went down since the last input read. Phaser handles key events once per frame, so a quick tap whose
    *  down and up land in the same frame never shows as "down"; the keydown event still fires. */
@@ -75,6 +76,11 @@ export class GameScene extends Phaser.Scene {
   constructor(link: SceneLink) {
     super("game");
     this.link = link;
+  }
+
+  /** Stage 3: the pack icons, from the same SVG files as the page (drawn large, shown small, so they stay sharp). */
+  preload(): void {
+    for (const [type, url] of Object.entries(PACK_ICONS)) this.load.svg(`pack-${type}`, url, { width: 96, height: 96 });
   }
 
   create(): void {
@@ -182,7 +188,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
-   * Glowing spots pulse; packs on the water show their shape and letter (M circle, T capsule, E diamond, H square),
+   * Glowing spots pulse; packs on the water show their shape and icon (mine circle, torpedo capsule, EMP diamond, health square),
    * and blink in their last seconds before they disappear.
    */
   private drawPacks(packs: Map<string, PackView>, hazards: Map<string, HazardView>): void {
@@ -196,8 +202,8 @@ export class GameScene extends Phaser.Scene {
         continue;
       }
       const visible = packBlinkVisible(pack.lifeLeft);
-      // Letters are drawn above everything, so one under a moving storm is hidden here.
-      this.packLetters.get(id)?.setVisible(visible && !hiddenByStorms(pack, hazards));
+      // Icons are drawn above everything, so one under a moving storm is hidden here.
+      this.packIcons.get(id)?.setVisible(visible && !hiddenByStorms(pack, hazards));
       if (!visible) continue;
       g.fillStyle(PACK_FILL, 0.9);
       g.lineStyle(2, 0xffffff, 1);
@@ -214,18 +220,17 @@ export class GameScene extends Phaser.Scene {
         g.fillRect(x - r * 0.85, y - r * 0.85, 1.7 * r, 1.7 * r);
         g.strokeRect(x - r * 0.85, y - r * 0.85, 1.7 * r, 1.7 * r);
       }
-      let letter = this.packLetters.get(id);
-      if (!letter) {
-        letter = this.add.text(x, y, PACK_LETTERS[pack.type as PackType] ?? "?", { fontFamily: "sans-serif", fontSize: "18px", fontStyle: "bold", color: "#ffffff" }).setOrigin(0.5);
-        this.packLetters.set(id, letter);
+      if (!this.packIcons.has(id) && this.textures.exists(`pack-${pack.type}`)) {
+        const size = r * 1.6;
+        this.packIcons.set(id, this.add.image(x, y, `pack-${pack.type}`).setDisplaySize(size, size));
       }
     }
-    // Remove letters for packs that are gone or only glowing.
-    for (const [id, letter] of this.packLetters) {
+    // Remove icons for packs that are gone or only glowing.
+    for (const [id, icon] of this.packIcons) {
       const pack = packs.get(id);
       if (!pack || pack.signalled) {
-        letter.destroy();
-        this.packLetters.delete(id);
+        icon.destroy();
+        this.packIcons.delete(id);
       }
     }
   }

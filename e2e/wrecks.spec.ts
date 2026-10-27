@@ -18,6 +18,7 @@ test("wrecks: the laptop gunner shoots a wreck to pieces; the pilot sails over t
   await join(pilot, "Pilot", code);
   // Paired as they join: Host and Gunner make Crew 1, Pilot starts Crew 2; Gunner joins Crew 2 as its gunner.
   await seatAs(pilot, 2, "pilot");
+  await expect(gunner.locator("#crew-list li")).toHaveCount(2); // Crew 2 is on the gunner's page before Join
   await seatAs(gunner, 2, "gunner");
   await expect(host.locator("#hazards-toggle")).toBeChecked();
   await host.click("#start");
@@ -36,8 +37,8 @@ test("wrecks: the laptop gunner shoots a wreck to pieces; the pilot sails over t
   await expect(game).toHaveAttribute("data-packs", /mine@1150,125/);
 
   // The pack can be taken at once: the pilot sails over it.
-  await expect(pilot.locator("#hud-pack")).toHaveText("Packs: — · —");
-  await sailWithKeys(pilot, WRECK, async () => (await pilot.locator("#hud-pack").textContent()) === "Packs: M · —");
-  await expect(pilot.locator("#hud-pack")).toHaveText("Packs: M · —");
-  await expect(gunner.locator("#hud-pack")).toHaveText("Packs: M · —");
+  await expect(pilot.locator("#hud-pack")).toHaveAttribute("aria-label", "Packs: — · —");
+  await sailWithKeys(pilot, WRECK, async () => (await pilot.locator("#hud-pack").getAttribute("aria-label")) === "Packs: Mine · —");
+  await expect(pilot.locator("#hud-pack")).toHaveAttribute("aria-label", "Packs: Mine · —");
+  await expect(gunner.locator("#hud-pack")).toHaveAttribute("aria-label", "Packs: Mine · —");
 });

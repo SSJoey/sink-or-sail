@@ -1,10 +1,11 @@
 import * as Phaser from "phaser";
 import type { Room } from "@colyseus/sdk";
-import { ClientMessage, DEFAULT_LAYOUT, LAYOUTS, Phase, TUNING, inStorm, isLayoutId, isReefAmount, reefsFor, rolePack, type PackType, type Role } from "@sink-or-sail/shared";
+import { ClientMessage, DEFAULT_LAYOUT, LAYOUTS, PACK_LABELS, Phase, TUNING, inStorm, isLayoutId, isReefAmount, reefsFor, rolePack, type PackType, type Role } from "@sink-or-sail/shared";
 import { CREW_STYLES } from "./crews.ts";
 import { GameScene } from "./GameScene.ts";
 import type { ShipEffect } from "./effects.ts";
-import { empText, formatClock, livesHtml, packSlotText, scoreHtml } from "./hud.ts";
+import { empText, formatClock, livesHtml, packSlotLabel, scoreHtml } from "./hud.ts";
+import { PACK_ICONS } from "./packIcons.ts";
 import { startInputSender } from "./inputSender.ts";
 import { PackLatch } from "./packLatch.ts";
 import { gunnerPackBuzz } from "./packBuzz.ts";
@@ -299,6 +300,35 @@ export function renderResult(el: HTMLElement, state: RoomStateView): void {
   el.replaceChildren(title, table, layout);
 }
 
+/**
+ * Stage 3 pack icons: the top bar's two slots as icons ("—" when empty), the pilot's first, with their names as hover
+ * and spoken text; or a line of text (a ghost crew's haunting meter); or nothing without a seat.
+ */
+function showPackSlots(el: HTMLElement, content: (PackType | null)[] | string | null): void {
+  const key = content === null ? "" : typeof content === "string" ? `text:${content}` : content.join(",");
+  if (el.dataset.key === key) return;
+  el.dataset.key = key;
+  if (content === null || typeof content === "string") {
+    el.textContent = content ?? "";
+    el.removeAttribute("aria-label");
+    el.removeAttribute("title");
+    return;
+  }
+  const label = packSlotLabel(content[0] ?? null, content[1] ?? null);
+  el.setAttribute("aria-label", label);
+  el.title = label;
+  const slot = (pack: PackType | null) => {
+    if (!pack) return document.createTextNode("—");
+    const img = document.createElement("img");
+    img.src = PACK_ICONS[pack];
+    img.className = "pack-icon";
+    img.alt = PACK_LABELS[pack];
+    img.title = PACK_LABELS[pack];
+    return img;
+  };
+  el.replaceChildren(document.createTextNode("Packs: "), slot(content[0] ?? null), document.createTextNode(" · "), slot(content[1] ?? null));
+}
+
 function showPauseControls(state: RoomStateView, seated: boolean, isHost: boolean, paused: HTMLElement): void {
   const phase = state.phase;
   const playing = phase === Phase.Countdown || phase === Phase.Running;
@@ -376,8 +406,8 @@ function updateHud(frame: Frame | null, seat: { crew: number; role: Role } | nul
   const crewShip = seat ? frame?.ships[seat.crew] : undefined;
   // Stage 2: a crew that is out sees how haunted its ghost's zone is instead of its (empty) pack slots.
   const ghost = seat && crewShip?.out ? frame?.ghosts.get(String(seat.crew)) : undefined;
-  const slotText = !seat ? "" : ghost && frame!.zones.length > 0 ? hauntingText(frame!.zones[ghost.zone] ?? 0) : packSlotText(crewShip?.pilotPack ?? null, crewShip?.gunnerPack ?? null);
-  if (packSlot.textContent !== slotText) packSlot.textContent = slotText;
+  const haunting = seat && ghost && frame!.zones.length > 0 ? hauntingText(frame!.zones[ghost.zone] ?? 0) : null;
+  showPackSlots(packSlot, seat ? haunting ?? [crewShip?.pilotPack ?? null, crewShip?.gunnerPack ?? null] : null);
   const score = byId("hud-score");
   const ships = frame?.ships ?? [];
   const html = lastAfloat ? livesHtml(ships) : scoreHtml(ships.map((ship) => ship.sinkings));

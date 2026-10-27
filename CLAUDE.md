@@ -11,7 +11,7 @@ Full design: `docs/design.md` (exported from the "Sink or Sail — Game Design" 
 - **Stage 2 is planned** (2026-10-26). **Slice 1 is built and committed** (2026-10-26, `57029bf`): mode choice and Last Afloat. **Slice 2 is built and committed** (2026-10-26): nine island layouts, a host Layout dropdown with Random. **Slice 3 is built and committed** (2026-10-26): the host's Hazards on/off toggle and reefs (None / Few / All). **Slice 4 is built and committed** (2026-10-26): shipwrecks (solid until shot, rammed or blasted to pieces; half of them hold a pack, shown by a glint). **Slice 5 is built and committed** (2026-10-26): the closing storm (Last Afloat with hazards on). **Slice 6 is built and committed** (2026-10-26): the hazard timer and the moving storm (both modes, hazards on). **Slice 7 is built and committed** (2026-10-27): the whirlpool. **Slice 8 is built and committed** (2026-10-27): the kraken. **Slice 9 is split in two** (9a ghosts, 9b haunting); **9a is built and committed** (2026-10-27): ghosts (Last Afloat; only in 3-ship matches, since a 2-ship match ends at the first crew out). **9b is built and committed** (2026-10-27): haunting (zones, meters, fog, hazards set off by haunting). **Browser-test reliability** (2026-10-27): the browser tests draw on the graphics chip, at 20 frames a second, 2 at a time; 5 clean full runs in a row.
 - **Tests now:** 929 unit tests (plus 1 skipped: the mirror check for One Island, which is today's irregular island) and 28 browser tests, type-check clean. Browser runs still fail sometimes under load (see the watch item).
 - **Stage 2 slice 10 is planned** (2026-10-27): **part 1 is built and committed** (summary additions, Stage 2 playtest sheet in `docs/playtest.md`). Part 2 (the five home-network check matches) and the Stage 2 playtest are **deferred, still owed** (2026-10-27), like the Stage 1 combined playtest.
-- **Stage 3 is planned** (2026-10-27; see "Current goal: Stage 3" below, answers in `NOTES.md`). **Slice 1 is built and committed** (2026-10-27): changing your name, unique names, the QR code, the remembered name. **Slice 2 is built and committed** (2026-10-27): the crew-based lobby (pairing on joining, Find me a partner, Leave this crew, Ready; the seat grid is gone). **Slice 3 is built and committed** (2026-10-27): late joiners wait for the next round on a waiting screen (pair up, pick a role, watch the match). **Slice 4 is built and committed** (2026-10-27): a lifebar above every ship. **Slice 5 is built and committed** (2026-10-27): the results table (place, crew, sinkings, time afloat, lives), Play again, back to the lobby after 20 s. **Next:** Stage 3 slice 6 (awards), starting with its own plan and a go-ahead (two definitions still open: "Storm Chaser" and "Sitting Duck").
+- **Stage 3 is planned** (2026-10-27; see "Current goal: Stage 3" below, answers in `NOTES.md`). **Slice 1 is built and committed** (2026-10-27): changing your name, unique names, the QR code, the remembered name. **Slice 2 is built and committed** (2026-10-27): the crew-based lobby (pairing on joining, Find me a partner, Leave this crew, Ready; the seat grid is gone). **Slice 3 is built and committed** (2026-10-27): late joiners wait for the next round on a waiting screen (pair up, pick a role, watch the match). **Slice 4 is built and committed** (2026-10-27): a lifebar above every ship. **Slice 5 is built and committed** (2026-10-27): the results table (place, crew, sinkings, time afloat, lives), Play again, back to the lobby after 20 s. **Slice 6 is built and committed** (2026-10-27): pack icons (sea, top bar, Pack button). **Next:** Stage 3 slice 7 (awards, planned and agreed in `NOTES.md`), on a go-ahead.
 
 Every decision, with its date, is in `NOTES.md`.
 
@@ -126,11 +126,12 @@ Same rules as before: plan, go-ahead, build with tests, summary, stop.
 3. **The waiting screen and late joiners.**
 4. **The lifebar.**
 5. **Results screen, Play again, back to the lobby** (20 s).
-6. **Awards.**
-7. **Spectator view.**
-8. **Partner bots** (bot gunner and bot pilot).
-9. **Bot ships.**
-10. **Log and summary additions, then check matches** in Docker over the Wi-Fi.
+6. **Pack icons** (added 2026-10-27 at the user's request, brought forward from Stage 4's art): our own SVG icons on the sea, in the top bar and on the Pack button; names on hover on laptops.
+7. **Awards.**
+8. **Spectator view.**
+9. **Partner bots** (bot gunner and bot pilot).
+10. **Bot ships.**
+11. **Log and summary additions, then check matches** in Docker over the Wi-Fi.
 
 ### Definition of done for Stage 3 (proposed)
 
@@ -312,6 +313,7 @@ The server records each match for analysis and, later, for awards. Log events, n
 - **No aiming guide for torpedoes:** the bow is the sight.
 - Crew colours must be clearly distinct; pair each with a symbol for colour-blind players.
 - Each player sees the same amount of sea whatever their device, so laptops get no advantage.
+- **Pack icons (Stage 3 slice 6):** each pack shows its own icon (white SVGs in `client/public/icons/packs/`) inside its outline shape on the sea, in the top bar and on the Pack button; the letters are gone. Names on hover on laptops (top bar).
 - **Stage 1 placeholders:** a spawn spot glows (a pulsing ring) while signalled; each pack type has its own simple shape and letter (M, T, E, H) so it reads without colour; a mine is visible to everyone and looks different once armed; a torpedo is visibly larger and slower than a shot; the EMP shows an expanding ring, and ships caught by it look disabled for the 3 s.
 
 ## Rules of engagement (non-negotiable)
