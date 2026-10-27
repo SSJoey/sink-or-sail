@@ -638,6 +638,13 @@ Pack icons are art (Stage 4's "sea-chart art"); the user asked to bring them for
   - **Tests changed:** the browser tests' 17 top-bar checks now read its label ("Packs: Mine · —") instead of the letters ("Packs: M · —"); the laptop and phone mine tests also check the icon and its hover name. The wreck test now waits for Crew 2 to show on the gunner's page before joining it (a race in `seatAs`, seen once).
   - **Runs:** `npm test` passed (929 unit plus 1 skipped, 28 browser).
 
+### 2026-10-28 — A home match analysed (VVGW, 2026-10-27 22:25)
+
+- 4 players, Sink Count, packs on, hazards off, One Island, full 4:00 (a build from before the lifebar). Crew 1 (Joey & Melissa) won 8–0; Crew 2 (Ian & DI) was sunk every 20–40 s.
+- **Crew 2's gunner (DI, a child on a phone) fired 2 shots in 4 minutes, never shielded and never used a pack** (two torpedoes and an EMP picked up, two lost on sinking). No drops or reconnects; DI reported no problem, so most likely unfamiliarity with the gunner's phone controls rather than a fault. Crew 2's pilot boosted almost constantly (885 energy, bar empty 74 s).
+- Crew 1 used every pack (mine, torpedo, 3 EMPs, 2 health); Melissa fired 321 shots (14% hit).
+- The two later logs that evening were solo tests; the hazards one (VHBU) showed reefs, a wreck ram, a moving storm, a kraken grab and health packs working. No awards there: that build was from before slice 7.
+
 ## Later
 
 - **(2026-10-25, Stage 5) Ship types**, discussed with the user ahead of Stage 5 (not to build before then):
@@ -691,3 +698,4 @@ Pack icons are art (Stage 4's "sea-chart art"); the user asked to bring them for
   - **The room code in the link** (for example `http://<address>:2567/?code=ABCD`): the join screen would fill it in, so the phone only needs a name.
   - **Drawing the QR code:** either a small library (a new dependency, so ask first, with the reason) or a hand-written encoder.
   - **Fits Stage 3** ("can a group get playing within 30 seconds?"), unless wanted earlier, for example for the Stage 2 check matches and playtests.
+- **(2026-10-28, stage not set) First-match control hints**, suggested after a child on a phone barely fired in a whole match: for example a short "Tap Fire to shoot, hold Shield to block" hint on each role's controls during the first countdown, or until the player first uses them. Not to build without the user's go-ahead; decide after the Stage 1/2 playtests (with the Pack-button watch item).
