@@ -36,7 +36,7 @@ export const GAME_MODES = ["sinkCount", "lastAfloat"] as const;
 export type GameMode = (typeof GAME_MODES)[number];
 
 /** What sank a ship. A mine set off by a shot or a torpedo counts as that weapon; "ownMine" is a ship's own mine it sailed into. */
-export type SinkCause = "shot" | "mine" | "ownMine" | "torpedo" | "bump" | "reef" | "wreck" | "storm";
+export type SinkCause = "shot" | "mine" | "ownMine" | "torpedo" | "bump" | "reef" | "wreck" | "storm" | "kraken";
 
 /** A pack on the map. While `signalLeft` > 0 its spot is glowing and it can't be picked up yet. */
 export interface Pack {
@@ -72,8 +72,8 @@ export interface Wreck {
   pack: PackType | null;
 }
 
-/** Stage 2 dynamic hazards (on the hazard timer): the moving storm and the whirlpool; the kraken joins later. */
-export type HazardKind = "movingStorm" | "whirlpool";
+/** Stage 2 dynamic hazards (on the hazard timer): the moving storm, the whirlpool and the kraken. */
+export type HazardKind = "movingStorm" | "whirlpool" | "kraken";
 /** Signalled: its spot shows, it doesn't move or act. Active: it moves and acts. Fading: it still moves but no longer acts. */
 export type HazardPhase = "signalled" | "active" | "fading";
 export interface Hazard {
@@ -87,6 +87,10 @@ export interface Hazard {
   timeLeft: number;
   /** Whirlpool: which way it turns on screen, 1 clockwise, -1 anticlockwise (0 for other kinds). */
   spin: number;
+  /** Kraken: its health (shots and torpedoes hurt it), the ship it holds (null for none) and seconds of the hold left. */
+  health?: number;
+  holding?: number | null;
+  holdLeft?: number;
 }
 
 /** When the closing storm starts closing and reaches its final circle (match seconds). */
@@ -237,13 +241,19 @@ export type SimEvent =
   /** Stage 2 dynamic hazards: signalled (where, and the way it will move), started acting, and stopped acting (then it fades). */
   | { type: "hazardSignalled"; hazard: number; kind: HazardKind; pos: Vec; heading: number; spin?: number }
   | { type: "hazardStarted"; hazard: number; kind: HazardKind }
-  | { type: "hazardEnded"; hazard: number; kind: HazardKind; reason: "time" | "edge" }
+  /** Reasons: its time is up, a storm's centre left the sea, a kraken's grab ended, or a kraken was shot to 0. */
+  | { type: "hazardEnded"; hazard: number; kind: HazardKind; reason: "time" | "edge" | "grab" | "shot" }
   /** A ship's centre entered or left an active moving storm (leaving includes the storm ending and the ship sinking). */
   | { type: "stormEntered"; ship: number; hazard: number }
   | { type: "stormLeft"; ship: number; hazard: number }
   /** A ship's centre entered or left an active whirlpool's reach (leaving includes it ending and the ship sinking). */
   | { type: "whirlpoolEntered"; ship: number; hazard: number }
   | { type: "whirlpoolLeft"; ship: number; hazard: number }
+  /** A kraken grabs a ship, hurts the ship it holds (each tick), lets it go, and is hit by a shot or torpedo (`by`: the firing ship). */
+  | { type: "krakenGrab"; ship: number; hazard: number }
+  | { type: "krakenDamage"; ship: number; hazard: number; damage: number }
+  | { type: "krakenReleased"; ship: number; hazard: number; reason: "time" | "shot" | "sunk" }
+  | { type: "krakenHit"; hazard: number; by: number; weapon: "shot" | "torpedo"; damage: number }
   | { type: "respawned"; ship: number; pos: Vec }
   /** "lastAfloat": one ship (or none) left in a Last Afloat match; "time": the clock ran out. */
   | { type: "matchEnded"; winner: number | null; reason: "time" | "lastAfloat" }
@@ -264,4 +274,4 @@ export type SimEvent =
   | { type: "torpedoHit"; torpedo: number; attacker: number; target: number; damage: number; shieldHalved: boolean }
   | { type: "empFired"; ship: number; caught: number[] }
   /** A torpedo that didn't hit a ship: stopped by the island, the sea edge or a wreck, or used up setting off a mine. */
-  | { type: "torpedoEnded"; torpedo: number; owner: number; reason: "island" | "edge" | "mine" | "wreck" };
+  | { type: "torpedoEnded"; torpedo: number; owner: number; reason: "island" | "edge" | "mine" | "wreck" | "kraken" };

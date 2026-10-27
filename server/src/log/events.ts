@@ -52,6 +52,10 @@ export function simEventLines(t: number, events: readonly SimEvent[], roster: Ro
       case "stormLeft": lines.push({ t, type: "stormLeft", ...crew(e.ship), hazard: e.hazard }); break;
       case "whirlpoolEntered": lines.push({ t, type: "whirlpoolEntered", ...crew(e.ship), hazard: e.hazard }); break;
       case "whirlpoolLeft": lines.push({ t, type: "whirlpoolLeft", ...crew(e.ship), hazard: e.hazard }); break;
+      case "krakenGrab": lines.push({ t, type: "krakenGrab", ...crew(e.ship), hazard: e.hazard }); break;
+      case "krakenDamage": lines.push({ t, type: "krakenDamage", ...crew(e.ship), hazard: e.hazard, damage: r1(e.damage) }); break;
+      case "krakenReleased": lines.push({ t, type: "krakenReleased", ...crew(e.ship), hazard: e.hazard, reason: e.reason }); break;
+      case "krakenHit": lines.push({ t, type: "krakenHit", hazard: e.hazard, ...crew(e.by), weapon: e.weapon, damage: r1(e.damage) }); break;
       case "respawned": lines.push({ t, type: "respawn", ...crew(e.ship), x: r1(e.pos.x), y: r1(e.pos.y) }); break;
       case "bump": lines.push({ t, type: "bump", ships: e.ships, damage: [r1(e.damage[0]), r1(e.damage[1])] }); break;
       case "packSignalled": lines.push({ t, type: "packSignalled", pack: e.pack, spot: e.spot, packType: e.packType }); break;

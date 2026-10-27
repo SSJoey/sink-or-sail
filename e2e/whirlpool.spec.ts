@@ -1,10 +1,10 @@
 import { expect, test } from "@playwright/test";
 import { join, ownPosition, sailWithKeys } from "./helpers.ts";
 
-// The fourth test server's first dynamic hazard comes at 0:02 (playwright.config.ts). With seed 8 it is a whirlpool
-// at (409, 433), 260 east of Crew 1's start; it forms at 0:05 and lasts until 0:20.
+// The fourth test server's first dynamic hazard comes at 0:02 (playwright.config.ts). With seed 3 it is a whirlpool
+// at (305, 241), 260 from Crew 1's start; it forms at 0:05 and lasts until 0:20.
 const BASE = "http://localhost:2580";
-const POOL = { x: 409, y: 433 };
+const POOL = { x: 305, y: 241 };
 /** The whirlpool's eye radius (TUNING.whirlpool.eyeRadius). */
 const EYE = 35;
 
@@ -23,7 +23,7 @@ test("whirlpool: signalled, then forms; the laptop pilot sails into the eye and 
 
   const game = host.locator("#game");
   // Under load the game view can take a while to appear (see the watch item in CLAUDE.md).
-  await expect(game).toHaveAttribute("data-hazards", /^0:whirlpool:(signalled|active):409,433$/, { timeout: 15_000 });
+  await expect(game).toHaveAttribute("data-hazards", /^0:whirlpool:(signalled|active):305,241$/, { timeout: 15_000 });
   await expect(game).toHaveAttribute("data-hazards", /^0:whirlpool:active:/, { timeout: 15_000 });
 
   const fromEye = async () => {

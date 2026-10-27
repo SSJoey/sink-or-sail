@@ -31,6 +31,8 @@ export interface ShipView {
   sunkCause: string;
   /** Stage 2: closing-storm hits taken (each flashes the hull red). */
   stormHits: number;
+  /** Stage 2: kraken hits taken while held (each flashes the hull red too). */
+  krakenHits: number;
 }
 
 export interface PackView {
@@ -57,7 +59,7 @@ export interface WreckView {
   hasPack: boolean;
 }
 
-/** Stage 2: a dynamic hazard on the sea (a moving storm or a whirlpool). */
+/** Stage 2: a dynamic hazard on the sea (a moving storm, a whirlpool or a kraken). */
 export interface HazardView {
   kind: string;
   /** "signalled", "active" or "fading". */
@@ -69,6 +71,9 @@ export interface HazardView {
   timeLeft: number;
   /** Whirlpool: 1 clockwise, -1 anticlockwise; 0 for other kinds. */
   spin: number;
+  /** Kraken: its health, and the ship it holds (-1 for none). */
+  health: number;
+  holding: number;
 }
 
 export interface ShotView {

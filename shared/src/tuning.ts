@@ -101,7 +101,7 @@ export const TUNING = {
     /** With no clear spot (or no ship afloat), the timer tries again after this many seconds. */
     retryAfter: 1,
     /** Relative chance of each kind when the timer runs out. */
-    chances: { movingStorm: 1, whirlpool: 1 },
+    chances: { movingStorm: 1, whirlpool: 1, kraken: 1 },
   },
   /** Stage 2 moving storm (approved 2026-10-26): pushes ships whose centre is inside; hides what's in it. No damage. */
   movingStorm: {
@@ -130,6 +130,25 @@ export const TUNING = {
     /** Appears this far from the picked ship (its reach plus a ship plus the hazard clearance is 258, more than the usual 250). */
     distanceFromShip: 260,
     lifetime: 15,
+    fadeTime: 1,
+  },
+  /** Stage 2 kraken (approved 2026-10-27): hunts the nearest ship, grabs it once, then dives; shots and torpedoes hurt it. */
+  kraken: {
+    /** Its body: shots and torpedoes hit it here; kept clear of islands and wrecks where it surfaces. */
+    bodyRadius: 35,
+    /** It grabs the ship it hunts once that ship's centre is within this of its middle. */
+    grabReach: 70,
+    /** Swims toward the nearest ship afloat and not protected, under islands and wrecks. */
+    speed: 60,
+    distanceFromShip: 300,
+    /** A grab holds the ship this long (the pilot can't steer or boost), hurting it each tick. */
+    holdTime: 3,
+    damage: 0.1,
+    tickSeconds: 1,
+    /** Three gun shots; a torpedo does 50. At 0 it lets go and dives at once. */
+    health: 60,
+    /** Seconds it hunts before giving up (diving) without a grab, and the fade after it dives. */
+    lifetime: 20,
     fadeTime: 1,
   },
   /** Stage 2: Last Afloat (approved 2026-10-26). */

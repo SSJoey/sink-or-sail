@@ -38,6 +38,8 @@ export const ShipState = schema({
   empsFired: t.uint16().default(0),
   /** Stage 2: closing-storm hits taken (clients flash the hull red on each). */
   stormHits: t.uint16().default(0),
+  /** Stage 2: kraken hits taken while held (clients flash the hull red on each, like storm hits). */
+  krakenHits: t.uint16().default(0),
   /** Last Afloat: sinkings the ship can still take; -1 in Sink Count. */
   livesLeft: t.int8().default(-1),
   /** Last Afloat: sunk on its last life, gone for the rest of the match. */
@@ -74,7 +76,7 @@ export const WreckState = schema({
 }, "WreckState");
 export type WreckState = SchemaType<typeof WreckState>;
 
-/** Stage 2: a dynamic hazard on the sea (a moving storm or a whirlpool). */
+/** Stage 2: a dynamic hazard on the sea (a moving storm, a whirlpool or a kraken). */
 export const HazardState = schema({
   kind: t.string(),
   /** "signalled", "active" or "fading". */
@@ -87,6 +89,9 @@ export const HazardState = schema({
   timeLeft: t.float32(),
   /** Whirlpool: 1 clockwise, -1 anticlockwise; 0 for other kinds. */
   spin: t.int8(),
+  /** Kraken: its health (clients flash it when it drops) and the ship it holds (-1 for none). */
+  health: t.float32(),
+  holding: t.int8().default(-1),
 }, "HazardState");
 export type HazardState = SchemaType<typeof HazardState>;
 

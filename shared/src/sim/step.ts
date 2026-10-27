@@ -12,7 +12,7 @@ import { NO_INPUT, type Mine, type Ship, type ShipInput, type Shot, type SimEven
 import { add, distance, scale } from "./vec.ts";
 import { circleOverlapsPolygon, pointInPolygon } from "./geometry.ts";
 import { ramDamage, touchingWreck, wreckContactKey, wreckDamage } from "./wrecks.ts";
-import { applyHazards, hazardContactsOf, updateHazards } from "./hazards.ts";
+import { applyHazards, hazardContactsOf, heldByKraken, hitKraken, updateHazards } from "./hazards.ts";
 import { inStorm, respawnInside, stormRadius, stormTicks } from "./storm.ts";
 import { aimTurret, fireGun, moveShot } from "./weapons.ts";
 
@@ -119,12 +119,14 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
     const input = inputs[ship.id] ?? NO_INPUT;
     // An EMP'd ship can steer, but can't fire, boost, shield or use packs.
     const disabled = ship.disabled > EPSILON;
+    // Stage 2: a ship a kraken holds can't steer or boost (its gunner can still aim, fire and shield).
+    const held = world.hazards.length > 0 && heldByKraken(world.hazards, ship.id);
     ship = aimTurret(ship, input.gunner.aim);
 
     const energy = updateEnergy(
       { energy: ship.energy, locked: ship.energyLocked, boosting: ship.boosting, shielding: ship.shielding },
       ship.id,
-      { boost: input.pilot.boost && !disabled, shield: input.gunner.shield && !disabled },
+      { boost: input.pilot.boost && !disabled && !held, shield: input.gunner.shield && !disabled },
       dt,
     );
     events.push(...energy.events);
@@ -138,7 +140,7 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
       shieldEnergy: ship.shieldEnergy + energy.spent.shield,
     };
 
-    ship = steerShip(ship, input.pilot, ship.boosting, dt, ship.onReef ? TUNING.reef.speedFactor : 1);
+    ship = held ? { ...ship, vel: { x: 0, y: 0 } } : steerShip(ship, input.pilot, ship.boosting, dt, ship.onReef ? TUNING.reef.speedFactor : 1);
 
     const fired = fireGun(ship, disabled ? { ...input.gunner, fire: false } : input.gunner, dt, nextShotId);
     ship = fired.ship;
@@ -242,13 +244,25 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
   // Stage 2 dynamic hazards: they move (and the timer signals the next); active moving storms carry ships inside,
   // active whirlpools pull them in and swirl them round.
   const hazardUpdate = world.hazards.length > 0 || world.nextHazardIn !== null ? updateHazards(world, ships, dt, solids()) : null;
-  const hazards = hazardUpdate?.hazards ?? world.hazards;
+  let hazards = hazardUpdate?.hazards ?? world.hazards;
   if (hazardUpdate) {
+    // A kraken hurts the ship it holds each tick (a shield doesn't help); sinking there credits nobody. Logged
+    // before the hazards' own events, so a hold's last tick comes before the kraken lets go.
+    for (const tick of hazardUpdate.krakenDamage) {
+      const i = ships.findIndex((s) => s.id === tick.ship);
+      if (i < 0 || ships[i]!.sunk) continue;
+      const hurt = damageShip(ships[i]!, tick.damage);
+      ships[i] = hurt.ship;
+      events.push({ type: "krakenDamage", ship: tick.ship, hazard: tick.hazard, damage: tick.damage });
+      if (hurt.sank) sink(i, null, "kraken");
+    }
     events.push(...hazardUpdate.events);
     for (let i = 0; i < ships.length; i++) {
       if (!ships[i]!.sunk) ships[i] = applyHazards(ships[i]!, hazards, dt);
     }
   }
+  /** Active krakens' bodies, which stop shots and torpedoes. */
+  const krakens = () => hazards.filter((h) => h.kind === "kraken" && h.phase === "active");
 
   // The islands, wrecks and the sea edge win over ship pushes, so nothing ends up inside them.
   const blocking = solids();
@@ -339,7 +353,11 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
   const survivingShots: Shot[] = [];
   for (const shot of shots) {
     const moved = moveShot(shot, dt);
-    const trace = traceShot(shot.owner, moved.from, moved.to, ships, world.islands, mines.filter(isArmed), wrecks);
+    const trace = traceShot(shot.owner, moved.from, moved.to, ships, world.islands, mines.filter(isArmed), wrecks, krakens());
+    if (trace.kind === "kraken") {
+      hazards = hitKraken(hazards, trace.hazard, shot.owner, "shot", TUNING.gun.shotDamage, events);
+      continue;
+    }
     if (trace.kind === "wreck") {
       hitWreck(trace.wreck, shot.owner, "shot", wreckDamage("shot"));
       continue;
@@ -372,7 +390,12 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
   const runningTorpedoes: Torpedo[] = [];
   for (const torpedo of torpedoes) {
     const to = add(torpedo.pos, scale(torpedo.vel, dt));
-    const trace = traceShot(torpedo.owner, torpedo.pos, to, ships, world.islands, mines.filter(isArmed), wrecks);
+    const trace = traceShot(torpedo.owner, torpedo.pos, to, ships, world.islands, mines.filter(isArmed), wrecks, krakens());
+    if (trace.kind === "kraken") {
+      events.push({ type: "torpedoEnded", torpedo: torpedo.id, owner: torpedo.owner, reason: "kraken" });
+      hazards = hitKraken(hazards, trace.hazard, torpedo.owner, "torpedo", TUNING.ship.maxHealth * TUNING.torpedo.damage, events);
+      continue;
+    }
     if (trace.kind === "wreck") {
       events.push({ type: "torpedoEnded", torpedo: torpedo.id, owner: torpedo.owner, reason: "wreck" });
       hitWreck(trace.wreck, torpedo.owner, "torpedo", wreckDamage("torpedo"));
@@ -437,7 +460,8 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
     nextPackId,
     wrecks,
     wreckPacks,
-    ...(hazardUpdate && { hazards, nextHazardId: hazardUpdate.nextHazardId, nextHazardIn: hazardUpdate.nextHazardIn, hazardRng: hazardUpdate.hazardRng }),
+    hazards,
+    ...(hazardUpdate && { nextHazardId: hazardUpdate.nextHazardId, nextHazardIn: hazardUpdate.nextHazardIn, hazardRng: hazardUpdate.hazardRng }),
     hazardContacts,
     time,
     ships,

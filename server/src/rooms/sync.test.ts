@@ -245,6 +245,20 @@ describe("moving storms in the synced state", () => {
     world.hazards = [{ id: 3, kind: "whirlpool", pos: { x: 500, y: 300 }, heading: 0, phase: "active", timeLeft: 9, spin: -1 }];
     syncWorld(state, world);
     expect([state.hazards.get("3")!.kind, state.hazards.get("3")!.spin]).toEqual(["whirlpool", -1]);
+    // A kraken carries its health and the ship it holds (-1 for none).
+    world.hazards = [{ id: 3, kind: "kraken", pos: { x: 500, y: 300 }, heading: 0, phase: "active", timeLeft: 9, spin: 0, health: 40, holding: 1, holdLeft: 2 }];
+    syncWorld(state, world);
+    expect([state.hazards.get("3")!.kind, state.hazards.get("3")!.health, state.hazards.get("3")!.holding]).toEqual(["kraken", 40, 1]);
+    world.hazards = [{ ...world.hazards[0]!, holding: null }];
+    syncWorld(state, world);
+    expect(state.hazards.get("3")!.holding).toBe(-1);
+  });
+
+  it("counts each kraken hit on a held ship (for its red flash)", () => {
+    const state = new CrewState();
+    syncWorld(state, createWorld({ hazards: true }));
+    applyEvents(state, [{ type: "krakenDamage", ship: 0, hazard: 2, damage: 10 }]);
+    expect(state.ships.map((s) => [s.krakenHits, s.hits])).toEqual([[1, 0], [0, 0]]);
   });
 });
 

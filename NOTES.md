@@ -455,6 +455,29 @@ Agreed after Stage 2 slice 7, before the kraken.
 - **Step 3 results:** `workers: 2` in `playwright.config.ts` (steps 1 and 2 kept). Runs: 194 s, 214 s, 214 s, all 20 of 20; one run voided (the laptop went to sleep in the middle, 10:58); then 174 s and 193 s, 20 of 20. That is 5 clean runs; the final `npm test` passed too (807 unit plus 1 skipped, 20 browser). Peak load 15–23 (was 25–32). A full run now takes about 3–3.5 minutes (was about 2.5).
 - **Kept:** all three steps. Step 2 didn't show a clear drop in CPU on its own, but it does cut drawing to a third and costs nothing in real games.
 
+### 2026-10-27 — Stage 2 slice 8 plan: kraken
+
+- **Plan as proposed:** hazards on, both modes, on the hazard timer, which now picks a moving storm, a whirlpool or a kraken with the seed (equal chances). Signalled 3 s (ripples and bubbles). Placed like the others (a set distance from a picked ship, clear of every ship; its body in open water, clear of islands and wrecks). It swims toward the nearest ship afloat and not protected (switching as ships move) and grabs it when in reach; each kraken grabs once, then lets go and dives (ends); with no grab it dives after its time. A ship sunk while held: cause `kraken`, nobody credited.
+- **Question 1:** a) a grab holds the ship 3 s, dealing damage each second.
+- **Question 2:** a) shots and torpedoes from any crew hurt the kraken; at 0 health it lets go and dives at once.
+- **Question 3:** a) while held, the pilot can't steer or boost; the gunner can still aim, fire and shield.
+- **Question 4:** a) it swims under islands and wrecks.
+- **Question 5 (values), yes:** body radius 35; grabs a ship whose centre is within 70 of its middle; swims at 60; appears 300 from the picked ship; hold 3 s; 10% of full health per second while held; health 60 (3 shots; a torpedo does 50); dives after 20 s without a grab; chances storm 1 : whirlpool 1 : kraken 1.
+- **Question 6:** still 1 hazard at a time.
+- **Question 7:** banner "Taken by the kraken" ("Out: taken by the kraken").
+- **Question 8:** a) a fifth test server with a seed whose first hazard is a kraken.
+- **Question 9:** log and summary as proposed: `hazardSignalled` (kind kraken), `hazardEnded` (reason time, grab or shot), `krakenGrab`, `krakenDamage`, `krakenReleased` (reason time, shot or sunk), `krakenHit` (by, weapon, damage); a per-crew "Kraken grabs (damage)" column.
+- **Chosen while building (to confirm with the user):** a raised shield doesn't soften a kraken's hold damage (like the closing storm). A torpedo that hits a kraken ends with `torpedoEnded` reason "kraken" (like "wreck"). While held, the pilot can still drop a loaded mine (only steering and boost are stopped).
+- **Built (2026-10-27):**
+  - **Tuning:** `hazards.chances` gains kraken 1; `kraken` { bodyRadius 35, grabReach 70, speed 60, distanceFromShip 300, holdTime 3, damage 0.1, tickSeconds 1, health 60, lifetime 20, fadeTime 1 }.
+  - **Simulation** (`sim/hazards.ts`): a kraken carries `health`, `holding` and `holdLeft`. Each step while active and not holding, it swims toward the nearest ship afloat and not protected (switching as ships move, under islands and wrecks) and grabs it once its centre is within 70; it dives (reason time) after 20 s without a grab. Holding, the hold runs down; at each whole second the held ship takes 10 (`krakenDamage`, logged before the kraken's own events); after 3 s it lets go (`krakenReleased` time, `hazardEnded` grab); if the held ship sinks it lets go (sunk). A held ship can't steer or boost (its velocity is held at 0). Shots and torpedoes stop at an active kraken's body (`traceShot` gains krakens) and hurt it (20 and 50, `krakenHit`); at 0 it lets go (shot) and dives (`hazardEnded` shot). Sinking while held: cause `kraken`, nobody credited.
+  - **Fix found by a test:** the "caught by" check for storms and whirlpools now names each kind; a kraken fell into the whirlpool branch and pulled the held ship.
+  - **Room and client:** hazards carry `health` and `holding` (-1 for none); ships `krakenHits` (the hull flashes red, sharing the closing storm's flash). Signal: rings of ripples and bubbles. Active: a purple body with eyes toward its target and eight waving tentacles (the ones facing a held ship wrap it), flashing white when shot; it fades when it dives. Banner "Taken by the kraken" ("Out: taken by the kraken"). `data-held` (ships a kraken holds) for the browser tests.
+  - **Log and summary:** `krakenGrab`, `krakenDamage`, `krakenReleased`, `krakenHit`; "Kraken grabs (damage)" column after the whirlpool one.
+  - **Test servers:** a third kind changed which hazard each seed draws first, so the seeds moved: port 2579 seed 14 (moving storm), port 2580 seed 3 (whirlpool at (305, 241)), and a fifth server, port 2581 seed 8 (kraken at (449, 430), grabs Crew 1 at about 0:09) for `e2e/kraken.spec.ts`.
+  - **Tests changed:** the whirlpool "how often" test now expects about a third (20–47 of 100) instead of a half; summary column patterns allow the new column.
+  - **Runs:** `npm test` passed (832 unit plus 1 skipped, 21 browser) and a second full browser run passed 21 of 21 (193 s, peak load 21).
+
 ## Later
 
 - **(2026-10-25, Stage 5) Ship types**, discussed with the user ahead of Stage 5 (not to build before then):

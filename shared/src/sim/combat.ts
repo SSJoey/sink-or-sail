@@ -33,14 +33,15 @@ export function damageShip(ship: Ship, amount: number): { ship: Ship; sank: bool
   };
 }
 
-export type ShotTrace = { kind: "none" } | { kind: "island" } | { kind: "ship"; target: number } | { kind: "mine"; mine: number } | { kind: "wreck"; wreck: number };
+export type ShotTrace = { kind: "none" } | { kind: "island" } | { kind: "ship"; target: number } | { kind: "mine"; mine: number } | { kind: "wreck"; wreck: number } | { kind: "kraken"; hazard: number };
 
 /**
  * What a shot's path from→to runs into first: a ship afloat (not its own), an island, one of `mines`
- * (pass only armed mines; Stage 1), a wreck (Stage 2), or nothing.
+ * (pass only armed mines; Stage 1), a wreck or a kraken's body (Stage 2; pass only active krakens), or nothing.
  */
 export function traceShot(
   owner: number, from: Vec, to: Vec, ships: readonly Ship[], islands: readonly Polygon[], mines: readonly Mine[] = [], wrecks: readonly Wreck[] = [],
+  krakens: readonly { id: number; pos: Vec }[] = [],
 ): ShotTrace {
   let nearest: number | null = null;
   for (const island of islands) {
@@ -68,6 +69,13 @@ export function traceShot(
     if (t !== null && (nearest === null || t < nearest)) {
       nearest = t;
       result = { kind: "wreck", wreck: wreck.id };
+    }
+  }
+  for (const kraken of krakens) {
+    const t = segmentCircleHit(from, to, kraken.pos, TUNING.kraken.bodyRadius);
+    if (t !== null && (nearest === null || t < nearest)) {
+      nearest = t;
+      result = { kind: "kraken", hazard: kraken.id };
     }
   }
   return result;

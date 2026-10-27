@@ -10,7 +10,7 @@ import { PackLatch } from "./packLatch.ts";
 import { gunnerPackBuzz } from "./packBuzz.ts";
 import { SnapshotBuffer, type Frame } from "./interpolation.ts";
 import { frameLimit } from "./frameLimit.ts";
-import { hiddenShips } from "./hazardLook.ts";
+import { heldShips, hiddenShips } from "./hazardLook.ts";
 import { countdownLabel, outBanner, pausedText, resultLine, respawnText, resultTitle, scoreRows, sinkBanner, stormText } from "./matchText.ts";
 import { blockGestures, goFullscreenLandscape, isPortrait, isTouchFirst } from "./phone.ts";
 import { snapshotFromState, type GameStateView } from "./snapshot.ts";
@@ -171,6 +171,8 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
       // Stage 2 hazards as "id:kind:phase:x,y;…", and the ships a moving storm hides from this player, for the browser smoke tests.
       canvasHost.dataset.hazards = [...(frame?.hazards ?? new Map())].map(([id, h]) => `${id}:${h.kind}:${h.phase}:${Math.round(h.x)},${Math.round(h.y)}`).join(";");
       canvasHost.dataset.hidden = frame ? hiddenShips(frame.ships, frame.hazards, mine?.crew ?? null).join(",") : "";
+      // Ships a kraken holds, for the browser smoke tests.
+      canvasHost.dataset.held = frame ? heldShips(frame.hazards).join(",") : "";
       // A short buzz on the gunner's phone when the crew picks up a torpedo or EMP (Android only).
       const heldNow = own?.gunnerPack ?? null;
       if (mine && gunnerPackBuzz(heldBefore, heldNow, mine.role)) navigator.vibrate?.(TUNING.client.gunnerPackVibrateMs);
@@ -219,6 +221,7 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
       delete canvasHost.dataset.torpedoes;
       delete canvasHost.dataset.hazards;
       delete canvasHost.dataset.hidden;
+      delete canvasHost.dataset.held;
       delete canvasHost.dataset.disabled;
       delete canvasHost.dataset.shots;
       rotate.hidden = true;

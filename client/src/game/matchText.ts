@@ -19,6 +19,7 @@ export function sinkBanner(sunkBy: number, cause = ""): string {
   if (cause === "reef") return "Wrecked on a reef";
   if (cause === "wreck") return "Wrecked on a shipwreck";
   if (cause === "storm") return "Lost to the storm";
+  if (cause === "kraken") return "Taken by the kraken";
   if (sunkBy < 0) return "Sunk!";
   const crew = crewLabel(sunkBy);
   switch (cause) {

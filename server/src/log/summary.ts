@@ -37,6 +37,9 @@ export interface CrewSummary {
   movingStormTime: number;
   /** Stage 2: seconds spent within whirlpools' reach (counted the same way). */
   whirlpoolTime: number;
+  /** Stage 2: times a kraken grabbed this crew's ship, and the damage those grabs did. */
+  krakenGrabs: number;
+  krakenDamage: number;
 }
 
 /** Stage 2: Last Afloat figures for one crew. */
@@ -204,6 +207,8 @@ export function summarise(lines: readonly Line[]): MatchSummary {
       stormDamage: Math.round(mine("stormDamage").reduce((sum, l) => sum + (l.damage as number), 0) * 10) / 10,
       movingStormTime: timeIn("stormEntered", "stormLeft"),
       whirlpoolTime: timeIn("whirlpoolEntered", "whirlpoolLeft"),
+      krakenGrabs: mine("krakenGrab").length,
+      krakenDamage: Math.round(mine("krakenDamage").reduce((sum, l) => sum + (l.damage as number), 0) * 10) / 10,
     };
   });
 
@@ -351,10 +356,10 @@ export function formatSummary(s: MatchSummary): string {
     `${r1(c.emptySeconds)} s`,
     `${r1(c.averageSurvivalSeconds)} s (${c.lives})`,
     Object.entries(c.sunkBy).map(([cause, n]) => `${cause} ${n}`).join(" · ") || "—",
-    ...(s.hazardsOn ? [r1(c.movingStormTime), r1(c.whirlpoolTime), `${c.reefHits} (${r1(c.reefDamage)})`, `${c.wrecksDestroyed} (${c.wreckPacksReleased})`] : []),
+    ...(s.hazardsOn ? [r1(c.movingStormTime), r1(c.whirlpoolTime), `${c.krakenGrabs} (${r1(c.krakenDamage)})`, `${c.reefHits} (${r1(c.reefDamage)})`, `${c.wrecksDestroyed} (${c.wreckPacksReleased})`] : []),
     ...(s.stormOn ? [r1(c.stormDamage)] : []),
   ]);
-  const head = ["Crew", "Pilot & Gunner", "Sinkings", "Shots", "Hits", "Blocked", "Accuracy", "Energy boost / shield", "Empty bar", "Avg survival (lives)", "Sunk by", ...(s.hazardsOn ? ["Time in moving storms (s)", "Whirlpool time (s)", "Reef hits (damage)", "Wrecks destroyed (packs released)"] : []), ...(s.stormOn ? ["Storm damage"] : [])];
+  const head = ["Crew", "Pilot & Gunner", "Sinkings", "Shots", "Hits", "Blocked", "Accuracy", "Energy boost / shield", "Empty bar", "Avg survival (lives)", "Sunk by", ...(s.hazardsOn ? ["Time in moving storms (s)", "Whirlpool time (s)", "Kraken grabs (damage)", "Reef hits (damage)", "Wrecks destroyed (packs released)"] : []), ...(s.stormOn ? ["Storm damage"] : [])];
   const out = [header, "", ...table(head, rows)];
   if (s.lastAfloat) {
     const laRows = s.lastAfloat.map((c) => [`Crew ${c.ship + 1}`, ordinal(c.place), `${r1(c.afloatSeconds)} s`, String(c.livesUsed)]);

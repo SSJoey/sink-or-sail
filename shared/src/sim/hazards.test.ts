@@ -111,11 +111,11 @@ describe("the hazard timer", () => {
 });
 
 describe("which hazard comes", () => {
-  it("is picked with the seed, moving storms and whirlpools about equally often", () => {
+  it("is picked with the seed, whirlpools about a third of the time (with storms and krakens)", () => {
     const firsts = Array.from({ length: 100 }, (_, seed) => ofType(run(hazardsOn({ seed, firstHazardAt: 0.05 }), 0.1).events, "hazardSignalled")[0]!.kind);
     const whirlpools = firsts.filter((k) => k === "whirlpool").length;
-    expect(whirlpools).toBeGreaterThan(30);
-    expect(whirlpools).toBeLessThan(70);
+    expect(whirlpools).toBeGreaterThan(20);
+    expect(whirlpools).toBeLessThan(47);
     const again = Array.from({ length: 100 }, (_, seed) => ofType(run(hazardsOn({ seed, firstHazardAt: 0.05 }), 0.1).events, "hazardSignalled")[0]!.kind);
     expect(again).toEqual(firsts);
   });

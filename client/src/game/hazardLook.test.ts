@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { TUNING } from "@sink-or-sail/shared";
-import { hazardAlpha, hiddenByStorms, hiddenShips, whirlpoolArms } from "./hazardLook.ts";
+import { hazardAlpha, heldShips, hiddenByStorms, hiddenShips, krakenTentacles, whirlpoolArms } from "./hazardLook.ts";
 import type { HazardView, ShipView } from "./interpolation.ts";
 
 const R = TUNING.movingStorm.radius;
-const storm = (phase: string, extra: Partial<HazardView> = {}): HazardView => ({ kind: "movingStorm", phase, x: 400, y: 300, heading: 0, timeLeft: 5, spin: 0, ...extra });
-const pool = (phase: string, extra: Partial<HazardView> = {}): HazardView => ({ kind: "whirlpool", phase, x: 400, y: 300, heading: 0, timeLeft: 5, spin: 1, ...extra });
+const storm = (phase: string, extra: Partial<HazardView> = {}): HazardView => ({ kind: "movingStorm", phase, x: 400, y: 300, heading: 0, timeLeft: 5, spin: 0, health: 0, holding: -1, ...extra });
+const pool = (phase: string, extra: Partial<HazardView> = {}): HazardView => ({ kind: "whirlpool", phase, x: 400, y: 300, heading: 0, timeLeft: 5, spin: 1, health: 0, holding: -1, ...extra });
 const W = TUNING.whirlpool;
 const ship = (x: number, y: number, extra: Partial<ShipView> = {}) => ({ x, y, sunk: false, ...extra }) as ShipView;
 
@@ -62,5 +62,32 @@ describe("a whirlpool's look", () => {
     };
     expect(turn(1)).toBeGreaterThan(0);
     expect(turn(-1)).toBeLessThan(0);
+  });
+});
+
+describe("a kraken's look", () => {
+  const K = TUNING.kraken;
+  const kraken = (extra: Partial<HazardView> = {}): HazardView => ({ kind: "kraken", phase: "active", x: 400, y: 300, heading: 0, timeLeft: 5, spin: 0, health: K.health, holding: -1, ...extra });
+
+  it("hides nothing", () => {
+    expect(hiddenByStorms({ x: 400, y: 300 }, new Map([["0", kraken()]]))).toBe(false);
+  });
+
+  it("waves eight tentacles out from its body while hunting", () => {
+    const arms = krakenTentacles(kraken(), 0, null);
+    expect(arms).toHaveLength(8);
+    for (const arm of arms) expect(Math.hypot(arm[0]!.x - 400, arm[0]!.y - 300)).toBeCloseTo(K.bodyRadius * 0.8);
+  });
+
+  it("reaches tentacles round the ship it holds", () => {
+    const ship = { x: 460, y: 300 };
+    const arms = krakenTentacles(kraken({ holding: 1 }), 0, ship);
+    const onShip = arms.filter((arm) => Math.hypot(arm.at(-1)!.x - ship.x, arm.at(-1)!.y - ship.y) <= TUNING.ship.radius + 1);
+    expect(onShip.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it("lists the ships held by an active kraken (for the browser tests)", () => {
+    const hazards = new Map([["0", kraken({ holding: 1 })], ["1", kraken({ holding: 0, phase: "fading" })]]);
+    expect(heldShips(hazards)).toEqual([1]);
   });
 });

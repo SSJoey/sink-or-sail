@@ -8,12 +8,17 @@ const EPSILON = 1e-9;
 const H = TUNING.hazards;
 const M = TUNING.movingStorm;
 const W = TUNING.whirlpool;
+const K = TUNING.kraken;
 const KIND_CHANCES = Object.entries(H.chances) as [HazardKind, number][];
 
-/** How far a hazard reaches from its middle, how far from the picked ship it appears, and how long it acts and fades. */
-const SIZES: Record<HazardKind, { radius: number; distance: number; lifetime: number; fadeTime: number }> = {
-  movingStorm: { radius: M.radius, distance: H.distanceFromShip, lifetime: M.lifetime, fadeTime: M.fadeTime },
-  whirlpool: { radius: W.reach, distance: W.distanceFromShip, lifetime: W.lifetime, fadeTime: W.fadeTime },
+/**
+ * How far a hazard reaches from its middle, how far from the picked ship it appears, how long it acts and fades,
+ * and the circle kept clear of islands and wrecks where it appears (0 for none).
+ */
+const SIZES: Record<HazardKind, { radius: number; distance: number; lifetime: number; fadeTime: number; clearOfSolids: number }> = {
+  movingStorm: { radius: M.radius, distance: H.distanceFromShip, lifetime: M.lifetime, fadeTime: M.fadeTime, clearOfSolids: 0 },
+  whirlpool: { radius: W.reach, distance: W.distanceFromShip, lifetime: W.lifetime, fadeTime: W.fadeTime, clearOfSolids: W.eyeRadius },
+  kraken: { radius: K.grabReach, distance: K.distanceFromShip, lifetime: K.lifetime, fadeTime: K.fadeTime, clearOfSolids: K.bodyRadius },
 };
 
 /** The hazard timer has its own copy of the seed, so the map's packs are the same with hazards on or off. */
@@ -30,8 +35,9 @@ const outsideSea = (pos: Vec) => pos.x < 0 || pos.y < 0 || pos.x > TUNING.sea.wi
 
 /**
  * Where the next hazard of `kind` appears: its distance from a ship afloat (picked with the seed), in a seeded
- * direction, its whole reach inside the sea and `clearance` clear of every ship afloat; a whirlpool's eye is also
- * clear of every island and wreck (`solids`). It heads for that ship (the moving storm drifts that way).
+ * direction, its whole reach inside the sea and `clearance` clear of every ship afloat; a whirlpool's eye and a
+ * kraken's body are also clear of every island and wreck (`solids`). It heads for that ship (the moving storm drifts
+ * that way).
  * Null when no ship is afloat or no try finds a clear spot.
  */
 export function placeHazard(kind: HazardKind, ships: readonly Ship[], state: number, solids: readonly Polygon[]): Random<{ pos: Vec; heading: number; ship: number } | null> {
@@ -40,7 +46,7 @@ export function placeHazard(kind: HazardKind, ships: readonly Ship[], state: num
   const pick = randomIndex(state, afloat.length);
   state = pick.state;
   const target = afloat[pick.value]!;
-  const { radius, distance: away } = SIZES[kind];
+  const { radius, distance: away, clearOfSolids } = SIZES[kind];
   const clear = radius + TUNING.ship.radius + H.clearance;
   for (let i = 0; i < PLACE_TRIES; i++) {
     const roll = nextRandom(state);
@@ -48,7 +54,7 @@ export function placeHazard(kind: HazardKind, ships: readonly Ship[], state: num
     const pos = add(target.pos, scale(fromAngle(roll.value * Math.PI * 2), away));
     const inSea = pos.x >= radius && pos.y >= radius && pos.x <= TUNING.sea.width - radius && pos.y <= TUNING.sea.height - radius;
     if (!inSea || afloat.some((s) => distance(s.pos, pos) < clear)) continue;
-    if (kind === "whirlpool" && solids.some((solid) => circleOverlapsPolygon(pos, W.eyeRadius, solid) !== null)) continue;
+    if (clearOfSolids > 0 && solids.some((solid) => circleOverlapsPolygon(pos, clearOfSolids, solid) !== null)) continue;
     return { value: { pos, heading: angleOf(sub(target.pos, pos)), ship: target.id }, state };
   }
   return { value: null, state };
@@ -60,17 +66,74 @@ export interface HazardUpdate {
   nextHazardIn: number | null;
   hazardRng: number;
   events: SimEvent[];
+  /** Kraken ticks on the ships they hold this step, for the step to apply (and log) as damage. */
+  krakenDamage: { ship: number; hazard: number; damage: number }[];
+}
+
+/** A kraken stops acting: it lets go of any ship it holds (for `released`), and fades. */
+function dive(h: Hazard, reason: "time" | "grab" | "shot", released: "time" | "shot" | "sunk" | null, events: SimEvent[]): Hazard {
+  if (released !== null && h.holding !== null && h.holding !== undefined) events.push({ type: "krakenReleased", ship: h.holding, hazard: h.id, reason: released });
+  events.push({ type: "hazardEnded", hazard: h.id, kind: h.kind, reason });
+  return { ...h, phase: "fading", timeLeft: K.fadeTime, holding: null, holdLeft: 0 };
 }
 
 /**
- * One step of the dynamic hazards: signalled ones count down and start acting; active and fading moving storms
- * move (whirlpools stay put); active ones stop acting at the end of their time or when a storm's centre leaves the
+ * One active kraken's step. Holding a ship: the hold runs down, hurting the ship each tick; it lets go (and dives)
+ * when the hold ends or the ship has sunk. Otherwise it swims toward the nearest ship afloat and not protected and
+ * grabs it once in reach, or dives when its time is up.
+ */
+function krakenStep(h: Hazard, ships: readonly Ship[], dt: number, events: SimEvent[], damage: HazardUpdate["krakenDamage"]): Hazard {
+  if (h.holding !== null && h.holding !== undefined) {
+    const held = ships.find((s) => s.id === h.holding);
+    if (!held || held.sunk) return dive(h, "grab", "sunk", events);
+    const before = K.holdTime - (h.holdLeft ?? 0);
+    const holdLeft = (h.holdLeft ?? 0) - dt;
+    const ticks = Math.floor((K.holdTime - holdLeft) / K.tickSeconds + EPSILON) - Math.floor(before / K.tickSeconds + EPSILON);
+    for (let i = 0; i < ticks; i++) damage.push({ ship: held.id, hazard: h.id, damage: TUNING.ship.maxHealth * K.damage });
+    if (holdLeft <= EPSILON) return dive(h, "grab", "time", events);
+    return { ...h, holdLeft };
+  }
+  if (h.timeLeft <= EPSILON) return dive(h, "time", null, events);
+  let target: Ship | null = null;
+  for (const ship of ships) {
+    if (ship.sunk || ship.protection > 0) continue;
+    if (!target || distance(ship.pos, h.pos) < distance(target.pos, h.pos)) target = ship;
+  }
+  if (!target) return h;
+  const d = distance(target.pos, h.pos);
+  const pos = d > EPSILON ? add(h.pos, scale(sub(target.pos, h.pos), Math.min(K.speed * dt, d) / d)) : h.pos;
+  const heading = d > EPSILON ? angleOf(sub(target.pos, h.pos)) : h.heading;
+  if (distance(target.pos, pos) > K.grabReach + EPSILON) return { ...h, pos, heading };
+  events.push({ type: "krakenGrab", ship: target.id, hazard: h.id });
+  return { ...h, pos, heading, holding: target.id, holdLeft: K.holdTime };
+}
+
+/** Whether `ship` is held by an active kraken. */
+export const heldByKraken = (hazards: readonly Hazard[], ship: number) => hazards.some((h) => h.kind === "kraken" && h.phase === "active" && h.holding === ship);
+
+/**
+ * A shot or torpedo hits an active kraken: it loses health; at 0 it lets go of any ship it holds and dives.
+ * Returns the hazards after the hit.
+ */
+export function hitKraken(hazards: readonly Hazard[], id: number, by: number, weapon: "shot" | "torpedo", damage: number, events: SimEvent[]): Hazard[] {
+  return hazards.map((h) => {
+    if (h.id !== id || h.kind !== "kraken" || h.phase !== "active") return h;
+    events.push({ type: "krakenHit", hazard: id, by, weapon, damage });
+    const health = (h.health ?? 0) - damage;
+    return health > EPSILON ? { ...h, health } : dive({ ...h, health: 0 }, "shot", "shot", events);
+  });
+}
+
+/**
+ * One step of the dynamic hazards: signalled ones count down and start acting; active krakens hunt, grab and hold
+ * (see krakenStep); active and fading moving storms move (whirlpools stay put); other active ones stop acting at the end of their time or when a storm's centre leaves the
  * sea, then fade and go. Then the timer runs (only while fewer than the most allowed are on the sea), picks the
  * next kind with the seed and signals it (`solids`: islands and standing wrecks, kept clear of a whirlpool's eye).
  */
 export function updateHazards(world: World, ships: readonly Ship[], dt: number, solids: readonly Polygon[]): HazardUpdate {
   const events: SimEvent[] = [];
   const hazards: Hazard[] = [];
+  const krakenDamage: HazardUpdate["krakenDamage"] = [];
   for (const hazard of world.hazards) {
     let h = { ...hazard, timeLeft: hazard.timeLeft - dt };
     if (h.phase === "signalled") {
@@ -79,6 +142,10 @@ export function updateHazards(world: World, ships: readonly Ship[], dt: number, 
         events.push({ type: "hazardStarted", hazard: h.id, kind: h.kind });
       }
       hazards.push(h);
+      continue;
+    }
+    if (h.kind === "kraken" && h.phase === "active") {
+      hazards.push(krakenStep(h, ships, dt, events, krakenDamage));
       continue;
     }
     if (h.kind === "movingStorm") h = { ...h, pos: add(h.pos, scale(fromAngle(h.heading), M.speed * dt)) };
@@ -106,7 +173,10 @@ export function updateHazards(world: World, ships: readonly Ship[], dt: number, 
           hazardRng = roll.state;
           spin = roll.value < 0.5 ? 1 : -1;
         }
-        const hazard: Hazard = { id: nextHazardId++, kind: kind.value, pos: placed.value.pos, heading: placed.value.heading, phase: "signalled", timeLeft: H.signalTime, spin };
+        const hazard: Hazard = {
+          id: nextHazardId++, kind: kind.value, pos: placed.value.pos, heading: placed.value.heading, phase: "signalled", timeLeft: H.signalTime, spin,
+          ...(kind.value === "kraken" && { health: K.health, holding: null, holdLeft: 0 }),
+        };
         hazards.push(hazard);
         events.push({ type: "hazardSignalled", hazard: hazard.id, kind: hazard.kind, pos: hazard.pos, heading: hazard.heading, ...(spin !== 0 && { spin }) });
         const gap = nextRandom(hazardRng);
@@ -117,13 +187,15 @@ export function updateHazards(world: World, ships: readonly Ship[], dt: number, 
       }
     }
   }
-  return { hazards, nextHazardId, nextHazardIn, hazardRng, events };
+  return { hazards, nextHazardId, nextHazardIn, hazardRng, events, krakenDamage };
 }
 
-/** Whether a ship's centre is inside an active hazard's reach (a moving storm's cloud, a whirlpool's pull). */
+/** Whether a ship's centre is inside an active moving storm's cloud or whirlpool's pull (a kraken grabs instead). */
 function caughtBy(pos: Vec, h: Hazard): boolean {
   if (h.phase !== "active") return false;
-  return h.kind === "movingStorm" ? inMovingStorm(pos, h) : distance(pos, h.pos) <= W.reach + EPSILON;
+  if (h.kind === "movingStorm") return inMovingStorm(pos, h);
+  if (h.kind === "whirlpool") return distance(pos, h.pos) <= W.reach + EPSILON;
+  return false;
 }
 
 /** A whirlpool's inward pull at `d` from its middle: weak at the edge of its reach, stronger nearer the eye, strongest in it. */

@@ -27,7 +27,7 @@ export function snapshotFromState(state: GameStateView, t: number): Snapshot {
       sinkings: s.sinkings, sunkBy: s.sunkBy, hits: s.hits,
       pilotPack: slot(s.pilotPack), gunnerPack: slot(s.gunnerPack),
       disabled: s.disabled, empsFired: s.empsFired,
-      livesLeft: s.livesLeft, out: s.out, sunkCause: s.sunkCause, stormHits: s.stormHits,
+      livesLeft: s.livesLeft, out: s.out, sunkCause: s.sunkCause, stormHits: s.stormHits, krakenHits: s.krakenHits,
     });
   }
   const shots = new Map<string, ShotView>();
@@ -41,6 +41,6 @@ export function snapshotFromState(state: GameStateView, t: number): Snapshot {
   const wrecks = new Map<string, WreckView>();
   state.wrecks.forEach((wreck, id) => wrecks.set(id, { health: wreck.health, hasPack: wreck.hasPack }));
   const hazards = new Map<string, HazardView>();
-  state.hazards.forEach((h, id) => hazards.set(id, { kind: h.kind, phase: h.phase, x: h.x, y: h.y, heading: h.heading, timeLeft: h.timeLeft, spin: h.spin }));
+  state.hazards.forEach((h, id) => hazards.set(id, { kind: h.kind, phase: h.phase, x: h.x, y: h.y, heading: h.heading, timeLeft: h.timeLeft, spin: h.spin, health: h.health, holding: h.holding }));
   return { t, ships, shots, packs, mines, torpedoes, wrecks, hazards };
 }

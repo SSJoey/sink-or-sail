@@ -90,8 +90,13 @@ export function syncWorld(state: CrewState, world: World): void {
       synced.heading = hazard.heading;
       synced.timeLeft = hazard.timeLeft;
       synced.spin = hazard.spin;
+      synced.health = hazard.health ?? 0;
+      synced.holding = hazard.holding ?? -1;
     } else {
-      state.hazards.set(id, new HazardState({ kind: hazard.kind, phase: hazard.phase, x: hazard.pos.x, y: hazard.pos.y, heading: hazard.heading, timeLeft: hazard.timeLeft, spin: hazard.spin }));
+      state.hazards.set(id, new HazardState({
+        kind: hazard.kind, phase: hazard.phase, x: hazard.pos.x, y: hazard.pos.y, heading: hazard.heading, timeLeft: hazard.timeLeft, spin: hazard.spin,
+        health: hazard.health ?? 0, holding: hazard.holding ?? -1,
+      }));
     }
   }
 
@@ -163,6 +168,11 @@ export function applyEvents(state: CrewState, events: readonly SimEvent[]): void
       case "stormDamage": {
         const target = ship(event.ship);
         if (target) target.stormHits++;
+        break;
+      }
+      case "krakenDamage": {
+        const target = ship(event.ship);
+        if (target) target.krakenHits++;
         break;
       }
       case "sunk": {

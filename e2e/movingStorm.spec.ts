@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { join } from "./helpers.ts";
 
-// The third test server's first dynamic hazard comes at 0:02 (playwright.config.ts). With seed 6 it is a moving
+// The third test server's first dynamic hazard comes at 0:02 (playwright.config.ts). With seed 14 it is a moving
 // storm signalled 250 from Crew 2's start; it forms at 0:05, swallows Crew 2's waiting ship from about 0:08 and
 // leaves the sea at about 0:19.
 const BASE = "http://localhost:2579";

@@ -44,8 +44,8 @@ describe("summarise", () => {
 
   it("gives the exact per-crew numbers", () => {
     expect(summary.crews).toEqual([
-      { ship: 0, pilot: "Ann", gunner: "Bob", sinkings: 0, shots: 3, hits: 1, blocked: 1, accuracy: 1 / 3, boostEnergy: 50.5, shieldEnergy: 0, emptySeconds: 2, averageSurvivalSeconds: 13.5, lives: 2, sunkBy: {}, reefHits: 0, reefDamage: 0, wrecksDestroyed: 0, wreckPacksReleased: 0, stormDamage: 0, movingStormTime: 0, whirlpoolTime: 0 },
-      { ship: 1, pilot: "Cat", gunner: null, sinkings: 1, shots: 1, hits: 0, blocked: 0, accuracy: 0, boostEnergy: 0, shieldEnergy: 30, emptySeconds: 5, averageSurvivalSeconds: 30, lives: 1, sunkBy: {}, reefHits: 0, reefDamage: 0, wrecksDestroyed: 0, wreckPacksReleased: 0, stormDamage: 0, movingStormTime: 0, whirlpoolTime: 0 },
+      { ship: 0, pilot: "Ann", gunner: "Bob", sinkings: 0, shots: 3, hits: 1, blocked: 1, accuracy: 1 / 3, boostEnergy: 50.5, shieldEnergy: 0, emptySeconds: 2, averageSurvivalSeconds: 13.5, lives: 2, sunkBy: {}, reefHits: 0, reefDamage: 0, wrecksDestroyed: 0, wreckPacksReleased: 0, stormDamage: 0, movingStormTime: 0, whirlpoolTime: 0, krakenGrabs: 0, krakenDamage: 0 },
+      { ship: 1, pilot: "Cat", gunner: null, sinkings: 1, shots: 1, hits: 0, blocked: 0, accuracy: 0, boostEnergy: 0, shieldEnergy: 30, emptySeconds: 5, averageSurvivalSeconds: 30, lives: 1, sunkBy: {}, reefHits: 0, reefDamage: 0, wrecksDestroyed: 0, wreckPacksReleased: 0, stormDamage: 0, movingStormTime: 0, whirlpoolTime: 0, krakenGrabs: 0, krakenDamage: 0 },
     ]);
   });
 
@@ -490,7 +490,7 @@ describe("Stage 2: moving storms in the summary", () => {
   it("prints a Time in moving storms column with hazards on only", () => {
     const text = formatSummary(summarise(lines));
     expect(text).toContain("Time in moving storms (s)");
-    expect(text).toMatch(/^Crew 1 .* 6\.5 +0 +0 \(0\)/m);
+    expect(text).toMatch(/^Crew 1 .* 6\.5 +0 +0 \(0\) +0 \(0\)/m);
     expect(formatSummary(summarise(parseLog(sampleText)))).not.toContain("moving storms");
   });
 });
@@ -516,7 +516,37 @@ describe("Stage 2: whirlpools in the summary", () => {
   it("prints a Whirlpool time column with hazards on only", () => {
     const text = formatSummary(summarise(lines));
     expect(text).toContain("Whirlpool time (s)");
-    expect(text).toMatch(/^Crew 2 .* 1 +2\.5 +0 \(0\)/m);
+    expect(text).toMatch(/^Crew 2 .* 1 +2\.5 +0 \(0\) +0 \(0\)/m);
     expect(formatSummary(summarise(parseLog(sampleText)))).not.toContain("Whirlpool");
+  });
+});
+
+describe("Stage 2: krakens in the summary", () => {
+  const crew = { pilot: "Ann", gunner: "Bob" };
+  const cat = { pilot: "Cat", gunner: null };
+  const lines = [
+    { t: 0, type: "matchStart", room: "KRKN", crews: [{ ship: 0, ...crew }, { ship: 1, ...cat }], packsOn: false, seed: 1, mode: "lastAfloat", lives: 2, layout: "oneIsland", hazardsOn: true, reefs: "all", wrecks: [], storm: null, firstHazardAt: 30, tuning: {} },
+    { t: 30000, type: "hazardSignalled", hazard: 0, kind: "kraken", x: 400, y: 300, heading: 0 },
+    { t: 40000, type: "krakenGrab", ship: 1, crew: cat, hazard: 0 },
+    { t: 41000, type: "krakenDamage", ship: 1, crew: cat, hazard: 0, damage: 10 },
+    { t: 41500, type: "krakenHit", hazard: 0, ship: 0, crew, weapon: "shot", damage: 20 },
+    { t: 42000, type: "krakenDamage", ship: 1, crew: cat, hazard: 0, damage: 10 },
+    { t: 42500, type: "krakenReleased", ship: 1, crew: cat, hazard: 0, reason: "shot" },
+    { t: 90000, type: "krakenGrab", ship: 1, crew: cat, hazard: 3 },
+    { t: 91000, type: "krakenDamage", ship: 1, crew: cat, hazard: 3, damage: 10 },
+    { t: 91000, type: "sunk", ship: 1, crew: cat, by: null, cause: "kraken", livesLeft: 1 },
+    { t: 95000, type: "matchEnd", winner: null, endedEarly: false, reason: "time", scores: [] },
+  ];
+
+  it("counts each crew's kraken grabs and the damage they did", () => {
+    expect(summarise(lines).crews.map((c) => [c.krakenGrabs, c.krakenDamage])).toEqual([[0, 0], [2, 30]]);
+    expect(summarise(lines).crews[1]!.sunkBy).toEqual({ kraken: 1 });
+  });
+
+  it("prints a Kraken grabs (damage) column with hazards on only", () => {
+    const text = formatSummary(summarise(lines));
+    expect(text).toContain("Kraken grabs (damage)");
+    expect(text).toMatch(/^Crew 2 .* 2 \(30\) +0 \(0\)/m);
+    expect(formatSummary(summarise(parseLog(sampleText)))).not.toContain("Kraken");
   });
 });

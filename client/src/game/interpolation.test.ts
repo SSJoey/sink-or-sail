@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { SnapshotBuffer, lerpAngle, type Snapshot } from "./interpolation.ts";
 
-const ship = (x: number, heading = 0, extra = {}) => ({ x, y: 0, heading, turret: heading, health: 100, energy: 100, boosting: false, shielding: false, protection: 0, sunk: false, respawnIn: 0, sinkings: 0, sunkBy: -1, hits: 0, pilotPack: null, gunnerPack: null, disabled: 0, empsFired: 0, livesLeft: -1, out: false, sunkCause: "", stormHits: 0, ...extra });
+const ship = (x: number, heading = 0, extra = {}) => ({ x, y: 0, heading, turret: heading, health: 100, energy: 100, boosting: false, shielding: false, protection: 0, sunk: false, respawnIn: 0, sinkings: 0, sunkBy: -1, hits: 0, pilotPack: null, gunnerPack: null, disabled: 0, empsFired: 0, livesLeft: -1, out: false, sunkCause: "", stormHits: 0, krakenHits: 0, ...extra });
 const snap = (t: number, x: number, shots: Record<string, { x: number; y: number; angle: number }> = {}, heading = 0): Snapshot => ({
   t,
   ships: [ship(x, heading)],
@@ -82,7 +82,7 @@ describe("SnapshotBuffer", () => {
 
 describe("moving storms (Stage 2)", () => {
   it("blend their position between snapshots, taking the phase from the newer one", () => {
-    const storm = (x: number, phase: string) => ({ kind: "movingStorm", phase, x, y: 300, heading: 0, timeLeft: 5, spin: 0 });
+    const storm = (x: number, phase: string) => ({ kind: "movingStorm", phase, x, y: 300, heading: 0, timeLeft: 5, spin: 0, health: 0, holding: -1 });
     const buffer = new SnapshotBuffer();
     buffer.push({ ...snap(0, 0), hazards: new Map([["h", storm(100, "signalled")]]) });
     buffer.push({ ...snap(100, 0), hazards: new Map([["h", storm(110, "active")]]) });

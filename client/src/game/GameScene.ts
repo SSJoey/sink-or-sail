@@ -4,7 +4,7 @@ import { CREW_STYLES } from "./crews.ts";
 import { ShipEffects, type ShipEffect } from "./effects.ts";
 import { EmpRings } from "./empRing.ts";
 import { aimGuide, dashes, hullPoints, turretEnd } from "./hull.ts";
-import { hazardAlpha, hiddenByStorms, whirlpoolArms } from "./hazardLook.ts";
+import { hazardAlpha, hiddenByStorms, krakenTentacles, whirlpoolArms } from "./hazardLook.ts";
 import type { Frame, HazardView, MineView, PackView, ShipView, WreckView } from "./interpolation.ts";
 import { blinkVisible, packBlinkVisible } from "./matchText.ts";
 import { gunnerFromMouse, pilotFromKeys } from "./laptopInput.ts";
@@ -47,6 +47,8 @@ const MOVING_STORM_SWIRL = 0xc9d1e0;
 const WHIRLPOOL_WATER = 0x123d70;
 const WHIRLPOOL_FOAM = 0xcfeaff;
 const WHIRLPOOL_EYE = 0x08182f;
+const KRAKEN_SKIN = 0x6b2f7a;
+const KRAKEN_EDGE = 0x2a0f33;
 
 export class GameScene extends Phaser.Scene {
   private g!: Phaser.GameObjects.Graphics;
@@ -60,7 +62,9 @@ export class GameScene extends Phaser.Scene {
   private readonly effects = new ShipEffects(TUNING.client.hitFlashMs, TUNING.client.sinkFadeMs);
   private readonly empRings = new EmpRings();
   private readonly wreckFlashes = new WreckFlashes(TUNING.client.hitFlashMs);
-  /** Storm hits flash the hull red (tracked like gun hits, on the ship's storm-hit count). */
+  /** Kraken bodies flash when shot (tracked like wrecks, on their health). */
+  private readonly krakenFlashes = new WreckFlashes(TUNING.client.hitFlashMs);
+  /** Closing-storm and kraken hits flash the hull red (tracked like gun hits, on the ship's count of both). */
   private readonly stormEffects = new ShipEffects(TUNING.client.hitFlashMs, TUNING.client.sinkFadeMs);
 
   private readonly link: SceneLink;
@@ -85,7 +89,7 @@ export class GameScene extends Phaser.Scene {
     const seat = this.link.seat();
     const now = performance.now();
     const effects = frame ? frame.ships.map((ship, id) => this.effects.update(id, ship, now)) : [];
-    const stormFlashes = frame ? frame.ships.map((ship, id) => this.stormEffects.update(id, { hits: ship.stormHits, sunk: ship.sunk }, now).flashing) : [];
+    const stormFlashes = frame ? frame.ships.map((ship, id) => this.stormEffects.update(id, { hits: ship.stormHits + ship.krakenHits, sunk: ship.sunk }, now).flashing) : [];
     if (frame) this.empRings.update(frame.ships, now);
     this.draw(frame, seat?.crew ?? null, effects, stormFlashes);
     this.link.setInput(this.readInput(frame, seat));
@@ -139,6 +143,8 @@ export class GameScene extends Phaser.Scene {
     frame.ships.forEach((ship, crew) => {
       if (crew !== ownCrew) drawOne(ship, crew);
     });
+    // Stage 2 krakens: above the ships, so tentacles wrap the one held.
+    this.drawKrakens(frame);
     for (const torpedo of frame.torpedoes.values()) this.drawTorpedo(torpedo.x, torpedo.y, torpedo.angle);
 
     // Stage 2 moving storms cover everything above, with islands, reefs and wrecks showing faintly through.
@@ -503,6 +509,58 @@ export class GameScene extends Phaser.Scene {
       }
       g.fillStyle(WHIRLPOOL_EYE, 0.85 * alpha);
       g.fillCircle(h.x, h.y, W.eyeRadius);
+    }
+  }
+
+  /**
+   * Stage 2 krakens. Signalled: rings of ripples spreading from where it will surface, with bubbles. Active: a dark
+   * purple body with eyes looking the way it swims and eight waving tentacles (wrapping the ship it holds); it
+   * flashes white when shot and fades out when it dives.
+   */
+  private drawKrakens(frame: Frame): void {
+    const g = this.g;
+    const K = TUNING.kraken;
+    const now = performance.now();
+    const t = now / 1000;
+    for (const [id, h] of frame.hazards) {
+      if (h.kind !== "kraken") continue;
+      if (h.phase === "signalled") {
+        for (let i = 0; i < 3; i++) {
+          const k = ((t * 0.8 + i / 3) % 1 + 1) % 1;
+          g.lineStyle(3, 0xffffff, 0.7 * (1 - k));
+          g.strokeCircle(h.x, h.y, 10 + k * K.grabReach);
+        }
+        g.fillStyle(0xffffff, 0.7);
+        for (let i = 0; i < 6; i++) {
+          const a = i * 2.4 + t * 0.7;
+          const r = 12 + ((i * 17 + Math.floor(t * 4)) % 40);
+          g.fillCircle(h.x + Math.cos(a) * r, h.y + Math.sin(a) * r, 3 + (i % 3));
+        }
+        continue;
+      }
+      const alpha = hazardAlpha(h);
+      if (alpha <= 0) continue;
+      const flashing = this.krakenFlashes.update(`k${id}`, h.health, now);
+      const held = h.holding >= 0 ? frame.ships[h.holding] ?? null : null;
+      g.lineStyle(7, flashing ? 0xffffff : KRAKEN_SKIN, alpha);
+      for (const arm of krakenTentacles(h, t, held && !held.sunk ? held : null)) {
+        g.beginPath();
+        g.moveTo(arm[0]!.x, arm[0]!.y);
+        for (const p of arm.slice(1)) g.lineTo(p.x, p.y);
+        g.strokePath();
+      }
+      g.fillStyle(flashing ? 0xffffff : KRAKEN_SKIN, alpha);
+      g.lineStyle(3, KRAKEN_EDGE, alpha);
+      g.fillCircle(h.x, h.y, K.bodyRadius);
+      g.strokeCircle(h.x, h.y, K.bodyRadius);
+      const ahead = { x: Math.cos(h.heading), y: Math.sin(h.heading) };
+      for (const side of [-1, 1]) {
+        const eye = { x: h.x + ahead.x * 14 - ahead.y * 11 * side, y: h.y + ahead.y * 14 + ahead.x * 11 * side };
+        g.fillStyle(0xfff3b0, alpha);
+        g.fillCircle(eye.x, eye.y, 7);
+        g.fillStyle(0x111111, alpha);
+        g.fillCircle(eye.x + ahead.x * 3, eye.y + ahead.y * 3, 3);
+      }
     }
   }
 

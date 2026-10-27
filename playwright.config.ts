@@ -5,9 +5,10 @@ import { defineConfig } from "@playwright/test";
 const PORT = 2577;
 /** Second test server, for the EMP test (its own MATCH_SEED) and the closing-storm test (a sooner storm). */
 export const EMP_PORT = 2578;
-/** Third and fourth test servers, for the moving-storm and whirlpool tests (dynamic hazards from 0:02). */
+/** Third to fifth test servers, for the moving-storm, whirlpool and kraken tests (dynamic hazards from 0:02). */
 export const HAZARD_PORT = 2579;
 export const WHIRLPOOL_PORT = 2580;
+export const KRAKEN_PORT = 2581;
 
 export default defineConfig({
   testDir: "e2e",
@@ -48,19 +49,28 @@ export default defineConfig({
       env: { LOG_DIR: join(tmpdir(), "sink-or-sail-test-logs"), MATCH_SEED: "8", STORM_STARTS_AT: "2", STORM_CLOSED_AT: "12", HAZARDS_FIRST_AT: "never" },
     },
     {
-      // A third server for the moving-storm test: the first dynamic hazard comes at 0:02. With seed 6 it is a
+      // A third server for the moving-storm test: the first dynamic hazard comes at 0:02. With seed 14 it is a
       // moving storm signalled 250 from Crew 2's start, which swallows Crew 2's waiting ship from about 0:08 to 0:19.
       command: `PORT=${HAZARD_PORT} npm start`,
       url: `http://localhost:${HAZARD_PORT}`,
       reuseExistingServer: false,
       timeout: 60_000,
-      env: { LOG_DIR: join(tmpdir(), "sink-or-sail-test-logs"), MATCH_SEED: "6", HAZARDS_FIRST_AT: "2" },
+      env: { LOG_DIR: join(tmpdir(), "sink-or-sail-test-logs"), MATCH_SEED: "14", HAZARDS_FIRST_AT: "2" },
     },
     {
-      // A fourth server for the whirlpool test: with seed 8 the first dynamic hazard (at 0:02) is a whirlpool at
-      // (409, 433), 260 east of Crew 1's start, forming at 0:05 and lasting until 0:20.
+      // A fourth server for the whirlpool test: with seed 3 the first dynamic hazard (at 0:02) is a whirlpool at
+      // (305, 241), 260 from Crew 1's start, forming at 0:05 and lasting until 0:20.
       command: `PORT=${WHIRLPOOL_PORT} npm start`,
       url: `http://localhost:${WHIRLPOOL_PORT}`,
+      reuseExistingServer: false,
+      timeout: 60_000,
+      env: { LOG_DIR: join(tmpdir(), "sink-or-sail-test-logs"), MATCH_SEED: "3", HAZARDS_FIRST_AT: "2" },
+    },
+    {
+      // A fifth server for the kraken test: with seed 8 the first dynamic hazard (at 0:02) is a kraken surfacing at
+      // (449, 430), 300 from Crew 1's start; it grabs Crew 1's waiting ship at about 0:09 and lets go at about 0:12.
+      command: `PORT=${KRAKEN_PORT} npm start`,
+      url: `http://localhost:${KRAKEN_PORT}`,
       reuseExistingServer: false,
       timeout: 60_000,
       env: { LOG_DIR: join(tmpdir(), "sink-or-sail-test-logs"), MATCH_SEED: "8", HAZARDS_FIRST_AT: "2" },

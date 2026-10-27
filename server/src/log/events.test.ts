@@ -268,6 +268,14 @@ describe("Stage 2: Last Afloat lines", () => {
     expect(lines({ type: "whirlpoolLeft", ship: 0, hazard: 3 })).toEqual([{ t: 1234, type: "whirlpoolLeft", ship: 0, crew, hazard: 3 }]);
   });
 
+  it("logs a kraken's grab, the damage it does, letting go and being hit", () => {
+    expect(lines({ type: "krakenGrab", ship: 0, hazard: 4 })).toEqual([{ t: 1234, type: "krakenGrab", ship: 0, crew, hazard: 4 }]);
+    expect(lines({ type: "krakenDamage", ship: 0, hazard: 4, damage: 10 })).toEqual([{ t: 1234, type: "krakenDamage", ship: 0, crew, hazard: 4, damage: 10 }]);
+    expect(lines({ type: "krakenReleased", ship: 0, hazard: 4, reason: "shot" })).toEqual([{ t: 1234, type: "krakenReleased", ship: 0, crew, hazard: 4, reason: "shot" }]);
+    expect(lines({ type: "krakenHit", hazard: 4, by: 0, weapon: "torpedo", damage: 50 })).toEqual([{ t: 1234, type: "krakenHit", hazard: 4, ship: 0, crew, weapon: "torpedo", damage: 50 }]);
+    expect(lines({ type: "hazardEnded", hazard: 4, kind: "kraken", reason: "shot" })).toEqual([{ t: 1234, type: "hazardEnded", hazard: 4, kind: "kraken", reason: "shot" }]);
+  });
+
   it("adds each hazard on the sea to the once-a-second lines", () => {
     const world = createWorld({ hazards: true });
     world.time = 12;

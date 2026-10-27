@@ -109,6 +109,8 @@ describe("Stage 2: Last Afloat texts", () => {
     expect(sinkBanner(-1, "reef")).toBe("Wrecked on a reef");
     expect(sinkBanner(-1, "wreck")).toBe("Wrecked on a shipwreck");
     expect(sinkBanner(-1, "storm")).toBe("Lost to the storm");
+    expect(sinkBanner(-1, "kraken")).toBe("Taken by the kraken");
+    expect(outBanner(-1, "kraken")).toBe("Out: taken by the kraken");
     // Nobody credited (a ship's own blast from a mine it shot): as in Stage 1.
     expect(sinkBanner(-1, "shot")).toBe("Sunk!");
   });
