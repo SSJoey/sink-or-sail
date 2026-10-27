@@ -665,3 +665,21 @@ describe("Stage 2: a full match in the summary (slice 10)", () => {
     expect(text).not.toContain("Hazards this match");
   });
 });
+
+describe("Stage 3: awards in the summary", () => {
+  const lines = [
+    { t: 0, type: "matchStart", room: "AWRD", crews: [{ ship: 0, pilot: "Ann", gunner: "Bob" }, { ship: 1, pilot: "Cat", gunner: null }], packsOn: false, seed: 1, mode: "sinkCount", lives: null, tuning: {} },
+    { t: 240000, type: "awards", awards: [{ award: "sharpshooter", ship: 1, crew: { pilot: "Cat", gunner: null }, detail: "most hits (7)" }, { award: "speedDemon", ship: 0, crew: {}, detail: "energy on boost (90)" }] },
+    { t: 240000, type: "matchEnd", winner: 1, endedEarly: false, reason: "time", scores: [] },
+  ];
+
+  it("reads the awards shown", () => {
+    expect(summarise(lines).awards).toEqual([{ award: "sharpshooter", ship: 1, detail: "most hits (7)" }, { award: "speedDemon", ship: 0, detail: "energy on boost (90)" }]);
+    expect(summarise(parseLog(sampleText)).awards).toEqual([]);
+  });
+
+  it("prints them under the header", () => {
+    expect(formatSummary(summarise(lines))).toContain("Awards: Sharpshooter (Crew 2, most hits (7)) · Speed Demon (Crew 1, energy on boost (90))");
+    expect(formatSummary(summarise(parseLog(sampleText)))).not.toContain("Awards");
+  });
+});

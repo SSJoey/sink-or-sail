@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { TUNING, createWorld, type SimEvent } from "@sink-or-sail/shared";
-import { controlLine, matchEndLine, matchStartLine, playerLine, positionLines, seatLine, simEventLines, type Roster } from "./events.ts";
+import { awardsLine, controlLine, matchEndLine, matchStartLine, playerLine, positionLines, seatLine, simEventLines, type Roster } from "./events.ts";
 
 const roster: Roster = [
   { pilot: "Joey", gunner: "Sam" },
@@ -321,5 +321,13 @@ describe("Stage 2: Last Afloat lines", () => {
     world.ships[1] = { ...world.ships[1]!, livesLeft: 1, out: false };
     expect(matchEndLine({ ...world, time: 420 }, 0, false)).toMatchObject({ reason: "time" });
     expect(matchEndLine(world, null, true)).toMatchObject({ reason: "endedEarly" });
+  });
+});
+
+describe("awards line (Stage 3)", () => {
+  it("lists the awards shown, with each crew's names and the detail", () => {
+    expect(awardsLine(240000, [{ award: "sharpshooter", ship: 1, detail: "most hits (7)" }], roster)).toEqual({
+      t: 240000, type: "awards", awards: [{ award: "sharpshooter", ship: 1, crew: { pilot: "Kim", gunner: null }, detail: "most hits (7)" }],
+    });
   });
 });

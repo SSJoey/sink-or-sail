@@ -1,4 +1,4 @@
-import { DEFAULT_LAYOUT, TUNING, type GameMode, type LayoutId, type ReefAmount, type Role, type Seat, type SimEvent, type StormTimes, type World, type Wreck } from "@sink-or-sail/shared";
+import { DEFAULT_LAYOUT, TUNING, type EarnedAward, type GameMode, type LayoutId, type ReefAmount, type Role, type Seat, type SimEvent, type StormTimes, type World, type Wreck } from "@sink-or-sail/shared";
 
 /** Who crews each ship (index = ship id); null for an empty seat. */
 export type Roster = { pilot: string | null; gunner: string | null }[];
@@ -183,4 +183,9 @@ export function seatLine(t: number, player: string, seat: Seat): LogLine {
 
 export function controlLine(t: number, type: "paused" | "resumed" | "endedEarly", player: string, seat: Seat | null): LogLine {
   return { t, type, player, ...seatFields(seat) };
+}
+
+/** Stage 3: the awards shown at the match end (written just before the matchEnd line). */
+export function awardsLine(t: number, awards: readonly EarnedAward[], roster: Roster): LogLine {
+  return { t, type: "awards", awards: awards.map((a) => ({ award: a.award, ship: a.ship, crew: { ...crewOf(roster, a.ship) }, detail: a.detail })) };
 }

@@ -18,7 +18,13 @@ test("results: everyone sees the table; the host plays again; the results close 
   };
 
   await host.click("#start");
+  // Boosting for 2.5 s spends about 75 energy: enough for Speed Demon (50), shown as an award (Stage 3 slice 7).
+  await expect(host.locator("#hud-clock")).toHaveText(/^3:5\d$/, { timeout: 15_000 }); // the match is running
+  await host.keyboard.down("Space");
+  await host.waitForTimeout(2500);
+  await host.keyboard.up("Space");
   await endNow();
+  await expect(other.locator("#result .awards li")).toContainText(["Speed Demon · ● Crew 1 · energy on boost"]);
   for (const p of [host, other]) {
     await expect(p.locator("#scoreboard")).toBeVisible();
     await expect(p.locator("#result tr th")).toHaveText(["Place", "Crew", "Sinkings", "Time afloat"]);

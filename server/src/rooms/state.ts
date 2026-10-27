@@ -112,6 +112,16 @@ export const GhostState = schema({
 }, "GhostState");
 export type GhostState = SchemaType<typeof GhostState>;
 
+/** Stage 3: an award shown at the end of a match. */
+export const AwardState = schema({
+  /** The award's key (e.g. "sharpshooter"); clients show its name. */
+  award: t.string(),
+  ship: t.int8(),
+  /** What earned it, e.g. "most hits (7)". */
+  detail: t.string(),
+}, "AwardState");
+export type AwardState = SchemaType<typeof AwardState>;
+
 /** Stage 3: one ship's line in the results at the end of a match. */
 export const ResultState = schema({
   ship: t.int8(),
@@ -190,6 +200,8 @@ export const CrewState = schema({
   ghosts: t.map(GhostState),
   /** Stage 3: the last match's results, one per ship (empty during a match). */
   results: t.array(ResultState),
+  /** Stage 3: the last match's awards (at most one per crew; empty during a match). */
+  awards: t.array(AwardState),
   /** Stage 2 haunting: each zone's meter, row by row (empty for a match without haunting). */
   zones: t.array(ZoneState),
   /** Keyed by mine id. */

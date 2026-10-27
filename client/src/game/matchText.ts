@@ -1,4 +1,4 @@
-import { Phase, TUNING } from "@sink-or-sail/shared";
+import { AWARD_NAMES, Phase, TUNING } from "@sink-or-sail/shared";
 import { CREW_STYLES } from "./crews.ts";
 
 const crewLabel = (crew: number) => {
@@ -131,3 +131,8 @@ export function resultRows(
 
 /** Stage 3: the results close by themselves; whole seconds left, rounded up. */
 export const backToLobbyText = (secondsLeft: number) => `Back to the lobby in ${Math.max(0, Math.ceil(secondsLeft))}`;
+
+/** Stage 3: each award shown at the end: its name, the crew that earned it, and what earned it. */
+export function awardLines(awards: readonly { award: string; ship: number; detail: string }[]) {
+  return awards.map((a) => ({ name: AWARD_NAMES[a.award] ?? a.award, crew: crewLabel(a.ship), detail: a.detail }));
+}

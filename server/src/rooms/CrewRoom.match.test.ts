@@ -293,6 +293,17 @@ describe("match end", () => {
     expect(room.state.results.length).toBe(0);
   });
 
+  it("shows everyone the awards earned, at most one per crew (Stage 3)", async () => {
+    const { room } = await started();
+    const world = room.world!;
+    room.world = { ...world, ships: world.ships.map((s, i) => (i === 0 ? { ...s, boostEnergy: 90 } : s)) };
+    await endMatch(room);
+    await waitFor(() => room.state.awards.length > 0);
+    const awards = [...room.state.awards].map((a) => a.toJSON());
+    expect(awards).toContainEqual({ award: "speedDemon", ship: 0, detail: "energy on boost (90)" });
+    expect(new Set(awards.map((a) => a.ship)).size).toBe(awards.length);
+  });
+
   it("shows everyone the results: each ship's place, sinkings and time afloat (Stage 3)", async () => {
     const { room } = await started();
     await sleep(1100);

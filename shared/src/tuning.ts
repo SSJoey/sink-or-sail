@@ -169,6 +169,25 @@ export const TUNING = {
     /** After a zone's full meter sets off a hazard, the meter empties and can't fill again for this many seconds. */
     zoneCap: 45,
   },
+  /** Stage 3 awards (approved 2026-10-27): at most one per crew, at most `maxPerMatch`; minimums to earn each. */
+  awards: {
+    maxPerMatch: 4,
+    sharpshooterHits: 3,
+    rockCollectorReefHits: 2,
+    bumperBoatsBumps: 3,
+    /** Below this speed a ship afloat counts as stationary (a tenth of top speed). */
+    stationarySpeed: 15,
+    sittingDuckSeconds: 20,
+    triggerHappyShots: 10,
+    packRatPacks: 2,
+    hoarderSeconds: 30,
+    shieldHogEnergy: 50,
+    speedDemonEnergy: 50,
+    /** Close Shave: afloat at the end with less than this fraction of full health. */
+    closeShaveHealth: 0.25,
+    stormChaserSeconds: 10,
+    whirlpoolTouristSeconds: 5,
+  },
   /** Stage 2: Last Afloat (approved 2026-10-26). */
   lastAfloat: {
     /** Lives per ship unless the host picks another number; each sinking costs one, and at 0 the crew is out. */

@@ -1,6 +1,6 @@
 // Turns a match log (JSON Lines) into per-crew numbers for tuning and playtest notes.
 
-import { LAYOUTS, isLayoutId } from "@sink-or-sail/shared";
+import { AWARD_NAMES, LAYOUTS, isLayoutId } from "@sink-or-sail/shared";
 
 export type Line = { t: number; type: string } & Record<string, unknown>;
 
@@ -128,6 +128,8 @@ export interface MatchSummary {
   packs: CrewPacks[] | null;
   /** Stage 2: each kind of dynamic hazard over the match; null with hazards off. */
   hazards: HazardOverview[] | null;
+  /** Stage 3: the awards shown at the end (none in logs from before awards). */
+  awards: { award: string; ship: number; detail: string }[];
 }
 
 export function parseLog(text: string): Line[] {
@@ -256,6 +258,8 @@ export function summarise(lines: readonly Line[]): MatchSummary {
     lastAfloat: mode === "lastAfloat" ? lastAfloatFigures(lines, crews, scores, winner, endT, afloat) : null,
     packs: packsOn ? crews.map((c) => packFigures(lines, c.ship)) : null,
     hazards: start?.hazardsOn === true ? hazardOverview(lines) : null,
+    awards: ((lines.find((l) => l.type === "awards")?.awards as { award: string; ship: number; detail: string }[] | undefined) ?? [])
+      .map((a) => ({ award: a.award, ship: a.ship, detail: a.detail })),
   };
 }
 
@@ -399,7 +403,8 @@ export function formatSummary(s: MatchSummary): string {
     Object.entries(c.sunkBy).map(([cause, n]) => `${cause} ${n}`).join(" · ") || "—",
   ]);
   const head = ["Crew", "Pilot & Gunner", "Sinkings", "Shots", "Hits", "Blocked", "Accuracy", "Energy boost / shield", "Empty bar", "Avg survival (lives)", "Sunk by"];
-  const out = [header, "", ...table(head, rows)];
+  const awards = s.awards.map((a) => `${AWARD_NAMES[a.award] ?? a.award} (Crew ${a.ship + 1}, ${a.detail})`).join(" · ");
+  const out = [header, ...(awards ? [`Awards: ${awards}`] : []), "", ...table(head, rows)];
   if (s.hazards) {
     // Stage 2: each crew's hazard figures, then the match's dynamic hazards.
     const hazardRows = s.crews.map((c) => [

@@ -16,8 +16,14 @@ import {
   RECONNECT_WINDOW_SECONDS,
   ServerMessage,
   TUNING,
+  closeTally,
   createWorld,
+  earnedAwards,
+  newTally,
+  pickAwards,
   shipResults,
+  updateTally,
+  type AwardTally,
   sinkForTest,
   matchResult,
   normaliseName,
@@ -34,13 +40,13 @@ import {
   type World,
 } from "@sink-or-sail/shared";
 import { LOG_DIR, firstHazardAt, fixedSeed, fixedStormTimes, joinAddress, testSink } from "../config.ts";
-import { controlLine, matchEndLine, matchMs, matchStartLine, playerLine, positionLines, seatLine, simEventLines, type LogLine, type Roster } from "../log/events.ts";
+import { awardsLine, controlLine, matchEndLine, matchMs, matchStartLine, playerLine, positionLines, seatLine, simEventLines, type LogLine, type Roster } from "../log/events.ts";
 import { MatchLog, fileSink, logFileName, type LogSink } from "../log/matchLog.ts";
 import { canChangeSeat, canEndMatch, canPause, canResume, canSetPacks, canStart, crewHasShip, everyCrewManned, nextHost, readLayout, readOnOff, readReefs, readLives, readMode, readReady, shipCount } from "./matchFlow.ts";
 import { generateUniqueCode } from "./roomCode.ts";
 import { isNameTaken, takeSeat, type SeatMap } from "./seats.ts";
 import { closeUpCrews, findPartner, leaveCrew, placeJoiner, refreshWaiting, seatWaiting, type CrewResult, type CrewRoster } from "./crews.ts";
-import { CrewState, Player, ResultState } from "./state.ts";
+import { AwardState, CrewState, Player, ResultState } from "./state.ts";
 import { GhostControl } from "./ghostControl.ts";
 import { applyEvents, syncWorld } from "./sync.ts";
 
@@ -84,6 +90,9 @@ export class CrewRoom extends Room<{ state: CrewState }> {
   /** Stage 3 results: each ship's time on the water this match, and when each crew went out (Last Afloat). */
   private afloat: number[] = [];
   private outAt: (number | null)[] = [];
+  /** Stage 3 awards: the tally through the match, and the match's seed (for the pick). */
+  private tally: AwardTally = newTally(2);
+  private matchSeed = 0;
   private joinCount = 0;
   /** Where each match's log goes; fields so tests can capture it in memory. */
   logSinkFor: (fileName: string) => LogSink = (fileName) => fileSink(join(LOG_DIR, fileName));
@@ -308,6 +317,7 @@ export class CrewRoom extends Room<{ state: CrewState }> {
   private startMatch(): void {
     void this.closeLog();
     this.state.results.clear();
+    this.state.awards.clear();
     this.afloat = [];
     this.outAt = [];
     // Stage 3: everyone's Ready clears with each match.
@@ -333,6 +343,8 @@ export class CrewRoom extends Room<{ state: CrewState }> {
     this.state.matchMode = mode;
     this.state.matchLayout = layout;
     this.roster = this.buildRoster();
+    this.tally = newTally(this.world.ships.length);
+    this.matchSeed = seed;
     this.log = new MatchLog(this.logSinkFor(logFileName(new Date(), this.roomId)), { onError: (error) => this.logErrors(error) });
     this.logLine(matchStartLine(this.roomId, this.roster, { packsOn, seed, mode, lives, layout, layoutRandom, hazardsOn, reefs, wrecks: this.world.wrecks, storm: this.world.storm, firstHazardAt: this.world.nextHazardIn }));
     for (const line of positionLines(this.world)) this.logLine(line);
@@ -361,9 +373,9 @@ export class CrewRoom extends Room<{ state: CrewState }> {
     const winner = matchResult(this.world).winner;
     this.state.winner = winner ?? -1;
     this.logLine(controlLine(this.logTime(), "endedEarly", this.nameOf(sessionId), this.seatOf(sessionId)));
+    this.showResults();
     this.logLine(matchEndLine(this.world, winner, true));
     void this.closeLog();
-    this.showResults();
     this.settleCrews();
   }
 
@@ -393,6 +405,7 @@ export class CrewRoom extends Room<{ state: CrewState }> {
     }
     syncWorld(this.state, this.world);
     applyEvents(this.state, result.events);
+    this.tally = updateTally(this.tally, this.world, result.events, dt);
 
     for (const line of simEventLines(this.logTime(), result.events, this.roster)) this.logLine(line);
     if (this.world.time >= this.nextPositionAt - 1e-9) {
@@ -400,9 +413,9 @@ export class CrewRoom extends Room<{ state: CrewState }> {
       this.nextPositionAt += 1;
     }
     if (this.world.over) {
+      this.showResults();
       this.logLine(matchEndLine(this.world, matchResult(this.world).winner, false));
       void this.closeLog();
-      this.showResults();
       this.settleCrews();
     }
   }
@@ -529,9 +542,13 @@ export class CrewRoom extends Room<{ state: CrewState }> {
     }
   }
 
-  /** Stage 3: the results everyone sees at the end of a match. */
+  /** Stage 3: the results and awards everyone sees at the end of a match (the awards are logged too). */
   private showResults(): void {
     if (!this.world) return;
+    const awards = pickAwards(earnedAwards(closeTally(this.tally, this.world), this.world), this.matchSeed);
+    this.state.awards.clear();
+    for (const a of awards) this.state.awards.push(new AwardState(a));
+    this.logLine(awardsLine(this.logTime(), awards, this.roster));
     this.state.results.clear();
     for (const r of shipResults(this.world, this.afloat, this.outAt.map((t) => t ?? null))) {
       this.state.results.push(new ResultState({ ship: r.ship, place: r.place, sinkings: r.sinkings, afloatSeconds: r.afloatSeconds, livesLeft: r.livesLeft ?? -1, out: r.out }));

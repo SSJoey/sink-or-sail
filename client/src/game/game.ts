@@ -13,7 +13,7 @@ import { SnapshotBuffer, type Frame } from "./interpolation.ts";
 import { frameLimit } from "./frameLimit.ts";
 import { heldShips, hiddenShips } from "./hazardLook.ts";
 import { lifebarColour, lifebarFill, lifebarShown } from "./lifebar.ts";
-import { backToLobbyText, countdownLabel, hauntingText, outBanner, pausedText, respawnText, resultRows, resultTitle, sinkBanner, stormText } from "./matchText.ts";
+import { awardLines, backToLobbyText, countdownLabel, hauntingText, outBanner, pausedText, respawnText, resultRows, resultTitle, sinkBanner, stormText } from "./matchText.ts";
 import { blockGestures, goFullscreenLandscape, isPortrait, isTouchFirst } from "./phone.ts";
 import { snapshotFromState, type GameStateView } from "./snapshot.ts";
 import { layoutText } from "../lobby/settings.ts";
@@ -37,6 +37,8 @@ export interface RoomStateView extends GameStateView {
     forEach(cb: (player: PlayerView, sessionId: string) => void): void;
   };
   hostId: string;
+  /** Stage 3: the last match's awards (at most one per crew). */
+  awards: Iterable<{ award: string; ship: number; detail: string }>;
   /** Stage 3: the last match's results, one per ship. */
   results: Iterable<{ ship: number; place: number; sinkings: number; afloatSeconds: number; livesLeft: number; out: boolean }>;
   /** Stage 3: the laptop's Wi-Fi address for the QR code, or "". */
@@ -297,7 +299,17 @@ export function renderResult(el: HTMLElement, state: RoomStateView): void {
     return tr;
   };
   table.append(row(head, "th"), ...resultRows([...state.results], players, lastAfloat).map((cells) => row(cells, "td")));
-  el.replaceChildren(title, table, layout);
+  // Stage 3 awards: "Sharpshooter · ■ Crew 2 · most hits (7)".
+  const awards = document.createElement("ul");
+  awards.className = "awards";
+  awards.append(...awardLines([...state.awards]).map((a) => {
+    const item = document.createElement("li");
+    const name = document.createElement("strong");
+    name.textContent = a.name;
+    item.append(name, ` · ${a.crew} · ${a.detail}`);
+    return item;
+  }));
+  el.replaceChildren(title, table, ...(awards.childElementCount > 0 ? [awards] : []), layout);
 }
 
 /**
@@ -372,7 +384,7 @@ function showMatchOverlays(
 
   const over = state.phase === Phase.Over;
   // Redrawn when the results arrive or change (they come with the match end).
-  const key = [...state.results].map((r) => `${r.ship}:${r.place}`).join(",");
+  const key = [...state.results].map((r) => `${r.ship}:${r.place}`).join(",") + "|" + [...state.awards].map((a) => a.award).join(",");
   if (over && (els.scoreboard.hidden || els.scoreboard.dataset.results !== key)) {
     renderResult(byId("result"), state);
     els.scoreboard.dataset.results = key;
