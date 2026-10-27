@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Phase, TUNING } from "@sink-or-sail/shared";
-import { blinkVisible, countdownLabel, hauntingText, outBanner, packBlinkVisible, pausedText, resultLine, respawnText, resultTitle, scoreRows, sinkBanner, stormText } from "./matchText.ts";
+import { backToLobbyText, blinkVisible, countdownLabel, hauntingText, resultRows, outBanner, packBlinkVisible, pausedText, resultLine, respawnText, resultTitle, scoreRows, sinkBanner, stormText } from "./matchText.ts";
 
 const D = TUNING.match.duration;
 
@@ -156,5 +156,27 @@ describe("the ghost's haunting meter (Stage 2)", () => {
     expect(hauntingText(0.2)).toBe("Haunting ▮▯▯▯▯");
     expect(hauntingText(0.61)).toBe("Haunting ▮▮▮▯▯");
     expect(hauntingText(1)).toBe("Haunting ▮▮▮▮▮");
+  });
+});
+
+describe("the results table (Stage 3)", () => {
+  const players = [{ name: "Ana", crew: 0, role: "pilot" }, { name: "Ben", crew: 0, role: "gunner" }, { name: "Sam", crew: 1, role: "pilot" }];
+
+  it("lists the crews by place, with sinkings and time afloat", () => {
+    const results = [{ ship: 0, place: 2, sinkings: 1, afloatSeconds: 183, livesLeft: -1, out: false }, { ship: 1, place: 1, sinkings: 3, afloatSeconds: 240, livesLeft: -1, out: false }];
+    expect(resultRows(results, players, false)).toEqual([
+      ["1st", "■ Crew 2 · Sam", "3", "4:00"],
+      ["2nd", "● Crew 1 · Ana & Ben", "1", "3:03"],
+    ]);
+  });
+
+  it("adds lives left (or out) in Last Afloat", () => {
+    const results = [{ ship: 0, place: 1, sinkings: 2, afloatSeconds: 300, livesLeft: 1, out: false }, { ship: 1, place: 2, sinkings: 0, afloatSeconds: 95, livesLeft: 0, out: true }];
+    expect(resultRows(results, players, true).map((r) => r[4])).toEqual(["1", "out"]);
+  });
+
+  it("counts down to going back to the lobby", () => {
+    expect(backToLobbyText(14.2)).toBe("Back to the lobby in 15");
+    expect(backToLobbyText(0)).toBe("Back to the lobby in 0");
   });
 });

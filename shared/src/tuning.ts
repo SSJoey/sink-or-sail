@@ -257,5 +257,7 @@ export const TUNING = {
     lifebarOffset: 40,
     lifebarAmberAtOrBelow: 0.5,
     lifebarRedBelow: 0.25,
+    /** Stage 3: the results close by themselves this many seconds after a match ends (back to the lobby). */
+    resultsSeconds: 20,
   },
 } as const;

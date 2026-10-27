@@ -290,6 +290,18 @@ describe("match end", () => {
     expect(room.state.ships.map((s) => s.hits)).toEqual([0, 0]);
     expect(room.state.ships.map((s) => s.sunkBy)).toEqual([-1, -1]);
     expect(room.state.winner).toBe(-1);
+    expect(room.state.results.length).toBe(0);
+  });
+
+  it("shows everyone the results: each ship's place, sinkings and time afloat (Stage 3)", async () => {
+    const { room } = await started();
+    await sleep(1100);
+    await endMatch(room, [1, 3]);
+    await waitFor(() => room.state.results.length === 2);
+    const results = [...room.state.results].map((r) => r.toJSON());
+    expect(results.map((r) => [r.ship, r.place, r.sinkings, r.livesLeft, r.out])).toEqual([[0, 2, 1, -1, false], [1, 1, 3, -1, false]]);
+    // Time afloat counts the match time each ship spent on the water (here: all of it, about a second).
+    for (const r of results) expect(r.afloatSeconds).toBeGreaterThanOrEqual(1);
   });
 });
 

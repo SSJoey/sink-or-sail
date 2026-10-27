@@ -17,6 +17,7 @@ import {
   ServerMessage,
   TUNING,
   createWorld,
+  shipResults,
   sinkForTest,
   matchResult,
   normaliseName,
@@ -39,7 +40,7 @@ import { canChangeSeat, canEndMatch, canPause, canResume, canSetPacks, canStart,
 import { generateUniqueCode } from "./roomCode.ts";
 import { isNameTaken, takeSeat, type SeatMap } from "./seats.ts";
 import { closeUpCrews, findPartner, leaveCrew, placeJoiner, refreshWaiting, seatWaiting, type CrewResult, type CrewRoster } from "./crews.ts";
-import { CrewState, Player } from "./state.ts";
+import { CrewState, Player, ResultState } from "./state.ts";
 import { GhostControl } from "./ghostControl.ts";
 import { applyEvents, syncWorld } from "./sync.ts";
 
@@ -80,6 +81,9 @@ export class CrewRoom extends Room<{ state: CrewState }> {
   /** Stage 3: crews with one player, and when each started waiting for a partner (on `crewClock`). */
   private crewWaiting = new Map<number, number>();
   private crewClock = 0;
+  /** Stage 3 results: each ship's time on the water this match, and when each crew went out (Last Afloat). */
+  private afloat: number[] = [];
+  private outAt: (number | null)[] = [];
   private joinCount = 0;
   /** Where each match's log goes; fields so tests can capture it in memory. */
   logSinkFor: (fileName: string) => LogSink = (fileName) => fileSink(join(LOG_DIR, fileName));
@@ -303,6 +307,9 @@ export class CrewRoom extends Room<{ state: CrewState }> {
   /** A fresh world, scores and result reset, then the 3-2-1 countdown with ships frozen. */
   private startMatch(): void {
     void this.closeLog();
+    this.state.results.clear();
+    this.afloat = [];
+    this.outAt = [];
     // Stage 3: everyone's Ready clears with each match.
     this.state.players.forEach((player) => { player.ready = false; });
     const seed = this.seedForMatch() >>> 0;
@@ -356,6 +363,7 @@ export class CrewRoom extends Room<{ state: CrewState }> {
     this.logLine(controlLine(this.logTime(), "endedEarly", this.nameOf(sessionId), this.seatOf(sessionId)));
     this.logLine(matchEndLine(this.world, winner, true));
     void this.closeLog();
+    this.showResults();
     this.settleCrews();
   }
 
@@ -370,6 +378,11 @@ export class CrewRoom extends Room<{ state: CrewState }> {
     const result = step(this.world, this.shipInputs(), dt);
     this.packPressed.clear();
     this.world = result.world;
+    // Stage 3 results: time on the water, and when each crew went out.
+    this.world.ships.forEach((ship, i) => {
+      if (!ship.sunk) this.afloat[i] = (this.afloat[i] ?? 0) + dt;
+    });
+    for (const event of result.events) if (event.type === "crewOut") this.outAt[event.ship] = this.world.time;
     // TEST_SINK (browser tests only): sink the chosen crew once its time comes.
     const sink = this.pendingTestSink;
     if (sink && this.world.time >= sink.at - 1e-9 && !this.world.over) {
@@ -389,6 +402,7 @@ export class CrewRoom extends Room<{ state: CrewState }> {
     if (this.world.over) {
       this.logLine(matchEndLine(this.world, matchResult(this.world).winner, false));
       void this.closeLog();
+      this.showResults();
       this.settleCrews();
     }
   }
@@ -512,6 +526,15 @@ export class CrewRoom extends Room<{ state: CrewState }> {
     for (const { id } of waiters) {
       const player = this.state.players.get(id);
       if (player) player.partner = "";
+    }
+  }
+
+  /** Stage 3: the results everyone sees at the end of a match. */
+  private showResults(): void {
+    if (!this.world) return;
+    this.state.results.clear();
+    for (const r of shipResults(this.world, this.afloat, this.outAt.map((t) => t ?? null))) {
+      this.state.results.push(new ResultState({ ship: r.ship, place: r.place, sinkings: r.sinkings, afloatSeconds: r.afloatSeconds, livesLeft: r.livesLeft ?? -1, out: r.out }));
     }
   }
 

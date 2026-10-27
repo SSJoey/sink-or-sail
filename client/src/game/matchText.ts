@@ -104,3 +104,30 @@ export function hauntingText(meter: number): string {
   const filled = Math.max(0, Math.min(5, Math.round(meter * 5)));
   return `Haunting ${"▮".repeat(filled)}${"▯".repeat(5 - filled)}`;
 }
+
+const ordinal = (n: number) => `${n}${n % 10 === 1 && n % 100 !== 11 ? "st" : n % 10 === 2 && n % 100 !== 12 ? "nd" : n % 10 === 3 && n % 100 !== 13 ? "rd" : "th"}`;
+const minutes = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Math.round(seconds) % 60).padStart(2, "0")}`;
+
+/**
+ * Stage 3: the results table's rows, by place: place, crew (symbol, name and players, pilot first), sinkings and
+ * time afloat; Last Afloat adds lives left (or "out").
+ */
+export function resultRows(
+  results: readonly { ship: number; place: number; sinkings: number; afloatSeconds: number; livesLeft: number; out: boolean }[],
+  players: readonly { name: string; crew?: number; role?: string }[],
+  lastAfloat: boolean,
+): string[][] {
+  return [...results]
+    .sort((a, b) => a.place - b.place || a.ship - b.ship)
+    .map((r) => {
+      const names = players
+        .filter((p) => p.crew === r.ship)
+        .sort((a, b) => (a.role === "pilot" ? -1 : b.role === "pilot" ? 1 : 0))
+        .map((p) => p.name)
+        .join(" & ") || "—";
+      return [ordinal(r.place), `${crewLabel(r.ship)} · ${names}`, String(r.sinkings), minutes(r.afloatSeconds), ...(lastAfloat ? [r.out ? "out" : String(r.livesLeft)] : [])];
+    });
+}
+
+/** Stage 3: the results close by themselves; whole seconds left, rounded up. */
+export const backToLobbyText = (secondsLeft: number) => `Back to the lobby in ${Math.max(0, Math.ceil(secondsLeft))}`;

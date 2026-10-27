@@ -12,7 +12,7 @@ import { SnapshotBuffer, type Frame } from "./interpolation.ts";
 import { frameLimit } from "./frameLimit.ts";
 import { heldShips, hiddenShips } from "./hazardLook.ts";
 import { lifebarColour, lifebarFill, lifebarShown } from "./lifebar.ts";
-import { countdownLabel, hauntingText, outBanner, pausedText, resultLine, respawnText, resultTitle, scoreRows, sinkBanner, stormText } from "./matchText.ts";
+import { backToLobbyText, countdownLabel, hauntingText, outBanner, pausedText, respawnText, resultRows, resultTitle, sinkBanner, stormText } from "./matchText.ts";
 import { blockGestures, goFullscreenLandscape, isPortrait, isTouchFirst } from "./phone.ts";
 import { snapshotFromState, type GameStateView } from "./snapshot.ts";
 import { layoutText } from "../lobby/settings.ts";
@@ -36,6 +36,8 @@ export interface RoomStateView extends GameStateView {
     forEach(cb: (player: PlayerView, sessionId: string) => void): void;
   };
   hostId: string;
+  /** Stage 3: the last match's results, one per ship. */
+  results: Iterable<{ ship: number; place: number; sinkings: number; afloatSeconds: number; livesLeft: number; out: boolean }>;
   /** Stage 3: the laptop's Wi-Fi address for the QR code, or "". */
   joinAddress: string;
   packsEnabled: boolean;
@@ -104,6 +106,9 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
   const paused = byId("paused");
   screen.hidden = false;
   byId("back-to-room").onclick = onExit;
+  // Stage 3: the host plays again at once (same crews and settings); the results close by themselves after a while.
+  byId("play-again").onclick = () => room.send(ClientMessage.Start);
+  let overSince: number | null = null;
   // Stage 3 slice 3: a player watching while they wait goes back to the waiting screen.
   byId("hud-back").onclick = onExit;
 
@@ -158,6 +163,21 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
       const state = room.state as RoomStateView;
       showMatchOverlays(state, frame, effects, mine?.crew ?? null, { countdown, banner, scoreboard });
       showPauseControls(state, mine !== null, state.hostId === room.sessionId, paused);
+      // Stage 3 results: Play again for the host; everyone back to the lobby after a while.
+      if (state.phase === Phase.Over) {
+        overSince ??= performance.now();
+        const left = TUNING.client.resultsSeconds - (performance.now() - overSince) / 1000;
+        if (left <= 0) {
+          onExit();
+          return;
+        }
+        const isHost = state.hostId === room.sessionId;
+        byId("play-again").hidden = !isHost;
+        byId("results-wait").textContent = isHost ? "" : "Waiting for the host to play again";
+        byId("results-countdown").textContent = backToLobbyText(left);
+      } else {
+        overSince = null;
+      }
       byId("hud-back").hidden = mine !== null;
       // Read by the browser smoke tests (a canvas has no elements to inspect).
       canvasHost.dataset.ships = String(frame?.ships.filter((s) => !s.sunk).length ?? 0);
@@ -258,21 +278,25 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
 const roleLabel: Record<Role, string> = { pilot: "Pilot", gunner: "Gunner" };
 
 /** Fills a scoreboard element: result title and one row per crew. Also used on the room screen. */
+/** The results: the winner, then a table of the crews by place (Stage 3), and the layout played. */
 export function renderResult(el: HTMLElement, state: RoomStateView): void {
   const players: PlayerView[] = [];
   state.players.forEach((p) => players.push(p));
-  const ships = [...state.ships];
   const lastAfloat = state.matchMode === "lastAfloat";
   const title = document.createElement("h2");
   title.textContent = resultTitle(state.winner);
   const layout = document.createElement("p");
   layout.textContent = layoutText(state.layout, state.matchLayout);
-  const rows = scoreRows(ships.map((ship) => ship.sinkings), players).map((row, i) => {
-    const line = document.createElement("p");
-    line.textContent = resultLine(row, lastAfloat ? ships[i] : undefined);
-    return line;
-  });
-  el.replaceChildren(title, ...rows, layout);
+  const table = document.createElement("table");
+  table.className = "results";
+  const head = ["Place", "Crew", "Sinkings", "Time afloat", ...(lastAfloat ? ["Lives left"] : [])];
+  const row = (cells: string[], tag: "th" | "td") => {
+    const tr = document.createElement("tr");
+    tr.append(...cells.map((text) => Object.assign(document.createElement(tag), { textContent: text })));
+    return tr;
+  };
+  table.append(row(head, "th"), ...resultRows([...state.results], players, lastAfloat).map((cells) => row(cells, "td")));
+  el.replaceChildren(title, table, layout);
 }
 
 function showPauseControls(state: RoomStateView, seated: boolean, isHost: boolean, paused: HTMLElement): void {
@@ -317,7 +341,12 @@ function showMatchOverlays(
   if (ownCrew !== null && effects[ownCrew]?.justSank) navigator.vibrate?.(TUNING.client.sinkVibrateMs);
 
   const over = state.phase === Phase.Over;
-  if (over && els.scoreboard.hidden) renderResult(byId("result"), state);
+  // Redrawn when the results arrive or change (they come with the match end).
+  const key = [...state.results].map((r) => `${r.ship}:${r.place}`).join(",");
+  if (over && (els.scoreboard.hidden || els.scoreboard.dataset.results !== key)) {
+    renderResult(byId("result"), state);
+    els.scoreboard.dataset.results = key;
+  }
   els.scoreboard.hidden = !over;
 }
 

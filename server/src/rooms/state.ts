@@ -112,6 +112,20 @@ export const GhostState = schema({
 }, "GhostState");
 export type GhostState = SchemaType<typeof GhostState>;
 
+/** Stage 3: one ship's line in the results at the end of a match. */
+export const ResultState = schema({
+  ship: t.int8(),
+  /** 1 for first; equal results share a place. */
+  place: t.uint8(),
+  sinkings: t.uint8(),
+  /** Whole seconds on the water, not counting respawn waits (Last Afloat: until out). */
+  afloatSeconds: t.uint16(),
+  /** Last Afloat: lives left; -1 in Sink Count. */
+  livesLeft: t.int8().default(-1),
+  out: t.boolean(),
+}, "ResultState");
+export type ResultState = SchemaType<typeof ResultState>;
+
 /** Stage 2 haunting: one zone's meter (0–1), shown as fog. */
 export const ZoneState = schema({
   meter: t.float32(),
@@ -174,6 +188,8 @@ export const CrewState = schema({
   hazards: t.map(HazardState),
   /** Stage 2 (Last Afloat): ghosts that have appeared, keyed by their crew's ship id. */
   ghosts: t.map(GhostState),
+  /** Stage 3: the last match's results, one per ship (empty during a match). */
+  results: t.array(ResultState),
   /** Stage 2 haunting: each zone's meter, row by row (empty for a match without haunting). */
   zones: t.array(ZoneState),
   /** Keyed by mine id. */

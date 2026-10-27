@@ -592,6 +592,18 @@ Drafted from `docs/design.md` and the lobby mock-ups on the look-options canvas 
 - **Question 3:** a) your own ship's bar is the same as everyone else's (no number in the top bar).
 - **Built (2026-10-27):** `TUNING.client` lifebarWidth 48, lifebarHeight 6, lifebarOffset 40, lifebarAmberAtOrBelow 0.5, lifebarRedBelow 0.25; `client/src/game/lifebar.ts` (fill, colour, shown). Drawn with the ship (so it blinks with protection and fades with a sinking ship), over a dark backing; colours green 0x7ee081, amber 0xffb347, red 0xff4d4d; skipped for another crew's ship hidden in a moving storm. `data-lifebars` for the browser test (`e2e/lifebar.spec.ts`: Crew 1 sails onto a reef and both pages see its bar at 0.95). On a 915 px phone the bars are small (about 27 × 3.5 px) but readable in a screenshot. `npm test` passed (921 unit plus 1 skipped, 27 browser).
 
+### 2026-10-27 — Stage 3 slice 5 plan: results screen, Play again, back to the lobby
+
+- **Plan as proposed, all ok:** a winner banner and a results table (Place, Crew with symbol, colour and names, Sinkings, Time afloat; Last Afloat adds Lives left or "out"), worked out by the server at the match end and synced. **Play again** (host only) starts the next match at once (3-2-1) with the same crews and settings (players who waited are already placed; Ready doesn't hold it up); others see "Waiting for the host to play again". **Back to lobby** (everyone) closes the results; everyone goes back automatically 20 s after the match ends ("Back to the lobby in 15"). The room screen keeps its short last-match result. Room left for awards (slice 6).
+- **Places:** Sink Count by sinkings (most first; equal sinkings share a place); Last Afloat: the winner first, then crews in the order they went out (later = higher); at the time limit crews still in are ranked by lives left, then health (as the winner rule).
+- **Time afloat:** time on the water, not counting respawn waits; in Last Afloat until the crew is out (as the summary script counts it).
+- **Built (2026-10-27):**
+  - **Shared** (`sim/results.ts`): `matchPlaces` (Sink Count by sinkings; Last Afloat crews still in by lives left then health, then crews out by when they went out, later higher; equal shares) and `shipResults` (place, sinkings, whole seconds afloat, lives left, out).
+  - **Server:** the room tallies each ship's time on the water (each running tick it isn't sunk) and when each crew went out, and at the match end (time, last afloat, or ended early) fills the synced `results` (cleared when a match starts).
+  - **Client:** the end-of-match view shows the winner, a table (Place, Crew "● Crew 1 · Ana & Ben", Sinkings, Time afloat m:ss, Lives left or "out" in Last Afloat) and the layout; **Play again** for the host (sends Start), "Waiting for the host to play again" for others; **Back to lobby** (was "Back to room"); "Back to the lobby in N", closing by itself after `TUNING.client.resultsSeconds` (20). The room screen's last-match result uses the same table.
+  - **Tests changed:** the Last Afloat browser test checks the same facts (places, crews, sinkings, lives) in the table instead of the old one-line scoreboard. `scoreRows` and `resultLine` are no longer used by the game (kept, with their tests, for now).
+  - **Runs:** `npm test` passed (929 unit plus 1 skipped, 28 browser).
+
 ## Later
 
 - **(2026-10-25, Stage 5) Ship types**, discussed with the user ahead of Stage 5 (not to build before then):

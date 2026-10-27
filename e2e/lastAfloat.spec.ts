@@ -52,7 +52,9 @@ test("Last Afloat: the host picks it with 1 life; sinking the other ship ends th
   await host.mouse.up();
 
   await expect(host.locator("#result h2")).toHaveText("● Crew 1 wins!");
-  await expect(host.locator("#result")).toContainText("■ Crew 2: out · 0 sinkings (Enemy)");
-  await expect(host.locator("#result")).toContainText("● Crew 1: 1 life left · 1 sinking (Host)");
+  // The results table (Stage 3): place, crew, sinkings, time afloat, lives left.
+  const rows = host.locator("#result tr");
+  await expect(rows.nth(1).locator("td")).toHaveText(["1st", "● Crew 1 · Host", "1", /^\d:\d\d$/, "1"]);
+  await expect(rows.nth(2).locator("td")).toHaveText(["2nd", "■ Crew 2 · Enemy", "0", /^\d:\d\d$/, "out"]);
   await expect(enemy.locator("#result h2")).toHaveText("● Crew 1 wins!");
 });

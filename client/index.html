@@ -49,6 +49,11 @@
       #banner { top: 64px; font-size: 22px; font-weight: bold; background: rgba(11,37,69,0.85); padding: 8px 16px; border-radius: 8px; }
       #scoreboard { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); background: rgba(11,37,69,0.95); padding: 16px 24px; border-radius: 12px; text-align: center; min-width: 280px; }
       #scoreboard h2 { margin: 0 0 8px; }
+      /* Stage 3 results table. */
+      .results { border-collapse: collapse; margin: 0 auto 8px; }
+      .results th, .results td { padding: 2px 8px; text-align: left; white-space: nowrap; }
+      .results th { font-size: 13px; border-bottom: 1px solid rgba(255,255,255,0.4); }
+      #results-countdown, #results-wait { font-size: 13px; margin: 4px 0; }
       #paused { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); background: rgba(11,37,69,0.95); padding: 16px 24px; border-radius: 12px; text-align: center; min-width: 280px; }
       #hud button { padding: 4px 12px; min-height: 36px; }
       #rotate { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: #0b2545; font-size: 24px; text-align: center; padding: 24px; }
@@ -189,7 +194,9 @@
       <div id="banner" class="overlay-text" hidden></div>
       <div id="scoreboard" hidden>
         <div id="result"></div>
-        <button id="back-to-room">Back to room</button>
+        <p id="results-wait"></p>
+        <p><button id="play-again" hidden>Play again</button> <button id="back-to-room">Back to lobby</button></p>
+        <p id="results-countdown"></p>
       </div>
       <div id="paused" hidden>
         <p id="paused-text"></p>
