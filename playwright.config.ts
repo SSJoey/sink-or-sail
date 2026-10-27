@@ -9,6 +9,8 @@ export const EMP_PORT = 2578;
 export const HAZARD_PORT = 2579;
 export const WHIRLPOOL_PORT = 2580;
 export const KRAKEN_PORT = 2581;
+/** Sixth test server, for the ghost test: TEST_SINK sinks Crew 3 at 0:04. */
+export const GHOST_PORT = 2582;
 
 export default defineConfig({
   testDir: "e2e",
@@ -26,6 +28,14 @@ export default defineConfig({
     // software drawing kept the machine so busy that tests read ship positions late (reliability slice, 2026-10-27).
     launchOptions: { args: ["--enable-gpu", "--ignore-gpu-blocklist", "--use-angle=vulkan", "--enable-features=Vulkan"] },
   },
+  // Tests with many pages (the 3-ship test: 3, the ghost test: 4) run on their own, one after the other, after the
+  // rest: run next to another test they slowed the machine enough for the smoke test to miss the 3-2-1 countdown
+  // (Stage 2 slice 9a, 2026-10-27). A group only runs when the one before it passed.
+  projects: [
+    { name: "main", testIgnore: [/threeShips\.spec\.ts/, /ghosts\.spec\.ts/] },
+    { name: "three ships", testMatch: /threeShips\.spec\.ts/, dependencies: ["main"] },
+    { name: "ghosts", testMatch: /ghosts\.spec\.ts/, dependencies: ["three ships"] },
+  ],
   webServer: [
     {
       command: `npm run build && PORT=${PORT} npm start`,
@@ -74,6 +84,15 @@ export default defineConfig({
       reuseExistingServer: false,
       timeout: 60_000,
       env: { LOG_DIR: join(tmpdir(), "sink-or-sail-test-logs"), MATCH_SEED: "8", HAZARDS_FIRST_AT: "2" },
+    },
+    {
+      // A sixth server for the ghost test: TEST_SINK sinks Crew 3's ship at 0:04 (in a 1-life Last Afloat match its
+      // crew is out, and its ghost appears at 0:06). No dynamic hazards.
+      command: `PORT=${GHOST_PORT} npm start`,
+      url: `http://localhost:${GHOST_PORT}`,
+      reuseExistingServer: false,
+      timeout: 60_000,
+      env: { LOG_DIR: join(tmpdir(), "sink-or-sail-test-logs"), MATCH_SEED: "367", HAZARDS_FIRST_AT: "never", TEST_SINK: "3@4" },
     },
   ],
 });

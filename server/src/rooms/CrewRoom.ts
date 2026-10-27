@@ -17,6 +17,7 @@ import {
   ServerMessage,
   TUNING,
   createWorld,
+  sinkForTest,
   matchResult,
   normaliseName,
   parseGunnerInput,
@@ -31,13 +32,14 @@ import {
   type ShipInput,
   type World,
 } from "@sink-or-sail/shared";
-import { LOG_DIR, firstHazardAt, fixedSeed, fixedStormTimes } from "../config.ts";
+import { LOG_DIR, firstHazardAt, fixedSeed, fixedStormTimes, testSink } from "../config.ts";
 import { controlLine, matchEndLine, matchMs, matchStartLine, playerLine, positionLines, seatLine, simEventLines, type LogLine, type Roster } from "../log/events.ts";
 import { MatchLog, fileSink, logFileName, type LogSink } from "../log/matchLog.ts";
 import { canChangeSeat, canEndMatch, canPause, canResume, canSetPacks, canStart, crewHasShip, everyCrewManned, nextHost, readLayout, readOnOff, readReefs, readLives, readMode, shipCount } from "./matchFlow.ts";
 import { generateUniqueCode } from "./roomCode.ts";
 import { isNameTaken, leaveSeat, takeSeat, type SeatMap } from "./seats.ts";
 import { CrewState, Player } from "./state.ts";
+import { GhostControl } from "./ghostControl.ts";
 import { applyEvents, syncWorld } from "./sync.ts";
 
 /** Presence set of codes held by open rooms (Colyseus "custom room ID" recipe). */
@@ -66,6 +68,10 @@ export class CrewRoom extends Room<{ state: CrewState }> {
   world: World | null = null;
   /** Latest valid input per session id. */
   private latestInput = new Map<string, LatestInput>();
+  /** Stage 2: which crewmate each ghost follows (the one who moved it last). */
+  private readonly ghostControl = new GhostControl();
+  /** TEST_SINK (browser tests only): the crew to sink and when, until it has been done this match. */
+  private pendingTestSink: { ship: number; at: number } | null = null;
   /** Players who pressed Pack since the last tick, so a press isn't lost if a release arrives first. */
   private packPressed = new Set<string>();
   /** Order players joined in, for passing on the host. */
@@ -142,6 +148,7 @@ export class CrewRoom extends Room<{ state: CrewState }> {
       this.state.pausedBy = this.state.players.get(client.sessionId)?.name ?? "";
       this.state.phase = Phase.Paused;
       this.latestInput.clear();
+      this.ghostControl.clear();
       this.logLine(controlLine(this.logTime(), "paused", this.nameOf(client.sessionId), this.seatOf(client.sessionId)));
     });
 
@@ -218,6 +225,7 @@ export class CrewRoom extends Room<{ state: CrewState }> {
     const player = this.state.players.get(client.sessionId);
     if (player) player.connected = false;
     this.latestInput.delete(client.sessionId);
+    this.ghostControl.forget(client.sessionId);
     this.logLine(playerLine(this.logTime(), "playerDropped", this.nameOf(client.sessionId), this.seatOf(client.sessionId)));
     this.allowReconnection(client, this.reconnectSeconds);
   }
@@ -233,6 +241,7 @@ export class CrewRoom extends Room<{ state: CrewState }> {
     this.state.players.delete(client.sessionId);
     if (this.log) this.roster = this.buildRoster();
     this.latestInput.delete(client.sessionId);
+    this.ghostControl.forget(client.sessionId);
     this.joinOrder.delete(client.sessionId);
     if (this.state.hostId === client.sessionId) this.state.hostId = nextHost(this.joinOrder);
   }
@@ -263,6 +272,7 @@ export class CrewRoom extends Room<{ state: CrewState }> {
     const storm = fixedStormTimes(process.env) ?? undefined;
     // HAZARDS_FIRST_AT: when the first dynamic hazard comes ("never" for none), for the browser tests only.
     this.world = createWorld({ packs: packsOn, seed, ships, mode, lives: lives ?? undefined, layout, hazards: hazardsOn, reefs, storm, firstHazardAt: firstHazardAt(process.env) });
+    this.pendingTestSink = testSink(process.env);
     this.state.matchReefs = reefs;
     this.state.matchMode = mode;
     this.state.matchLayout = layout;
@@ -272,6 +282,7 @@ export class CrewRoom extends Room<{ state: CrewState }> {
     for (const line of positionLines(this.world)) this.logLine(line);
     this.nextPositionAt = 1;
     this.latestInput.clear();
+    this.ghostControl.clear();
     syncWorld(this.state, this.world);
     for (const ship of this.state.ships) {
       ship.hits = 0;
@@ -289,6 +300,7 @@ export class CrewRoom extends Room<{ state: CrewState }> {
     if (!this.world) return;
     this.world = { ...this.world, over: true };
     this.latestInput.clear();
+    this.ghostControl.clear();
     syncWorld(this.state, this.world);
     const winner = matchResult(this.world).winner;
     this.state.winner = winner ?? -1;
@@ -308,6 +320,14 @@ export class CrewRoom extends Room<{ state: CrewState }> {
     const result = step(this.world, this.shipInputs(), dt);
     this.packPressed.clear();
     this.world = result.world;
+    // TEST_SINK (browser tests only): sink the chosen crew once its time comes.
+    const sink = this.pendingTestSink;
+    if (sink && this.world.time >= sink.at - 1e-9 && !this.world.over) {
+      this.pendingTestSink = null;
+      const sunk = sinkForTest(this.world, sink.ship);
+      this.world = sunk.world;
+      result.events.push(...sunk.events);
+    }
     syncWorld(this.state, this.world);
     applyEvents(this.state, result.events);
 
@@ -367,10 +387,12 @@ export class CrewRoom extends Room<{ state: CrewState }> {
       const input = parsePilotInput(message);
       if (input) this.latestInput.set(sessionId, { role: "pilot", input });
       if (input?.pack) this.packPressed.add(sessionId);
+      if (input?.ghost) this.ghostControl.receive(sessionId, input.ghost);
     } else {
       const input = parseGunnerInput(message);
       if (input) this.latestInput.set(sessionId, { role: "gunner", input });
       if (input?.pack) this.packPressed.add(sessionId);
+      if (input?.ghost) this.ghostControl.receive(sessionId, input.ghost);
     }
   }
 
@@ -387,6 +409,12 @@ export class CrewRoom extends Room<{ state: CrewState }> {
       if (latest.role === "pilot") ship.pilot = { ...latest.input, pack };
       else ship.gunner = { ...latest.input, pack };
     });
+    // Stage 2: each ghost follows whichever of its crew's seated, connected players moved it last.
+    for (const ghost of this.world!.ghosts) {
+      const crew = [...this.state.players.entries()].filter(([id, p]) => p.connected && this.seatOf(id)?.crew === ghost.ship).map(([id]) => id);
+      const ship = inputs[ghost.ship];
+      if (ship) ship.ghost = this.ghostControl.steer(crew);
+    }
     return inputs;
   }
 

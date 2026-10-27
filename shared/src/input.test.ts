@@ -76,3 +76,17 @@ describe("the Pack button (Stage 1)", () => {
     expect(parseGunnerInput({ aim: { x: 0, y: 1 }, fire: false, shield: false, pack: 1 })).toBeNull();
   });
 });
+
+describe("the ghost's direction (Stage 2)", () => {
+  it("is an optional, clamped direction in both roles' messages", () => {
+    const pilot = parsePilotInput({ steer: { x: 0, y: 0 }, boost: false, ghost: { x: 3, y: 4 } })!;
+    expect(pilot.ghost!.x).toBeCloseTo(0.6);
+    expect(pilot.ghost!.y).toBeCloseTo(0.8);
+    expect(parseGunnerInput({ aim: { x: 0, y: 0 }, fire: false, shield: false, ghost: { x: 0, y: -1 } })).toEqual({ aim: { x: 0, y: 0 }, fire: false, shield: false, ghost: { x: 0, y: -1 } });
+  });
+
+  it("rejects the whole message when it isn't a direction", () => {
+    expect(parsePilotInput({ steer: { x: 0, y: 0 }, boost: false, ghost: { x: "1", y: 0 } })).toBeNull();
+    expect(parseGunnerInput({ aim: { x: 0, y: 0 }, fire: false, shield: false, ghost: true })).toBeNull();
+  });
+});

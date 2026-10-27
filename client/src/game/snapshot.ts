@@ -1,5 +1,5 @@
 import type { PackType } from "@sink-or-sail/shared";
-import type { HazardView, MineView, PackView, ShipView, ShotView, Snapshot, WreckView } from "./interpolation.ts";
+import type { GhostView, HazardView, MineView, PackView, ShipView, ShotView, Snapshot, WreckView } from "./interpolation.ts";
 
 /** The parts of the synced room state the game reads. */
 /** A ship as synced: each pack slot is "" when empty. */
@@ -15,6 +15,7 @@ export interface GameStateView {
   torpedoes: { forEach(cb: (torpedo: ShotView, id: string) => void): void };
   wrecks: { forEach(cb: (wreck: WreckView, id: string) => void): void };
   hazards: { forEach(cb: (hazard: HazardView, id: string) => void): void };
+  ghosts: { forEach(cb: (ghost: GhostView, id: string) => void): void };
 }
 
 /** Copies the synced state (which Colyseus updates in place) into a plain, timestamped snapshot. */
@@ -42,5 +43,7 @@ export function snapshotFromState(state: GameStateView, t: number): Snapshot {
   state.wrecks.forEach((wreck, id) => wrecks.set(id, { health: wreck.health, hasPack: wreck.hasPack }));
   const hazards = new Map<string, HazardView>();
   state.hazards.forEach((h, id) => hazards.set(id, { kind: h.kind, phase: h.phase, x: h.x, y: h.y, heading: h.heading, timeLeft: h.timeLeft, spin: h.spin, health: h.health, holding: h.holding }));
-  return { t, ships, shots, packs, mines, torpedoes, wrecks, hazards };
+  const ghosts = new Map<string, GhostView>();
+  state.ghosts.forEach((g, id) => ghosts.set(id, { x: g.x, y: g.y, heading: g.heading }));
+  return { t, ships, shots, packs, mines, torpedoes, wrecks, hazards, ghosts };
 }

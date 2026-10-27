@@ -86,6 +86,7 @@ export function createWorld(options: WorldOptions = {}): World {
     nextHazardIn: options.hazards ? (options.firstHazardAt === undefined ? TUNING.hazards.firstAt : options.firstHazardAt) : null,
     hazardRng: hazardSeed(seed),
     hazardContacts: [],
+    ghosts: [],
     packsOn,
     rng: seed,
     packs: [],

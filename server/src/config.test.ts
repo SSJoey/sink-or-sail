@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { GAME_NAME } from "@sink-or-sail/shared";
-import { DEFAULT_PORT, firstHazardAt, fixedSeed, fixedStormTimes, resolvePort } from "./config.ts";
+import { DEFAULT_PORT, firstHazardAt, fixedSeed, fixedStormTimes, resolvePort, testSink } from "./config.ts";
 
 describe("server config", () => {
   it("can import from the shared package", () => {
@@ -54,5 +54,16 @@ describe("HAZARDS_FIRST_AT (browser tests only)", () => {
     expect(firstHazardAt({})).toBeUndefined();
     expect(firstHazardAt({ HAZARDS_FIRST_AT: "soon" })).toBeUndefined();
     expect(firstHazardAt({ HAZARDS_FIRST_AT: "-1" })).toBeUndefined();
+  });
+});
+
+describe("TEST_SINK (browser tests only)", () => {
+  it("sinks a crew (numbered from 1) at a match time, as crew@seconds", () => {
+    expect(testSink({ TEST_SINK: "3@4" })).toEqual({ ship: 2, at: 4 });
+    expect(testSink({ TEST_SINK: "1@0.5" })).toEqual({ ship: 0, at: 0.5 });
+  });
+
+  it("is ignored unless it is a crew 1–3 and a time not negative", () => {
+    for (const value of [undefined, "", "3", "@4", "0@4", "4@4", "x@4", "3@-1", "3@x"]) expect(testSink({ TEST_SINK: value })).toBeNull();
   });
 });

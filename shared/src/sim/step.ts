@@ -8,11 +8,12 @@ import { launchTorpedo, outsideSea, torpedoDamage } from "./torpedoes.ts";
 import { matchDuration, matchResult } from "./match.ts";
 import { chooseSpawn, respawnShip } from "./respawn.ts";
 import { keepInSea, pushOutOfIslands, separateShips, steerShip } from "./ship.ts";
-import { NO_INPUT, type Mine, type Ship, type ShipInput, type Shot, type SimEvent, type SinkCause, type Torpedo, type World, type Wreck, type WreckPack, type WreckWeapon } from "./types.ts";
+import { NO_INPUT, type Ghost, type Mine, type Ship, type ShipInput, type Shot, type SimEvent, type SinkCause, type Torpedo, type World, type Wreck, type WreckPack, type WreckWeapon } from "./types.ts";
 import { add, distance, scale } from "./vec.ts";
 import { circleOverlapsPolygon, pointInPolygon } from "./geometry.ts";
 import { ramDamage, touchingWreck, wreckContactKey, wreckDamage } from "./wrecks.ts";
 import { applyHazards, hazardContactsOf, heldByKraken, hitKraken, updateHazards } from "./hazards.ts";
+import { newGhost, updateGhosts } from "./ghosts.ts";
 import { inStorm, respawnInside, stormRadius, stormTicks } from "./storm.ts";
 import { aimTurret, fireGun, moveShot } from "./weapons.ts";
 
@@ -20,6 +21,52 @@ import { aimTurret, fireGun, moveShot } from "./weapons.ts";
 const EPSILON = 1e-9;
 
 const contactKey = (a: number, b: number) => (a < b ? `${a}:${b}` : `${b}:${a}`);
+
+/**
+ * A ship (already at 0 health) has sunk: in Last Afloat it costs a life, and on the last one the crew is out and
+ * gets a ghost; held packs are lost; the sinking is credited to `by`. Updates `ships`, `ghosts` and `events`.
+ */
+function sinkShip(mode: World["mode"], ships: Ship[], ghosts: Ghost[], events: SimEvent[], targetIndex: number, by: number | null, cause: SinkCause): void {
+  const sunk = ships[targetIndex]!;
+  if (mode === "lastAfloat") {
+    // Each sinking costs a life; on the last one the ship is out and never respawns.
+    const livesLeft = Math.max(0, (sunk.livesLeft ?? 0) - 1);
+    const out = livesLeft === 0;
+    ships[targetIndex] = { ...sunk, livesLeft, out, respawnIn: out ? 0 : sunk.respawnIn };
+    events.push({ type: "sunk", ship: sunk.id, by, cause, livesLeft });
+    if (out) {
+      events.push({ type: "crewOut", ship: sunk.id });
+      ghosts.push(newGhost(sunk.id, sunk.pos, sunk.heading));
+    }
+  } else {
+    events.push({ type: "sunk", ship: sunk.id, by, cause });
+  }
+  for (const slot of ["pilotPack", "gunnerPack"] as const) {
+    const lost = ships[targetIndex]![slot];
+    if (lost) {
+      events.push({ type: "packLost", ship: sunk.id, packType: lost });
+      ships[targetIndex] = { ...ships[targetIndex]!, [slot]: null };
+    }
+  }
+  if (by !== null) {
+    const attacker = ships.findIndex((s) => s.id === by);
+    if (attacker >= 0) ships[attacker] = { ...ships[attacker]!, sinkings: ships[attacker]!.sinkings + 1 };
+  }
+}
+
+/**
+ * Browser tests only (the server's TEST_SINK setting): sinks `shipId` at once, as a shot from nobody would.
+ */
+export function sinkForTest(world: World, shipId: number): { world: World; events: SimEvent[] } {
+  const ships = [...world.ships];
+  const ghosts = [...world.ghosts];
+  const events: SimEvent[] = [];
+  const index = ships.findIndex((s) => s.id === shipId);
+  if (index < 0 || ships[index]!.sunk) return { world, events };
+  ships[index] = damageShip(ships[index]!, ships[index]!.health).ship;
+  sinkShip(world.mode, ships, ghosts, events, index, null, "shot");
+  return { world: { ...world, ships, ghosts }, events };
+}
 
 /**
  * Advances the match by `dt` seconds. Pure: returns a new world and the events that happened.
@@ -46,30 +93,9 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
   /** Islands and the wrecks still standing: what blocks ships and mine drops. */
   const solids = () => (wrecks.length === 0 ? world.islands : [...world.islands, ...wrecks.map((w) => w.hull)]);
 
-  const sink = (targetIndex: number, by: number | null, cause: SinkCause) => {
-    const sunk = ships[targetIndex]!;
-    if (world.mode === "lastAfloat") {
-      // Each sinking costs a life; on the last one the ship is out and never respawns.
-      const livesLeft = Math.max(0, (sunk.livesLeft ?? 0) - 1);
-      const out = livesLeft === 0;
-      ships[targetIndex] = { ...sunk, livesLeft, out, respawnIn: out ? 0 : sunk.respawnIn };
-      events.push({ type: "sunk", ship: sunk.id, by, cause, livesLeft });
-      if (out) events.push({ type: "crewOut", ship: sunk.id });
-    } else {
-      events.push({ type: "sunk", ship: sunk.id, by, cause });
-    }
-    for (const slot of ["pilotPack", "gunnerPack"] as const) {
-      const lost = ships[targetIndex]![slot];
-      if (lost) {
-        events.push({ type: "packLost", ship: sunk.id, packType: lost });
-        ships[targetIndex] = { ...ships[targetIndex]!, [slot]: null };
-      }
-    }
-    if (by !== null) {
-      const attacker = ships.findIndex((s) => s.id === by);
-      if (attacker >= 0) ships[attacker] = { ...ships[attacker]!, sinkings: ships[attacker]!.sinkings + 1 };
-    }
-  };
+  // Stage 2 ghosts appear and move first; crews going out this step get theirs (appearing later) as they sink.
+  const ghosts: Ghost[] = world.ghosts.length > 0 ? updateGhosts(world.ghosts, inputs, dt, events) : [];
+  const sink = (targetIndex: number, by: number | null, cause: SinkCause) => sinkShip(world.mode, ships, ghosts, events, targetIndex, by, cause);
 
   // Stage 2: a wreck takes damage; at 0 it's destroyed (credited to `by`), and any pack it holds is released at the end of the step.
   const hitWreck = (id: number, by: number | null, weapon: WreckWeapon, damage: number, shipDamage?: number) => {
@@ -461,6 +487,7 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
     wrecks,
     wreckPacks,
     hazards,
+    ghosts,
     ...(hazardUpdate && { nextHazardId: hazardUpdate.nextHazardId, nextHazardIn: hazardUpdate.nextHazardIn, hazardRng: hazardUpdate.hazardRng }),
     hazardContacts,
     time,

@@ -5,10 +5,11 @@ import { ShipEffects, type ShipEffect } from "./effects.ts";
 import { EmpRings } from "./empRing.ts";
 import { aimGuide, dashes, hullPoints, turretEnd } from "./hull.ts";
 import { hazardAlpha, hiddenByStorms, krakenTentacles, whirlpoolArms } from "./hazardLook.ts";
-import type { Frame, HazardView, MineView, PackView, ShipView, WreckView } from "./interpolation.ts";
+import type { Frame, GhostView, HazardView, MineView, PackView, ShipView, WreckView } from "./interpolation.ts";
 import { blinkVisible, packBlinkVisible } from "./matchText.ts";
 import { gunnerFromMouse, pilotFromKeys } from "./laptopInput.ts";
 import { mergeGunner, mergePilot, type TouchControls } from "./touchControls.ts";
+import { ghostMessage, ghostSteer } from "./ghostInput.ts";
 import { WreckFlashes, crackLines, wreckPieces } from "./wreckLook.ts";
 
 /** What the scene needs from the game: the frame to draw, the local seat, and where to report state. */
@@ -104,6 +105,12 @@ export class GameScene extends Phaser.Scene {
     const lit = packButtonLit(ship ? rolePack(ship, seat.role) : null, seat.role) && !(ship && ship.disabled > 0);
     const ePressed = this.keys.E.isDown || this.eTapped;
     this.eTapped = false;
+    // Stage 2: a crew that is out steers its ghost: WASD or the stick, in both roles; nothing else does anything.
+    if (ship?.out) {
+      const k = this.keys;
+      const keys = pilotFromKeys({ up: k.W.isDown, left: k.A.isDown, down: k.S.isDown, right: k.D.isDown, boost: false, pack: false }).steer;
+      return ghostMessage(seat.role, ghostSteer(keys, touch.stick()));
+    }
     if (seat.role === "pilot") {
       const k = this.keys;
       const keys = pilotFromKeys({ up: k.W.isDown, left: k.A.isDown, down: k.S.isDown, right: k.D.isDown, boost: k.SPACE.isDown, pack: ePressed });
@@ -146,6 +153,8 @@ export class GameScene extends Phaser.Scene {
     // Stage 2 krakens: above the ships, so tentacles wrap the one held.
     this.drawKrakens(frame);
     for (const torpedo of frame.torpedoes.values()) this.drawTorpedo(torpedo.x, torpedo.y, torpedo.angle);
+
+    this.drawGhosts(frame.ghosts);
 
     // Stage 2 moving storms cover everything above, with islands, reefs and wrecks showing faintly through.
     // Shots stay visible on top (like tracers), and so do your own ship and its aiming guide.
@@ -340,11 +349,12 @@ export class GameScene extends Phaser.Scene {
     this.polygon(hullPoints(ship, ship.heading), flash ?? (disabled ? 0x8a8a8a : style.colour), HULL_EDGE, alpha);
     if (disabled) this.drawSparks(ship, alpha);
 
-    // Crew flag near the stern: ● for crew 1, ■ for crew 2.
+    // Crew flag near the stern: ● for crew 1, ■ for crew 2, ▲ for crew 3.
     const flag = { x: ship.x - Math.cos(ship.heading) * 14, y: ship.y - Math.sin(ship.heading) * 14 };
     g.fillStyle(0xffffff, alpha);
     if (crew === 0) g.fillCircle(flag.x, flag.y, 5);
-    else g.fillRect(flag.x - 5, flag.y - 5, 10, 10);
+    else if (crew === 1) g.fillRect(flag.x - 5, flag.y - 5, 10, 10);
+    else g.fillTriangle(flag.x, flag.y - 6, flag.x + 6, flag.y + 5, flag.x - 6, flag.y + 5);
 
     const end = turretEnd(ship, ship.turret);
     g.lineStyle(6, HULL_EDGE, alpha);
@@ -561,6 +571,28 @@ export class GameScene extends Phaser.Scene {
         g.fillStyle(0x111111, alpha);
         g.fillCircle(eye.x + ahead.x * 3, eye.y + ahead.y * 3, 3);
       }
+    }
+  }
+
+  /**
+   * Stage 2 ghosts: a faint dashed hull outline in the crew's colour with its symbol, pointing the way it last moved,
+   * with no turret and no fill, so it can't be mistaken for a ship.
+   */
+  private drawGhosts(ghosts: Map<string, GhostView>): void {
+    const g = this.g;
+    for (const [id, ghost] of ghosts) {
+      const crew = Number(id);
+      const style = CREW_STYLES[crew] ?? CREW_STYLES[0];
+      const hull = hullPoints(ghost, ghost.heading);
+      g.lineStyle(3, style.colour, 0.85);
+      hull.forEach((p, i) => {
+        for (const [a, b] of dashes(p, hull[(i + 1) % hull.length]!, 6, 5)) g.lineBetween(a.x, a.y, b.x, b.y);
+      });
+      const flag = { x: ghost.x - Math.cos(ghost.heading) * 14, y: ghost.y - Math.sin(ghost.heading) * 14 };
+      g.lineStyle(2, 0xffffff, 0.7);
+      if (crew === 0) g.strokeCircle(flag.x, flag.y, 5);
+      else if (crew === 1) g.strokeRect(flag.x - 5, flag.y - 5, 10, 10);
+      else g.strokeTriangle(flag.x, flag.y - 6, flag.x + 6, flag.y + 5, flag.x - 6, flag.y + 5);
     }
   }
 

@@ -40,3 +40,12 @@ export function firstHazardAt(env: Record<string, string | undefined>): number |
   const at = Number(env.HAZARDS_FIRST_AT);
   return env.HAZARDS_FIRST_AT !== undefined && Number.isFinite(at) && at >= 0 ? at : undefined;
 }
+
+/**
+ * TEST_SINK ("crew@seconds", crews numbered from 1) sinks that crew's ship at that match time, for the browser
+ * tests only (the ghost test); null unless it names Crew 1–3 and a time not negative.
+ */
+export function testSink(env: Record<string, string | undefined>): { ship: number; at: number } | null {
+  const match = /^([1-3])@(\d+(?:\.\d+)?)$/.exec(env.TEST_SINK ?? "");
+  return match ? { ship: Number(match[1]) - 1, at: Number(match[2]) } : null;
+}

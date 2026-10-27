@@ -11,6 +11,7 @@ const snap = (t: number, x: number, shots: Record<string, { x: number; y: number
   torpedoes: new Map(),
   wrecks: new Map(),
   hazards: new Map(),
+  ghosts: new Map(),
 });
 
 describe("lerpAngle", () => {
@@ -61,8 +62,8 @@ describe("SnapshotBuffer", () => {
 
   it("takes on/off values from the newer snapshot", () => {
     const buffer = new SnapshotBuffer();
-    buffer.push({ t: 0, ships: [ship(0)], shots: new Map(), packs: new Map(), mines: new Map(), torpedoes: new Map(), wrecks: new Map(), hazards: new Map() });
-    buffer.push({ t: 100, ships: [ship(0, 0, { shielding: true })], shots: new Map(), packs: new Map(), mines: new Map(), torpedoes: new Map(), wrecks: new Map(), hazards: new Map() });
+    buffer.push({ t: 0, ships: [ship(0)], shots: new Map(), packs: new Map(), mines: new Map(), torpedoes: new Map(), wrecks: new Map(), hazards: new Map(), ghosts: new Map() });
+    buffer.push({ t: 100, ships: [ship(0, 0, { shielding: true })], shots: new Map(), packs: new Map(), mines: new Map(), torpedoes: new Map(), wrecks: new Map(), hazards: new Map(), ghosts: new Map() });
     expect(buffer.sample(10)!.ships[0]!.shielding).toBe(true);
   });
 
@@ -87,6 +88,15 @@ describe("moving storms (Stage 2)", () => {
     buffer.push({ ...snap(0, 0), hazards: new Map([["h", storm(100, "signalled")]]) });
     buffer.push({ ...snap(100, 0), hazards: new Map([["h", storm(110, "active")]]) });
     expect(buffer.sample(50)!.hazards.get("h")).toMatchObject({ x: 105, y: 300, phase: "active" });
+  });
+});
+
+describe("ghosts (Stage 2)", () => {
+  it("blend their position between snapshots", () => {
+    const buffer = new SnapshotBuffer();
+    buffer.push({ ...snap(0, 0), ghosts: new Map([["2", { x: 100, y: 300, heading: 0 }]]) });
+    buffer.push({ ...snap(100, 0), ghosts: new Map([["2", { x: 116, y: 300, heading: 0 }]]) });
+    expect(buffer.sample(50)!.ghosts.get("2")).toMatchObject({ x: 108, y: 300 });
   });
 });
 

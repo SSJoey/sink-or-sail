@@ -26,18 +26,27 @@ const parsePack = (fields: Fields): { pack?: boolean } | null => {
   return typeof fields.pack === "boolean" ? { pack: fields.pack } : null;
 };
 
+/** The ghost's direction (Stage 2) is optional too: only a crew that is out sends it. */
+const parseGhost = (fields: Fields): { ghost?: Vec } | null => {
+  if (!("ghost" in fields)) return {};
+  const ghost = parseVec(fields.ghost);
+  return ghost ? { ghost } : null;
+};
+
 export function parsePilotInput(message: unknown): PilotInput | null {
-  if (!hasExactly(message, ["steer", "boost"], ["pack"])) return null;
+  if (!hasExactly(message, ["steer", "boost"], ["pack", "ghost"])) return null;
   const steer = parseVec(message.steer);
   const pack = parsePack(message);
-  if (steer === null || typeof message.boost !== "boolean" || pack === null) return null;
-  return { steer, boost: message.boost, ...pack };
+  const ghost = parseGhost(message);
+  if (steer === null || typeof message.boost !== "boolean" || pack === null || ghost === null) return null;
+  return { steer, boost: message.boost, ...pack, ...ghost };
 }
 
 export function parseGunnerInput(message: unknown): GunnerInput | null {
-  if (!hasExactly(message, ["aim", "fire", "shield"], ["pack"])) return null;
+  if (!hasExactly(message, ["aim", "fire", "shield"], ["pack", "ghost"])) return null;
   const aim = parseVec(message.aim);
   const pack = parsePack(message);
-  if (aim === null || typeof message.fire !== "boolean" || typeof message.shield !== "boolean" || pack === null) return null;
-  return { aim, fire: message.fire, shield: message.shield, ...pack };
+  const ghost = parseGhost(message);
+  if (aim === null || typeof message.fire !== "boolean" || typeof message.shield !== "boolean" || pack === null || ghost === null) return null;
+  return { aim, fire: message.fire, shield: message.shield, ...pack, ...ghost };
 }

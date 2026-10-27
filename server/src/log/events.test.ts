@@ -276,6 +276,14 @@ describe("Stage 2: Last Afloat lines", () => {
     expect(lines({ type: "hazardEnded", hazard: 4, kind: "kraken", reason: "shot" })).toEqual([{ t: 1234, type: "hazardEnded", hazard: 4, kind: "kraken", reason: "shot" }]);
   });
 
+  it("logs a crew's ghost appearing, and each ghost in the once-a-second lines", () => {
+    expect(lines({ type: "ghostStarted", ship: 1, pos: { x: 900.04, y: 700 } })).toEqual([{ t: 1234, type: "ghostStarted", ship: 1, crew: { pilot: "Kim", gunner: null }, x: 900, y: 700 }]);
+    const world = createWorld({ mode: "lastAfloat", ships: 3 });
+    world.time = 12;
+    world.ghosts = [{ ship: 2, pos: { x: 900.04, y: 700 }, heading: 0, appearIn: 0 }, { ship: 1, pos: { x: 1, y: 1 }, heading: 0, appearIn: 1 }];
+    expect(positionLines(world).filter((l) => l.type === "ghost")).toEqual([{ t: 12000, type: "ghost", ship: 2, x: 900, y: 700 }]);
+  });
+
   it("adds each hazard on the sea to the once-a-second lines", () => {
     const world = createWorld({ hazards: true });
     world.time = 12;

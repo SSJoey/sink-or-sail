@@ -171,13 +171,15 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
       // Stage 2 hazards as "id:kind:phase:x,y;…", and the ships a moving storm hides from this player, for the browser smoke tests.
       canvasHost.dataset.hazards = [...(frame?.hazards ?? new Map())].map(([id, h]) => `${id}:${h.kind}:${h.phase}:${Math.round(h.x)},${Math.round(h.y)}`).join(";");
       canvasHost.dataset.hidden = frame ? hiddenShips(frame.ships, frame.hazards, mine?.crew ?? null).join(",") : "";
+      // Ghosts as "ship:x,y;…", for the browser smoke tests.
+      canvasHost.dataset.ghosts = [...(frame?.ghosts ?? new Map())].map(([id, g]) => `${id}:${Math.round(g.x)},${Math.round(g.y)}`).join(";");
       // Ships a kraken holds, for the browser smoke tests.
       canvasHost.dataset.held = frame ? heldShips(frame.hazards).join(",") : "";
       // A short buzz on the gunner's phone when the crew picks up a torpedo or EMP (Android only).
       const heldNow = own?.gunnerPack ?? null;
       if (mine && gunnerPackBuzz(heldBefore, heldNow, mine.role)) navigator.vibrate?.(TUNING.client.gunnerPackVibrateMs);
       heldBefore = heldNow;
-      touchLayer.update(mine?.role ?? null, own && mine ? rolePack(own, mine.role) : null, (own?.disabled ?? 0) > 0);
+      touchLayer.update(mine?.role ?? null, own && mine ? rolePack(own, mine.role) : null, (own?.disabled ?? 0) > 0, !!own?.out);
       // Read by the EMP smoke test: is any ship disabled right now?
       canvasHost.dataset.disabled = (frame?.ships ?? []).map((s) => (s.disabled > 0 ? "1" : "0")).join("");
       rotate.hidden = !(touchLayer.active && isPortrait(window.innerWidth, window.innerHeight));
@@ -222,6 +224,7 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
       delete canvasHost.dataset.hazards;
       delete canvasHost.dataset.hidden;
       delete canvasHost.dataset.held;
+      delete canvasHost.dataset.ghosts;
       delete canvasHost.dataset.disabled;
       delete canvasHost.dataset.shots;
       rotate.hidden = true;

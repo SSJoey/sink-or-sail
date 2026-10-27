@@ -262,6 +262,23 @@ describe("moving storms in the synced state", () => {
   });
 });
 
+describe("ghosts in the synced state", () => {
+  it("shows each crew's ghost once it has appeared, keyed by its ship", () => {
+    const state = new CrewState();
+    const world = createWorld({ mode: "lastAfloat", ships: 3 });
+    world.ghosts = [{ ship: 2, pos: { x: 900, y: 700 }, heading: 1, appearIn: 1 }];
+    syncWorld(state, world);
+    expect(state.ghosts.size).toBe(0);
+    world.ghosts = [{ ship: 2, pos: { x: 910, y: 690 }, heading: 1, appearIn: 0 }];
+    syncWorld(state, world);
+    const ghost = state.ghosts.get("2")!;
+    expect([ghost.x, ghost.y]).toEqual([910, 690]);
+    expect(ghost.heading).toBeCloseTo(1);
+    syncWorld(state, createWorld({ mode: "lastAfloat", ships: 3 }));
+    expect(state.ghosts.size).toBe(0);
+  });
+});
+
 describe("mines in the synced state", () => {
   it("shows each mine's place, owner and whether it is armed", () => {
     const state = new CrewState();

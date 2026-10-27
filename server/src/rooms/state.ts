@@ -95,6 +95,15 @@ export const HazardState = schema({
 }, "HazardState");
 export type HazardState = SchemaType<typeof HazardState>;
 
+/** Stage 2 (Last Afloat): an out crew's ghost, once it has appeared. */
+export const GhostState = schema({
+  x: t.float32(),
+  y: t.float32(),
+  /** The way it last moved (radians). */
+  heading: t.float32(),
+}, "GhostState");
+export type GhostState = SchemaType<typeof GhostState>;
+
 export const MineState = schema({
   x: t.float32(),
   y: t.float32(),
@@ -147,6 +156,8 @@ export const CrewState = schema({
   wrecks: t.map(WreckState),
   /** Stage 2: dynamic hazards on the sea, keyed by hazard id. */
   hazards: t.map(HazardState),
+  /** Stage 2 (Last Afloat): ghosts that have appeared, keyed by their crew's ship id. */
+  ghosts: t.map(GhostState),
   /** Keyed by mine id. */
   mines: t.map(MineState),
   /** Keyed by torpedo id. */

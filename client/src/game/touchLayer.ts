@@ -12,7 +12,8 @@ export interface TouchLayer {
   readonly active: boolean;
   /** Updates which controls show, the Pack button, and where the stick is drawn; call every frame. */
   /** `ownPack` is the pack in this role's own slot. */
-  update(role: Role | null, ownPack: PackType | null, disabled: boolean): void;
+  /** `ghost`: the crew is out and steers its ghost: the stick only, no buttons. */
+  update(role: Role | null, ownPack: PackType | null, disabled: boolean, ghost?: boolean): void;
   destroy(): void;
 }
 
@@ -76,18 +77,18 @@ export function createTouchLayer(controls: TouchControls): TouchLayer {
     get active() {
       return active;
     },
-    update(role, ownPack, disabled) {
+    update(role, ownPack, disabled, ghost = false) {
       if (!active) return;
       // EMP'd: every button goes dim (the stick still steers).
       layer.classList.toggle("emp", disabled);
       const seated = role !== null;
       base.hidden = !seated;
       knob.hidden = !seated;
-      buttons.boost.hidden = role !== "pilot";
-      buttons.fire.hidden = role !== "gunner";
-      buttons.shield.hidden = role !== "gunner";
+      buttons.boost.hidden = role !== "pilot" || ghost;
+      buttons.fire.hidden = role !== "gunner" || ghost;
+      buttons.shield.hidden = role !== "gunner" || ghost;
       // Pack: shows what's in this role's own slot; lit when it can be used, otherwise dim (and does nothing).
-      buttons.pack.hidden = !seated;
+      buttons.pack.hidden = !seated || ghost;
       const label = ownPack ? PACK_LABELS[ownPack] : "Pack";
       if (buttons.pack.textContent !== label) buttons.pack.textContent = label;
       buttons.pack.classList.toggle("lit", role !== null && !disabled && packButtonLit(ownPack, role));

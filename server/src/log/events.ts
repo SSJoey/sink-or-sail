@@ -34,6 +34,7 @@ export function simEventLines(t: number, events: readonly SimEvent[], roster: Ro
       case "protectionEnded": lines.push({ t, type: "protectionEnded", ...crew(e.ship) }); break;
       case "sunk": lines.push({ t, type: "sunk", ...crew(e.ship), by: e.by, cause: e.cause, ...(e.livesLeft !== undefined && { livesLeft: e.livesLeft }) }); break;
       case "crewOut": lines.push({ t, type: "crewOut", ...crew(e.ship) }); break;
+      case "ghostStarted": lines.push({ t, type: "ghostStarted", ...crew(e.ship), x: r1(e.pos.x), y: r1(e.pos.y) }); break;
       case "reefHit": lines.push({ t, type: "reefHit", ...crew(e.ship), damage: r1(e.damage) }); break;
       case "wreckHit":
         lines.push({ t, type: "wreckHit", wreck: e.wreck, ...credited(e.by), weapon: e.weapon, damage: r1(e.damage), ...(e.shipDamage !== undefined && { shipDamage: r1(e.shipDamage) }) });
@@ -139,11 +140,12 @@ export function matchEndLine(world: World, winner: number | null, endedEarly: bo
   };
 }
 
-/** The once-a-second snapshot of every ship, then of every hazard on the sea. */
+/** The once-a-second snapshot of every ship, then of every hazard on the sea and every ghost that has appeared. */
 export function positionLines(world: World): LogLine[] {
   const t = matchMs(world.time);
   const hazards = world.hazards.map((h) => ({ t, type: "hazard", hazard: h.id, kind: h.kind, phase: h.phase, x: r1(h.pos.x), y: r1(h.pos.y) }));
-  return [...shipPositions(world, t), ...hazards];
+  const ghosts = world.ghosts.filter((g) => g.appearIn <= 0).map((g) => ({ t, type: "ghost", ship: g.ship, x: r1(g.pos.x), y: r1(g.pos.y) }));
+  return [...shipPositions(world, t), ...hazards, ...ghosts];
 }
 
 function shipPositions(world: World, t: number): LogLine[] {

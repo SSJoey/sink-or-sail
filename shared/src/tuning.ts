@@ -151,6 +151,13 @@ export const TUNING = {
     lifetime: 20,
     fadeTime: 1,
   },
+  /** Stage 2 ghosts (approved 2026-10-27): Last Afloat; a crew that is out becomes one shared ghost. */
+  ghost: {
+    /** Seconds after the crew is out before its ghost appears, where its ship sank. */
+    appearAfter: 2,
+    /** Full-stick speed (ships sail 150); it passes through everything, kept inside the sea. */
+    speed: 160,
+  },
   /** Stage 2: Last Afloat (approved 2026-10-26). */
   lastAfloat: {
     /** Lives per ship unless the host picks another number; each sinking costs one, and at 0 the crew is out. */

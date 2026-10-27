@@ -76,6 +76,13 @@ export interface HazardView {
   holding: number;
 }
 
+/** Stage 2 (Last Afloat): an out crew's ghost (keyed by its ship id). */
+export interface GhostView {
+  x: number;
+  y: number;
+  heading: number;
+}
+
 export interface ShotView {
   x: number;
   y: number;
@@ -92,6 +99,7 @@ export interface Snapshot {
   torpedoes: Map<string, ShotView>;
   wrecks: Map<string, WreckView>;
   hazards: Map<string, HazardView>;
+  ghosts: Map<string, GhostView>;
 }
 
 export type Frame = Omit<Snapshot, "t">;
@@ -135,6 +143,16 @@ function blendHazards(a: Map<string, HazardView>, b: Map<string, HazardView>, k:
   return out;
 }
 
+/** Ghosts move: blend those in both snapshots, show new ones where they are. */
+function blendGhosts(a: Map<string, GhostView>, b: Map<string, GhostView>, k: number): Map<string, GhostView> {
+  const out = new Map<string, GhostView>();
+  for (const [id, item] of b) {
+    const before = a.get(id);
+    out.set(id, before ? { x: lerp(before.x, item.x, k), y: lerp(before.y, item.y, k), heading: lerpAngle(before.heading, item.heading, k) } : item);
+  }
+  return out;
+}
+
 /** Keeps recent server snapshots and blends between the two around a render time. */
 export class SnapshotBuffer {
   private snapshots: Snapshot[] = [];
@@ -171,6 +189,6 @@ export class SnapshotBuffer {
       return before ? blendShip(before, ship, k) : ship;
     });
     // Packs, mines and wrecks don't move: take them from the newer snapshot.
-    return { ships, shots: blendMoving(a.shots, b.shots, k), packs: b.packs, mines: b.mines, torpedoes: blendMoving(a.torpedoes, b.torpedoes, k), wrecks: b.wrecks, hazards: blendHazards(a.hazards, b.hazards, k) };
+    return { ships, shots: blendMoving(a.shots, b.shots, k), packs: b.packs, mines: b.mines, torpedoes: blendMoving(a.torpedoes, b.torpedoes, k), wrecks: b.wrecks, hazards: blendHazards(a.hazards, b.hazards, k), ghosts: blendGhosts(a.ghosts, b.ghosts, k) };
   }
 }

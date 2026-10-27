@@ -51,6 +51,8 @@ export interface CrewLastAfloat {
   afloatSeconds: number;
   /** Sinkings taken. */
   livesUsed: number;
+  /** Time as a ghost, from its ghost appearing to the end of the match. */
+  ghostSeconds: number;
 }
 
 type SlotPack = "mine" | "torpedo" | "emp";
@@ -255,6 +257,10 @@ function lastAfloatFigures(
     place: 1 + crews.filter((o) => rank(o.ship) > rank(c.ship)).length,
     afloatSeconds: afloat.get(c.ship) ?? 0,
     livesUsed: lines.filter((l) => l.type === "sunk" && l.ship === c.ship).length,
+    ghostSeconds: (() => {
+      const started = lines.find((l) => l.type === "ghostStarted" && l.ship === c.ship);
+      return started ? (endT - started.t) / 1000 : 0;
+    })(),
   }));
 }
 
@@ -362,8 +368,10 @@ export function formatSummary(s: MatchSummary): string {
   const head = ["Crew", "Pilot & Gunner", "Sinkings", "Shots", "Hits", "Blocked", "Accuracy", "Energy boost / shield", "Empty bar", "Avg survival (lives)", "Sunk by", ...(s.hazardsOn ? ["Time in moving storms (s)", "Whirlpool time (s)", "Kraken grabs (damage)", "Reef hits (damage)", "Wrecks destroyed (packs released)"] : []), ...(s.stormOn ? ["Storm damage"] : [])];
   const out = [header, "", ...table(head, rows)];
   if (s.lastAfloat) {
-    const laRows = s.lastAfloat.map((c) => [`Crew ${c.ship + 1}`, ordinal(c.place), `${r1(c.afloatSeconds)} s`, String(c.livesUsed)]);
-    out.push("", "Last Afloat", ...table(["Crew", "Place", "Time afloat", "Lives used"], laRows));
+    // Time as a ghost only for a match that had one.
+    const ghosts = s.lastAfloat.some((c) => c.ghostSeconds > 0);
+    const laRows = s.lastAfloat.map((c) => [`Crew ${c.ship + 1}`, ordinal(c.place), `${r1(c.afloatSeconds)} s`, String(c.livesUsed), ...(ghosts ? [`${r1(c.ghostSeconds)} s`] : [])]);
+    out.push("", "Last Afloat", ...table(["Crew", "Place", "Time afloat", "Lives used", ...(ghosts ? ["Time as a ghost"] : [])], laRows));
   }
   if (s.packs) out.push("", "Packs", ...table(PACK_HEAD, s.packs.map(packRow)));
   return out.join("\n");

@@ -8,6 +8,8 @@ export interface PilotInput {
   boost: boolean;
   /** Pack button (Stage 1); a mine is the pilot's pack. */
   pack?: boolean;
+  /** Stage 2: steering the crew's ghost (sent once the crew is out). */
+  ghost?: Vec;
 }
 
 export interface GunnerInput {
@@ -17,11 +19,26 @@ export interface GunnerInput {
   shield: boolean;
   /** Pack button (Stage 1); torpedo and EMP are the gunner's packs. */
   pack?: boolean;
+  /** Stage 2: steering the crew's ghost (sent once the crew is out). */
+  ghost?: Vec;
 }
 
 export interface ShipInput {
   pilot: PilotInput;
   gunner: GunnerInput;
+  /** Stage 2: the crew's ghost's direction (from whichever crewmate moved it last); none means it stays put. */
+  ghost?: Vec;
+}
+
+/** Stage 2 (Last Afloat): a crew that is out becomes one shared ghost, which moves freely and touches nothing. */
+export interface Ghost {
+  /** The crew's ship id. */
+  ship: number;
+  pos: Vec;
+  /** The way it last moved (radians). */
+  heading: number;
+  /** Seconds until it appears (it starts where the ship sank, after `ghost.appearAfter`); 0 once it has. */
+  appearIn: number;
 }
 
 export const NO_INPUT: ShipInput = {
@@ -196,6 +213,8 @@ export interface World {
   nextHazardIn: number | null;
   /** The hazard timer's own seeded generator state, so packs are the same with hazards on or off. */
   hazardRng: number;
+  /** Stage 2 (Last Afloat): the ghosts of crews that are out. */
+  ghosts: Ghost[];
   /** Ships inside an active moving storm or whirlpool, as "ship:hazard". */
   hazardContacts: string[];
   /** Stage 1: packs spawn only when on (set for the whole match). */
@@ -228,6 +247,8 @@ export type SimEvent =
   | { type: "sunk"; ship: number; by: number | null; cause: SinkCause; livesLeft?: number }
   /** Last Afloat: sunk on its last life. */
   | { type: "crewOut"; ship: number }
+  /** Last Afloat: an out crew's ghost appears (where its ship sank). */
+  | { type: "ghostStarted"; ship: number; pos: Vec }
   /** Stage 2: a ship's centre entered a reef (not counted while protected). */
   | { type: "reefHit"; ship: number; damage: number }
   /** Stage 2 wrecks: `by` is the ship credited (null for none). A ram also gives the ramming ship's damage (0 while shielded or protected). */
