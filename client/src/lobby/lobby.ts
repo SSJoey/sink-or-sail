@@ -130,6 +130,9 @@ export function startLobby(): void {
     byId("leave-crew").onclick = () => { showError(""); room.send(ClientMessage.LeaveCrew); };
     // Stage 3 slice 3: setting up your crew for the next round while waiting out a match.
     for (const role of ROLES) byId(`w-role-${role}`).onclick = () => room.send(ClientMessage.SetNextRole, { role });
+    // Stage 3 slice 8: watching instead of playing, and back.
+    byId("watch-instead").onclick = () => { showError(""); room.send(ClientMessage.Watch); };
+    byId("play-next").onclick = () => { showError(""); room.send(ClientMessage.PlayNextRound); };
     byId("w-alone").onclick = () => room.send(ClientMessage.PairWith, { player: "" });
     byId("w-watch").onclick = () => {
       watching = true;
@@ -198,13 +201,23 @@ export function startLobby(): void {
       byId("name-change").hidden = false;
     }
     renderCrews(room, state, matchOn);
+    // Stage 3 slice 8: a spectator's lobby (the code large, "Join on your phone"); Watch instead / Play next round.
+    const spectating = state.players.get(room.sessionId)?.spectator === true;
+    roomScreen.classList.toggle("spectating", spectating);
+    byId("spectating").hidden = !spectating;
+    byId("watch-instead").hidden = spectating || matchOn;
+    byId("play-next").hidden = !spectating;
 
     // The game view runs from the countdown until the player leaves the scoreboard.
     // A countdown straight after "over" is a new match (a fresh game view); after a pause it's a resume.
     if (phase === Phase.Countdown && lastPhase === Phase.Over && game) stopGame();
     // A player waiting out the match sees the game only while watching it (Back returns to the waiting screen).
-    const waiting = matchOn && state.players.get(room.sessionId)?.crew === undefined;
+    const me = state.players.get(room.sessionId);
+    const spectator = me?.spectator === true;
+    const waiting = matchOn && me?.crew === undefined && !spectator;
     if (!matchOn) watching = false;
+    // A spectator who chose Play next round during a match waits for it now: back to the waiting screen.
+    if (game && waiting && !watching) stopGame();
     if (matchOn && !game && (!waiting || watching)) {
       game = startGame(room, () => {
         watching = false;
@@ -315,7 +328,8 @@ export function startLobby(): void {
     const mine = myCrew(players, room.sessionId);
     myCrewNow = mine?.crew ?? null;
     byId("my-crew").hidden = mine === null;
-    renderWaiting(room, state, mine === null && matchOn);
+    const spectator = state.players.get(room.sessionId)?.spectator === true;
+    renderWaiting(room, state, mine === null && matchOn && !spectator);
     // Read by the browser tests: this player's crew (from 0) and role.
     const crewBox = byId("my-crew");
     if (mine) {
@@ -356,7 +370,9 @@ export function startLobby(): void {
         status.textContent = row.status;
         item.append(swatch, names, status);
         // Join a crew with one player: between matches, or (without a crew) during one.
-        if (row.join && (!matchOn || !mine)) {
+        // (Not for a spectator: Play next round first.)
+        const spectating = state.players.get(room.sessionId)?.spectator === true;
+        if (row.join && !spectating && (!matchOn || !mine)) {
           const join = document.createElement("button");
           join.textContent = `Join as ${roleLabel[row.join].toLowerCase()}`;
           join.onclick = () => takeSeat(room, row.crew, row.join!);
@@ -386,6 +402,22 @@ export function startLobby(): void {
     if (name === null) return;
     try {
       enterRoom(await client.create(ROOM_NAME, { name }));
+    } catch (error) {
+      showError(joinErrorText(error));
+    }
+  };
+
+  // Stage 3 slice 8: join to watch (a TV, a laptop everyone can see), with the same code and a name.
+  byId("watch").onclick = async () => {
+    const name = readName();
+    if (name === null) return;
+    const code = normaliseCode(codeInput.value);
+    if (code === null) {
+      showError("Room codes are 4 letters.");
+      return;
+    }
+    try {
+      enterRoom(await client.joinById(code, { name, watch: true }));
     } catch (error) {
       showError(joinErrorText(error));
     }

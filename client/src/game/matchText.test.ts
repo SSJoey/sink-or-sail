@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Phase, TUNING } from "@sink-or-sail/shared";
-import { awardLines, backToLobbyText, blinkVisible, countdownLabel, hauntingText, resultRows, outBanner, packBlinkVisible, pausedText, resultLine, respawnText, resultTitle, scoreRows, sinkBanner, stormText } from "./matchText.ts";
+import { awardLines, backToLobbyText, watchingLabel, blinkVisible, countdownLabel, hauntingText, resultRows, outBanner, packBlinkVisible, pausedText, resultLine, respawnText, resultTitle, scoreRows, sinkBanner, stormText } from "./matchText.ts";
 
 const D = TUNING.match.duration;
 
@@ -187,5 +187,12 @@ describe("the awards under the results (Stage 3)", () => {
       { name: "Sharpshooter", crew: "■ Crew 2", detail: "most hits (7)" },
       { name: "Davy Jones' Express", crew: "● Crew 1", detail: "first ship sunk" },
     ]);
+  });
+});
+
+describe("the spectator's top bar (Stage 3)", () => {
+  it("says they're watching, and which mode", () => {
+    expect(watchingLabel("sinkCount")).toBe("Watching · Sink Count");
+    expect(watchingLabel("lastAfloat")).toBe("Watching · Last Afloat");
   });
 });

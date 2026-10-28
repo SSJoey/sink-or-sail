@@ -7,6 +7,8 @@ export function joinErrorText(error: unknown): string {
   const message = error instanceof Error ? error.message : "";
   if (message.includes(JoinError.InvalidName)) return `Enter a name of 1–${NAME_MAX_LENGTH} characters.`;
   if (message.includes(JoinError.NameTaken)) return "That name is already in this room.";
+  if (message.includes(JoinError.SpectatorsFull)) return "That room already has 4 watching.";
+  if (message.includes(JoinError.RoomFull)) return "That room is full.";
   // Colyseus matchmaker errors (code 522): an unknown room id, or a room locked because it is full.
   if (message.includes("not found")) return "No room with that code.";
   if (message.includes("is locked")) return "That room is full.";
@@ -27,5 +29,6 @@ export function rejectedText(message: RejectedMessage): string {
     case RejectReason.AlreadyPaired: return "You already have a partner.";
     case RejectReason.NoFreeCrew: return "There are already 3 crews.";
     case RejectReason.AlreadyAlone: return "You're already in a crew of your own.";
+    case RejectReason.RoomFull: return "The room already has 6 players: keep watching for now.";
   }
 }

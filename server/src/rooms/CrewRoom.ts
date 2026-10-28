@@ -13,6 +13,7 @@ import {
   Phase,
   RejectReason,
   MAX_PLAYERS,
+  MAX_SPECTATORS,
   RECONNECT_WINDOW_SECONDS,
   ServerMessage,
   TUNING,
@@ -55,6 +56,8 @@ export const CODES_KEY = "crew-room-codes";
 
 interface JoinOptions {
   name?: unknown;
+  /** Stage 3: join to watch. */
+  watch?: unknown;
 }
 
 /** A player's latest input, tagged with the role it was sent for. */
@@ -64,7 +67,8 @@ const NEUTRAL_PILOT: PilotInput = { steer: { x: 0, y: 0 }, boost: false };
 const NEUTRAL_GUNNER: GunnerInput = { aim: { x: 0, y: 0 }, fire: false, shield: false };
 
 export class CrewRoom extends Room<{ state: CrewState }> {
-  maxClients = MAX_PLAYERS;
+  /** Players and spectators; the join check keeps each within its own limit. */
+  maxClients = MAX_PLAYERS + MAX_SPECTATORS;
   maxMessagesPerSecond = MAX_MESSAGES_PER_SECOND;
   patchRate = 1000 / TUNING.server.tickRate;
   state = new CrewState();
@@ -116,6 +120,11 @@ export class CrewRoom extends Room<{ state: CrewState }> {
     this.state.joinAddress = joinAddress(process.env);
 
     this.onMessage(ClientMessage.TakeSeat, (client, message: unknown) => {
+      // A spectator takes no seat (Play next round joins them as a player first).
+      if (this.isSpectator(client.sessionId)) {
+        client.send(ServerMessage.Rejected, { reason: RejectReason.InvalidSeat } satisfies RejectedMessage);
+        return;
+      }
       if (!canChangeSeat(this.state.phase, this.seatOf(client.sessionId) !== null)) {
         client.send(ServerMessage.Rejected, { reason: RejectReason.SeatLocked } satisfies RejectedMessage);
         return;
@@ -136,6 +145,7 @@ export class CrewRoom extends Room<{ state: CrewState }> {
 
     // Stage 3: Find me a partner, and Leave this crew (between matches, like switching seats).
     const crewAction = (client: Client, act: (roster: CrewRoster, id: string, now: number) => CrewResult) => {
+      if (this.isSpectator(client.sessionId)) return;
       if (!canChangeSeat(this.state.phase, this.seatOf(client.sessionId) !== null)) {
         client.send(ServerMessage.Rejected, { reason: RejectReason.SeatLocked } satisfies RejectedMessage);
         return;
@@ -147,20 +157,49 @@ export class CrewRoom extends Room<{ state: CrewState }> {
     this.onMessage(ClientMessage.FindPartner, (client) => crewAction(client, findPartner));
     this.onMessage(ClientMessage.LeaveCrew, (client) => crewAction(client, leaveCrew));
 
+    // Stage 3 slice 8: Watch instead (a player, between matches: their seat is freed) and Play next round (a spectator:
+    // paired in like a joiner now, or waiting for the next round during a match).
+    this.onMessage(ClientMessage.Watch, (client) => {
+      const player = this.state.players.get(client.sessionId);
+      if (!player || player.spectator) return;
+      if (this.matchOn()) {
+        client.send(ServerMessage.Rejected, { reason: RejectReason.SeatLocked } satisfies RejectedMessage);
+        return;
+      }
+      if ([...this.state.players.values()].filter((p) => p.spectator).length >= MAX_SPECTATORS) return;
+      this.unpair(client.sessionId);
+      player.spectator = true;
+      player.ready = false;
+      const seats = new Map(this.seatMap());
+      seats.set(client.sessionId, null);
+      this.applyCrews({ seats, waiting: this.crewWaiting });
+    });
+    this.onMessage(ClientMessage.PlayNextRound, (client) => {
+      const player = this.state.players.get(client.sessionId);
+      if (!player || !player.spectator) return;
+      const players = [...this.state.players.values()].filter((p) => !p.spectator).length;
+      if (players >= MAX_PLAYERS) {
+        client.send(ServerMessage.Rejected, { reason: RejectReason.RoomFull } satisfies RejectedMessage);
+        return;
+      }
+      player.spectator = false;
+      this.applyCrews(placeJoiner(this.crewRoster(), client.sessionId, this.crewClock++, this.matchOn()));
+    });
+
     // Stage 3 slice 3: a player waiting out a match (no crew) sets up their crew for the next round.
     this.onMessage(ClientMessage.SetNextRole, (client, message: unknown) => {
       const player = this.state.players.get(client.sessionId);
       const role = (message as { role?: unknown } | null)?.role;
-      if (!player || player.crew !== undefined || (role !== "pilot" && role !== "gunner")) return;
+      if (!player || player.crew !== undefined || player.spectator || (role !== "pilot" && role !== "gunner")) return;
       player.nextRole = role;
     });
     this.onMessage(ClientMessage.PairWith, (client, message: unknown) => {
       const player = this.state.players.get(client.sessionId);
       const otherId = (message as { player?: unknown } | null)?.player;
-      if (!player || player.crew !== undefined || typeof otherId !== "string") return;
+      if (!player || player.crew !== undefined || player.spectator || typeof otherId !== "string") return;
       const other = otherId ? this.state.players.get(otherId) : undefined;
       // Only another waiting player who has no partner (or already has this one).
-      if (otherId && (!other || otherId === client.sessionId || other.crew !== undefined || (other.partner !== "" && other.partner !== client.sessionId))) return;
+      if (otherId && (!other || otherId === client.sessionId || other.crew !== undefined || other.spectator || (other.partner !== "" && other.partner !== client.sessionId))) return;
       this.unpair(client.sessionId);
       if (other) {
         player.partner = otherId;
@@ -185,7 +224,8 @@ export class CrewRoom extends Room<{ state: CrewState }> {
     });
 
     this.onMessage(ClientMessage.Pause, (client) => {
-      if (!canPause(this.state.phase, this.seatOf(client.sessionId) !== null)) return;
+      // Any seated player pauses; so does a host who only watches (Stage 3).
+      if (!canPause(this.state.phase, this.seatOf(client.sessionId) !== null || client.sessionId === this.state.hostId)) return;
       this.state.pausedBy = this.state.players.get(client.sessionId)?.name ?? "";
       this.state.phase = Phase.Paused;
       this.latestInput.clear();
@@ -269,14 +309,19 @@ export class CrewRoom extends Room<{ state: CrewState }> {
     if (name === null) throw new ServerError(ErrorCode.APPLICATION_ERROR, JoinError.InvalidName);
     const names = [...this.state.players.values()].map((p) => p.name);
     if (isNameTaken(names, name)) throw new ServerError(ErrorCode.APPLICATION_ERROR, JoinError.NameTaken);
+    // Stage 3: up to 6 players plus up to 4 spectators.
+    const watch = options?.watch === true;
+    const spectators = [...this.state.players.values()].filter((p) => p.spectator).length;
+    if (watch && spectators >= MAX_SPECTATORS) throw new ServerError(ErrorCode.APPLICATION_ERROR, JoinError.SpectatorsFull);
+    if (!watch && this.state.players.size - spectators >= MAX_PLAYERS) throw new ServerError(ErrorCode.APPLICATION_ERROR, JoinError.RoomFull);
 
-    this.state.players.set(client.sessionId, new Player({ name }));
+    this.state.players.set(client.sessionId, new Player({ name, spectator: watch }));
     this.joinOrder.set(client.sessionId, this.joinCount++);
     if (!this.state.hostId) this.state.hostId = client.sessionId;
-    this.logLine(playerLine(this.logTime(), "playerJoined", name, null));
+    this.logLine(playerLine(this.logTime(), "playerJoined", name, null, watch));
     // Stage 3: into the crew waiting longest for a partner, or a new crew of their own; during a match they wait
-    // without a crew until it ends (slice 3).
-    this.applyCrews(placeJoiner(this.crewRoster(), client.sessionId, this.crewClock++, this.matchOn()));
+    // without a crew until it ends (slice 3). Spectators never get a crew.
+    if (!watch) this.applyCrews(placeJoiner(this.crewRoster(), client.sessionId, this.crewClock++, this.matchOn()));
   }
 
   onDrop(client: Client): void {
@@ -284,18 +329,18 @@ export class CrewRoom extends Room<{ state: CrewState }> {
     if (player) player.connected = false;
     this.latestInput.delete(client.sessionId);
     this.ghostControl.forget(client.sessionId);
-    this.logLine(playerLine(this.logTime(), "playerDropped", this.nameOf(client.sessionId), this.seatOf(client.sessionId)));
+    this.logLine(playerLine(this.logTime(), "playerDropped", this.nameOf(client.sessionId), this.seatOf(client.sessionId), this.isSpectator(client.sessionId)));
     this.allowReconnection(client, this.reconnectSeconds);
   }
 
   onReconnect(client: Client): void {
     const player = this.state.players.get(client.sessionId);
     if (player) player.connected = true;
-    this.logLine(playerLine(this.logTime(), "playerReconnected", this.nameOf(client.sessionId), this.seatOf(client.sessionId)));
+    this.logLine(playerLine(this.logTime(), "playerReconnected", this.nameOf(client.sessionId), this.seatOf(client.sessionId), this.isSpectator(client.sessionId)));
   }
 
   onLeave(client: Client): void {
-    this.logLine(playerLine(this.logTime(), "playerLeft", this.nameOf(client.sessionId), this.seatOf(client.sessionId)));
+    this.logLine(playerLine(this.logTime(), "playerLeft", this.nameOf(client.sessionId), this.seatOf(client.sessionId), this.isSpectator(client.sessionId)));
     this.unpair(client.sessionId);
     this.state.players.delete(client.sessionId);
     if (this.log) this.roster = this.buildRoster();
@@ -496,6 +541,10 @@ export class CrewRoom extends Room<{ state: CrewState }> {
     return inputs;
   }
 
+  private isSpectator(sessionId: string): boolean {
+    return this.state.players.get(sessionId)?.spectator === true;
+  }
+
   private matchOn(): boolean {
     const phase = this.state.phase;
     return phase === Phase.Countdown || phase === Phase.Running || phase === Phase.Paused;
@@ -532,7 +581,7 @@ export class CrewRoom extends Room<{ state: CrewState }> {
    */
   private settleCrews(): void {
     const waiters = [...this.state.players.entries()]
-      .filter(([, p]) => p.crew === undefined)
+      .filter(([, p]) => p.crew === undefined && !p.spectator)
       .sort(([a], [b]) => (this.joinOrder.get(a) ?? 0) - (this.joinOrder.get(b) ?? 0))
       .map(([id, p]) => ({ id, role: (p.nextRole === "gunner" ? "gunner" : "pilot") as Role, partner: p.partner }));
     this.applyCrews(seatWaiting(this.crewRoster(), waiters, this.crewClock++));

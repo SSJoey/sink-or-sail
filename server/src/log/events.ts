@@ -173,8 +173,10 @@ export function playerLine(
   type: "playerJoined" | "playerLeft" | "playerDropped" | "playerReconnected",
   player: string,
   seat: Seat | null,
+  spectator = false,
 ): LogLine {
-  return { t, type, player, ...seatFields(seat) };
+  // Stage 3: a spectator has no seat; their role is logged as "spectator".
+  return { t, type, player, ...seatFields(seat), ...(spectator && { role: "spectator" }) };
 }
 
 export function seatLine(t: number, player: string, seat: Seat): LogLine {

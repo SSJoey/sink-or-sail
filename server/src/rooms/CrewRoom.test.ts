@@ -6,6 +6,7 @@ import {
   ClientMessage,
   JoinError,
   MAX_PLAYERS,
+  MAX_SPECTATORS,
   RECONNECT_WINDOW_SECONDS,
   ROOM_NAME,
   RejectReason,
@@ -61,7 +62,7 @@ describe("creating a room", () => {
 
   it("puts the creator in a new crew of their own, as pilot (Stage 3)", async () => {
     const { client, room } = await createRoom("Host");
-    expect(playerOf(room, client)?.toJSON()).toEqual({ name: "Host", crew: 0, role: "pilot", connected: true, ready: false, nextRole: "pilot", partner: "" });
+    expect(playerOf(room, client)?.toJSON()).toEqual({ name: "Host", crew: 0, role: "pilot", connected: true, ready: false, nextRole: "pilot", partner: "", spectator: false });
   });
 
   it("frees the code when the last player leaves and the room closes", async () => {
@@ -88,7 +89,7 @@ describe("joining by code", () => {
   it(`rejects a player when ${MAX_PLAYERS} are already in`, async () => {
     const { code } = await createRoom("P1");
     for (let i = 2; i <= MAX_PLAYERS; i++) await join(code, `P${i}`);
-    await expect(join(code, `P${MAX_PLAYERS + 1}`)).rejects.toThrow(/locked/);
+    await expect(join(code, `P${MAX_PLAYERS + 1}`)).rejects.toThrow(JoinError.RoomFull);
   });
 
   it("trims the name", async () => {
@@ -171,6 +172,69 @@ describe("the join address for the QR code (Stage 3)", () => {
       delete process.env.JOIN_ADDRESS;
     }
     expect((await createRoom("B")).room.state.joinAddress).toBe("");
+  });
+});
+
+describe("spectators (Stage 3)", () => {
+  const watch = (code: string, name: string) => colyseus.sdk.joinById(code, { name, watch: true });
+
+  it("joins to watch: no crew, and not counted among the players", async () => {
+    const { room, code } = await createRoom("P1");
+    for (let i = 2; i <= MAX_PLAYERS; i++) await join(code, `P${i}`);
+    const tv = await watch(code, "TV");
+    expect(playerOf(room, tv)?.toJSON()).toMatchObject({ name: "TV", spectator: true });
+    expect(playerOf(room, tv)?.crew).toBeUndefined();
+  });
+
+  it(`takes at most ${MAX_SPECTATORS} spectators`, async () => {
+    const { code } = await createRoom("P1");
+    for (let i = 1; i <= MAX_SPECTATORS; i++) await watch(code, `TV${i}`);
+    await expect(watch(code, "TV9")).rejects.toThrow(JoinError.SpectatorsFull);
+  });
+
+  it("Watch instead: a player becomes a spectator between matches, freeing their seat (crews close up)", async () => {
+    const { client: a, room, code } = await createRoom("A");
+    const b = await join(code, "B");
+    const c = await join(code, "C");
+    a.send(ClientMessage.Watch);
+    await waitFor(() => playerOf(room, a)?.spectator === true);
+    expect(playerOf(room, a)?.crew).toBeUndefined();
+    expect(playerOf(room, b)?.crew).toBe(0);
+    expect(playerOf(room, c)?.crew).toBe(1);
+    expect(room.state.hostId).toBe(a.sessionId);
+  });
+
+  it("Play next round: a spectator becomes a player, paired in like a joiner; refused with 6 players", async () => {
+    const { room, code } = await createRoom("A");
+    const tv = await watch(code, "TV");
+    tv.send(ClientMessage.PlayNextRound);
+    await waitFor(() => playerOf(room, tv)?.spectator === false);
+    expect(playerOf(room, tv)?.crew).toBe(0);
+    expect(playerOf(room, tv)?.role).toBe("gunner");
+    tv.send(ClientMessage.Watch);
+    await waitFor(() => playerOf(room, tv)?.spectator === true);
+    for (let i = 2; i <= MAX_PLAYERS; i++) await join(code, `P${i}`);
+    const full = tv.waitForMessage(ServerMessage.Rejected);
+    tv.send(ClientMessage.PlayNextRound);
+    expect(await full).toEqual({ reason: RejectReason.RoomFull });
+  });
+
+  it("a spectator can't take a seat (Play next round first)", async () => {
+    const { room, code } = await createRoom("A");
+    const tv = await watch(code, "TV");
+    const rejected = tv.waitForMessage(ServerMessage.Rejected);
+    tv.send(ClientMessage.TakeSeat, { crew: 0, role: "gunner" });
+    expect(await rejected).toEqual({ reason: RejectReason.InvalidSeat });
+    expect(playerOf(room, tv)?.crew).toBeUndefined();
+  });
+
+  it("Watch instead is locked during a match", async () => {
+    const { client, room } = await createRoom("A");
+    room.state.phase = Phase.Running;
+    const rejected = client.waitForMessage(ServerMessage.Rejected);
+    client.send(ClientMessage.Watch);
+    expect(await rejected).toEqual({ reason: RejectReason.SeatLocked });
+    expect(playerOf(room, client)?.spectator).toBe(false);
   });
 });
 
@@ -349,7 +413,7 @@ describe("leaving and reconnecting", () => {
 
     expect(back.sessionId).toBe(sam.sessionId);
     await waitFor(() => playerOf(room, back)?.connected === true);
-    expect(playerOf(room, back)?.toJSON()).toEqual({ name: "Sam", crew: 1, role: "gunner", connected: true, ready: false, nextRole: "pilot", partner: "" });
+    expect(playerOf(room, back)?.toJSON()).toEqual({ name: "Sam", crew: 1, role: "gunner", connected: true, ready: false, nextRole: "pilot", partner: "", spectator: false });
   });
 
   it("frees the seat once the reconnection window runs out", async () => {
@@ -371,6 +435,6 @@ describe("leaving and reconnecting", () => {
     const last = await join(code, `P${MAX_PLAYERS}`);
     drop(last);
     await waitFor(() => playerOf(room, last)?.connected === false);
-    await expect(join(code, `P${MAX_PLAYERS + 1}`)).rejects.toThrow(/locked/);
+    await expect(join(code, `P${MAX_PLAYERS + 1}`)).rejects.toThrow(JoinError.RoomFull);
   });
 });

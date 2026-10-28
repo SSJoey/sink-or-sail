@@ -13,7 +13,7 @@ import { SnapshotBuffer, type Frame } from "./interpolation.ts";
 import { frameLimit } from "./frameLimit.ts";
 import { heldShips, hiddenShips } from "./hazardLook.ts";
 import { lifebarColour, lifebarFill, lifebarShown } from "./lifebar.ts";
-import { awardLines, backToLobbyText, countdownLabel, hauntingText, outBanner, pausedText, respawnText, resultRows, resultTitle, sinkBanner, stormText } from "./matchText.ts";
+import { awardLines, backToLobbyText, countdownLabel, watchingLabel, hauntingText, outBanner, pausedText, respawnText, resultRows, resultTitle, sinkBanner, stormText } from "./matchText.ts";
 import { blockGestures, goFullscreenLandscape, isPortrait, isTouchFirst } from "./phone.ts";
 import { snapshotFromState, type GameStateView } from "./snapshot.ts";
 import { layoutText } from "../lobby/settings.ts";
@@ -30,6 +30,8 @@ export interface PlayerView {
   /** Stage 3 slice 3, while waiting out a match: the role wanted next round, and the partner's session id ("" for none). */
   nextRole: string;
   partner: string;
+  /** Stage 3 slice 8: watching (never in a crew). */
+  spectator: boolean;
 }
 export interface RoomStateView extends GameStateView {
   players: {
@@ -114,6 +116,8 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
   let overSince: number | null = null;
   // Stage 3 slice 3: a player watching while they wait goes back to the waiting screen.
   byId("hud-back").onclick = onExit;
+  // Stage 3 slice 8: a spectator asks to play the next round (they then wait for it).
+  byId("hud-play-next").onclick = () => room.send(ClientMessage.PlayNextRound);
 
   // Pause: any seated player. Resume and Exit: host only (the server checks both).
   const endMatch = () => {
@@ -165,7 +169,8 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
       const mine = seat();
       const state = room.state as RoomStateView;
       showMatchOverlays(state, frame, effects, mine?.crew ?? null, { countdown, banner, scoreboard });
-      showPauseControls(state, mine !== null, state.hostId === room.sessionId, paused);
+      // A host who only watches can still pause (Stage 3 slice 8).
+      showPauseControls(state, mine !== null || state.hostId === room.sessionId, state.hostId === room.sessionId, paused);
       // Stage 3 results: Play again for the host; everyone back to the lobby after a while.
       if (state.phase === Phase.Over) {
         overSince ??= performance.now();
@@ -181,7 +186,9 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
       } else {
         overSince = null;
       }
-      byId("hud-back").hidden = mine !== null;
+      const spectator = state.players.get(room.sessionId)?.spectator === true;
+      byId("hud-back").hidden = mine !== null || spectator;
+      byId("hud-play-next").hidden = !spectator;
       // Read by the browser smoke tests (a canvas has no elements to inspect).
       canvasHost.dataset.ships = String(frame?.ships.filter((s) => !s.sunk).length ?? 0);
       canvasHost.dataset.shots = String(frame?.shots.size ?? 0);
@@ -426,7 +433,7 @@ function updateHud(frame: Frame | null, seat: { crew: number; role: Role } | nul
   if (score.innerHTML !== html) score.innerHTML = html;
 
   if (!seat) {
-    role.textContent = "Watching";
+    role.textContent = watchingLabel(lastAfloat ? "lastAfloat" : "sinkCount");
     crew.textContent = "";
     bar.hidden = true;
     return;

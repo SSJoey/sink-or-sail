@@ -136,3 +136,6 @@ export const backToLobbyText = (secondsLeft: number) => `Back to the lobby in ${
 export function awardLines(awards: readonly { award: string; ship: number; detail: string }[]) {
   return awards.map((a) => ({ name: AWARD_NAMES[a.award] ?? a.award, crew: crewLabel(a.ship), detail: a.detail }));
 }
+
+/** Stage 3: the top bar's first words for a spectator (or anyone without a seat): watching, and the mode. */
+export const watchingLabel = (mode: string) => `Watching · ${mode === "lastAfloat" ? "Last Afloat" : "Sink Count"}`;

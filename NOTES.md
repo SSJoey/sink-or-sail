@@ -645,6 +645,20 @@ Pack icons are art (Stage 4's "sea-chart art"); the user asked to bring them for
 - Crew 1 used every pack (mine, torpedo, 3 EMPs, 2 health); Melissa fired 321 shots (14% hit).
 - The two later logs that evening were solo tests; the hazards one (VHBU) showed reefs, a wreck ram, a moving storm, a kraken grab and health packs working. No awards there: that build was from before slice 7.
 
+### 2026-10-28 — Stage 3 slice 8 plan: spectator view
+
+- **Question 1:** a) **Watch** on the join screen (a TV or laptop), plus **Watch instead** on the room screen for any player between matches (the host too; it frees their seat and crews close up) and **Play next round** for a spectator (joins as a player, paired in like a joiner).
+- **Question 2:** a) up to **6 players plus up to 4 spectators**.
+- **Question 3:** a) ships hidden in a moving storm stay hidden on the spectator view (everyone in the room can see a TV).
+- **Question 4, ok:** the spectator lobby shows the room code and QR code large with "Join on your phone", the crews and Ready, and Play next round. During a match: the whole sea, no controls or aiming guide; a top bar with mode, score or lives, clock and storm status; fog and the closing storm as usual. After a match: the results and awards.
+- **Question 5, ok:** spectators can't pause; a spectator host keeps the host's controls (settings, Start, Play again, Pause / Resume, Exit).
+- Logged: spectators' joins and leaves with role "spectator".
+- **Built (2026-10-28):**
+  - **Shared:** `MAX_SPECTATORS` 4; messages `watch` and `playNextRound`; join error `roomFull` (6 players, spectators not counted) and `spectatorsFull`; refusal `roomFull` (Play next round with 6 players).
+  - **Server:** players carry `spectator`; a room takes `MAX_PLAYERS + MAX_SPECTATORS` connections, and the join check keeps each within its limit (a 7th player now gets `roomFull` rather than a locked room; the two room-full tests now expect that). Joining with `watch: true` gives no crew. Watch instead (between matches; refused during one) frees the seat and crews close up; the host stays host. Play next round: placed like a joiner (waits during a match). Spectators can't take seats, find partners, leave crews or set up a next round; they're left out when waiting players are placed. A host who only watches can pause (and, as host, resume and end). Log lines for spectators' joins, drops, reconnects and leaves have role "spectator".
+  - **Client:** Watch on the join screen; on the room screen, "You're watching. Join on your phone: …", a large QR code (260 px) and room code, the crews (no Join buttons for a spectator: found in a screenshot and closed on the server too), Play next round, and Watch instead for players between matches. During a match a spectator sees the whole sea with the top bar "Watching · Sink Count" (or Last Afloat), score, clock and storm status, no controls, and Play next round (then the waiting screen). Ships hidden in a moving storm stay hidden.
+  - **Runs:** `npm test` passed (954 unit plus 1 skipped, 29 browser).
+
 ## Later
 
 - **(2026-10-25, Stage 5) Ship types**, discussed with the user ahead of Stage 5 (not to build before then):

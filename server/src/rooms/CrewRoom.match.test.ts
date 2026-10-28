@@ -477,6 +477,20 @@ describe("pause and resume", () => {
     expect(ship0(room).x).toBe(x);
   });
 
+  it("lets a host who only watches pause, resume and end the match (Stage 3)", async () => {
+    const { room, pilot } = await crewedRoom();
+    pilot.send(ClientMessage.Watch);
+    await waitFor(() => room.state.players.get(pilot.sessionId)?.spectator === true);
+    room.countdownSeconds = 0.1;
+    pilot.send(ClientMessage.Start);
+    await waitFor(() => room.state.phase === Phase.Running);
+    pilot.send(ClientMessage.Pause);
+    await waitFor(() => room.state.phase === Phase.Paused);
+    pilot.send(ClientMessage.EndMatch);
+    await waitFor(() => room.state.phase === Phase.Over);
+    expect(room.state.players.get(pilot.sessionId)?.crew).toBeUndefined();
+  });
+
   it("ignores a pause from a player without a seat", async () => {
     const { room } = await started();
     const { late: watcher } = await crewlessDuringMatch(room);

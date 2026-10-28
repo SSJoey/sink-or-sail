@@ -42,3 +42,11 @@ describe("refused crew moves (Stage 3)", () => {
     expect(rejectedText({ reason: RejectReason.AlreadyAlone })).toBe("You're already in a crew of your own.");
   });
 });
+
+describe("spectators (Stage 3)", () => {
+  it("explains a full room or a full set of spectators", () => {
+    expect(joinErrorText(new Error(JoinError.RoomFull))).toBe("That room is full.");
+    expect(joinErrorText(new Error(JoinError.SpectatorsFull))).toBe("That room already has 4 watching.");
+    expect(rejectedText({ reason: RejectReason.RoomFull })).toBe("The room already has 6 players: keep watching for now.");
+  });
+});

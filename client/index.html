@@ -81,6 +81,10 @@
       #crew-list .crew-name { flex: 1; }
       #crew-list li > span:first-child { white-space: nowrap; }
       #ready[aria-pressed="true"] { background: #7ee081; font-weight: 600; }
+      /* Stage 3 slice 8: a spectator's lobby shows the code large, for a TV or a laptop everyone can see. */
+      .spectating #join-card #qr svg { width: 260px; height: 260px; }
+      .spectating #code { font-size: 72px; letter-spacing: 0.2em; }
+      #spectating { font-size: 18px; }
       /* Stage 3: the QR code and room code side by side. */
       #join-card { display: flex; align-items: center; gap: 16px; }
       #qr svg { width: 132px; height: 132px; display: block; background: #fff; }
@@ -96,10 +100,12 @@
       <p>
         <label>Room code <input id="code-input" maxlength="8" autocapitalize="characters" autocomplete="off" /></label>
         <button id="join">Join</button>
+        <button id="watch">Watch</button>
       </p>
     </section>
 
     <section id="room-screen" hidden>
+      <p id="spectating" hidden>You're watching. <strong>Join on your phone:</strong> scan the code or type it in.</p>
       <div id="join-card">
         <div id="qr" role="img" aria-label="QR code to join this room"></div>
         <div>
@@ -145,6 +151,7 @@
       <h2>Crews in this room</h2>
       <ul id="crew-list"></ul>
       <p><button id="ready" aria-pressed="false">Ready</button> <span id="ready-count"></span></p>
+      <p><button id="watch-instead" hidden>Watch instead</button> <button id="play-next" hidden>Play next round</button></p>
       <div id="last-result" hidden></div>
       <p>
         <label id="packs-host" hidden><input type="checkbox" id="packs-toggle" /> Packs on</label>
@@ -183,6 +190,7 @@
         <button id="hud-pause" hidden>Pause</button>
         <button id="hud-exit" hidden>Exit</button>
         <button id="hud-back" hidden>Back</button>
+        <button id="hud-play-next" hidden>Play next round</button>
       </div>
       <div id="game"></div>
       <div id="touch" hidden>

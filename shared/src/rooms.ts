@@ -7,6 +7,8 @@ export const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ";
 
 /** Three crews of two. */
 export const MAX_PLAYERS = 6;
+/** Stage 3: spectators (a TV, a laptop, a host who only hosts) on top of the players. */
+export const MAX_SPECTATORS = 4;
 export const NAME_MAX_LENGTH = 12;
 /** How long a dropped player's seat is held for them. */
 export const RECONNECT_WINDOW_SECONDS = 60;
@@ -37,6 +39,9 @@ export const ClientMessage = {
    *  with for it { player: sessionId }, "" to wait alone. */
   SetNextRole: "setNextRole",
   PairWith: "pairWith",
+  /** Stage 3 slice 8: a player becomes a spectator (between matches), and a spectator a player ("Play next round"). */
+  Watch: "watch",
+  PlayNextRound: "playNextRound",
   /** Start the match (host only). */
   Start: "start",
   /** The sender's role input; see input.ts. */
@@ -100,6 +105,8 @@ export const RejectReason = {
   AlreadyPaired: "alreadyPaired",
   NoFreeCrew: "noFreeCrew",
   AlreadyAlone: "alreadyAlone",
+  /** Stage 3: Play next round with 6 players already. */
+  RoomFull: "roomFull",
 } as const;
 export type RejectReason = (typeof RejectReason)[keyof typeof RejectReason];
 
@@ -111,6 +118,9 @@ export interface RejectedMessage {
 export const JoinError = {
   InvalidName: "invalidName",
   NameTaken: "nameTaken",
+  /** Stage 3: 6 players already (spectators don't count), or 4 spectators already. */
+  RoomFull: "roomFull",
+  SpectatorsFull: "spectatorsFull",
 } as const;
 
 /** Uppercases and strips spaces; returns null unless the result is a valid code. */

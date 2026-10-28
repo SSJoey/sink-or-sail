@@ -13,6 +13,8 @@ export const Player = schema({
    *  paired with for it (a session id, "" for nobody). */
   nextRole: t.string().default("pilot"),
   partner: t.string().default(""),
+  /** Stage 3: watching (a TV, a laptop, or a host who only hosts): never in a crew, not counted among the players. */
+  spectator: t.boolean().default(false),
 }, "Player");
 export type Player = SchemaType<typeof Player>;
 

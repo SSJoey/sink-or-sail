@@ -331,3 +331,10 @@ describe("awards line (Stage 3)", () => {
     });
   });
 });
+
+describe("spectators in the log (Stage 3)", () => {
+  it("logs a spectator's join with role spectator and no ship", () => {
+    expect(playerLine(1000, "playerJoined", "TV", null, true)).toEqual({ t: 1000, type: "playerJoined", player: "TV", ship: null, role: "spectator" });
+    expect(playerLine(1000, "playerJoined", "Ana", null)).toEqual({ t: 1000, type: "playerJoined", player: "Ana", ship: null, role: null });
+  });
+});
