@@ -5,6 +5,9 @@ import { CREW_STYLES } from "./crews.ts";
 import { GameScene } from "./GameScene.ts";
 import type { ShipEffect } from "./effects.ts";
 import { empText, formatClock, livesHtml, packSlotLabel, scoreHtml } from "./hud.ts";
+import { BeepClock, type BeepKind } from "./beeps.ts";
+import { sound } from "./sound.ts";
+import { loadSoundOn, saveSoundOn, soundButtonText } from "./soundSetting.ts";
 import { PACK_ICONS } from "./packIcons.ts";
 import { startInputSender } from "./inputSender.ts";
 import { PackLatch } from "./packLatch.ts";
@@ -81,6 +84,9 @@ export interface GameHandle {
 
 const byId = (id: string) => document.getElementById(id)!;
 
+/** Stage 4: every beep this page has played (all matches), read by the browser smoke tests (they can't hear). */
+const played: BeepKind[] = [];
+
 /**
  * Shows the game view from the countdown to the scoreboard: draws the sea, sends this player's input,
  * and shows the countdown, sink banner and end-of-match scoreboard. `onExit` runs on "Back to room".
@@ -133,6 +139,24 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
   byId("resume").onclick = () => room.send(ClientMessage.Resume);
   byId("paused-exit").onclick = endMatch;
 
+  // Stage 4 slice 1: the countdown beeps, and the speaker switch remembered on this device.
+  const soundStore = (() => {
+    try {
+      return localStorage;
+    } catch {
+      return null;
+    }
+  })();
+  let soundOn = loadSoundOn(soundStore);
+  const soundButton = byId("hud-sound");
+  soundButton.textContent = soundButtonText(soundOn);
+  soundButton.onclick = () => {
+    soundOn = !soundOn;
+    saveSoundOn(soundStore, soundOn);
+    soundButton.textContent = soundButtonText(soundOn);
+  };
+  const beepClock = new BeepClock();
+
   // Phone controls: shown on touch-first devices, or as soon as anyone touches the screen.
   const touch = new TouchControls(TUNING.client.stickRadius, TUNING.client.stickDeadZone);
   const touchLayer = createTouchLayer(touch);
@@ -174,6 +198,12 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
       const mine = seat();
       const state = room.state as RoomStateView;
       showMatchOverlays(state, frame, effects, mine?.crew ?? null, { countdown, banner, scoreboard });
+      for (const kind of beepClock.update(state)) {
+        if (!soundOn) continue;
+        sound.play(kind);
+        played.push(kind);
+        canvasHost.dataset.beeps = played.join(",");
+      }
       // A host who only watches can still pause (Stage 3 slice 8).
       showPauseControls(state, mine !== null || state.hostId === room.sessionId, state.hostId === room.sessionId, paused);
       // Stage 3 results: Play again for the host; everyone back to the lobby after a while.

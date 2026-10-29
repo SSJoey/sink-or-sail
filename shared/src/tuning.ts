@@ -315,5 +315,18 @@ export const TUNING = {
     lifebarRedBelow: 0.25,
     /** Stage 3: the results close by themselves this many seconds after a match ends (back to the lobby). */
     resultsSeconds: 20,
+    /** Stage 4 slice 1: the countdown beeps, as browser-made tones (Hz, seconds); every device plays them at this
+     *  volume (0–1). The double beep at 1:00 has `gap` seconds of silence between its two beeps. */
+    sound: {
+      volume: 0.2,
+      count: { hz: 660, seconds: 0.15 },
+      go: { hz: 990, seconds: 0.3 },
+      tick: { hz: 880, seconds: 0.12 },
+      high: { hz: 1320, seconds: 0.12 },
+      double: { hz: 880, seconds: 0.1, gap: 0.15 },
+      horn: { hz: 220, seconds: 0.8 },
+      /** A clock that jumps by more than this (a reconnect, a late update) plays none of the beeps it skipped. */
+      maxGap: 1.5,
+    },
   },
 } as const;

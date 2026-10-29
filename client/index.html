@@ -60,6 +60,8 @@
       .awards { list-style: none; padding: 0; margin: 4px 0 8px; font-size: 14px; }
       #paused { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); background: rgba(11,37,69,0.95); padding: 16px 24px; border-radius: 12px; text-align: center; min-width: 280px; }
       #hud button { padding: 4px 12px; min-height: 36px; }
+      /* Stage 4 speaker switch: kept small (the 667 px top bar is tight; the real fix comes with the art). */
+      #hud #hud-sound { padding: 4px 6px; }
       #rotate { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: #0b2545; font-size: 24px; text-align: center; padding: 24px; }
       /* Stage 3: your crew and the crews in the room. */
       #my-crew-title { margin: 8px 0 0; }
@@ -191,6 +193,7 @@
         <span id="hud-emp"></span>
         <span id="hud-score"></span>
         <span id="hud-clock"></span>
+        <button id="hud-sound" title="Sound on / off" aria-label="Sound on / off">🔊</button>
         <button id="hud-pause" hidden>Pause</button>
         <button id="hud-exit" hidden>Exit</button>
         <button id="hud-back" hidden>Back</button>

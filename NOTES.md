@@ -793,7 +793,76 @@ The user agreed to every suggestion.
   - Then tell Claude which matches were played. Claude reads the newest `logs/` files, runs the summary on each and checks them against the five set-ups. It fixes only what blocks a full match; the rest goes to `NOTES.md`.
   - This joins the other deferred items: the Stage 1 combined playtest, and the Stage 2 check matches and playtest. Stage 3's definition of done (the 30-second timing in a Stage 3 playtest) stays open until then.
 
+### 2026-10-29 — Stage 3 wrap-up deferred; Stage 4 planning starts
+
+- **Deferred, still owed (user's choice):** Stage 3 slice 11 part 2 (the five check matches) and the Stage 3 playtest (the 30-second timing). Stage 3's definition of done items 1 and 2 stay open until then.
+- **Stage 4 planning starts** ("let's move on"): Claude drafts the plan from `docs/design.md` and the "Later" notes. Nothing is built until the user approves it.
+
+### 2026-10-29 — Stage 4 planning (polish and online)
+
+Drafted from `docs/design.md`, the roadmap and the "Later" notes. Question: **is it ready for people outside the house?**
+
+- **Question 1 (art):** a) Claude draws it in code and SVG files in the repo, following the look-options canvas. No image files from elsewhere.
+- **Question 2:** a) Claude may read the look-options canvas (claude.ai artifact `FLuXfCmELFG21y2rCCXoKY`) to follow its mock-ups.
+- **Question 3 (font):** b) no hand-drawn font for now; keep today's system fonts. It can be added later.
+- **Question 4 (sound):** a) every sound is tones and noise generated in the browser, with no files and no library.
+- **Question 5 (tuning):** a) tuning waits until the user has run at least one of the owed playtests; the other slices are built meanwhile.
+- **Question 6 (cloud hosting):** c) decided later; everything else is built first.
+- **Question 7 (logs online):** c) decided together with question 6.
+- **Question 8 (spectator delay online):** deferred to the last stage (Stage 5).
+- **Question 9:** all three "Later" items come into Stage 4: "Add to Home Screen" (web app manifest), first-match control hints, and the 667 px top bar fix during the art rework.
+- **Question 10 (definition of done):** skipped by the user; no definition of done is set for Stage 4 for now.
+- **Slice order (proposed after the answers, to confirm):**
+  1. Countdown beeps and the speaker switch
+  2. Sound effects
+  3. Sea-chart look: sea, islands, reefs, wrecks
+  4. Sea-chart look: ships, turrets, ghosts, packs, shots, mines, torpedoes
+  5. Sea-chart look: storms, whirlpool, kraken, haunted zones
+  6. Styled lifebar and visible damage below 25%
+  7. Sea-chart look for the lobby, waiting, results and spectator screens and the top bar, including the 667 px fix
+  8. First-match control hints
+  9. "Add to Home Screen"
+
+  Then, once their decisions are made: tuning (after a playtest), and cloud hosting with logs online.
+
+### 2026-10-29 — Stage 4 slice order confirmed; slice 1 plan: countdown beeps and the speaker switch
+
+- **Slice order:** ok, as proposed above.
+- **Slice 1 plan:** approved with "go".
+  - The beeps are as agreed on 2026-10-25 ("Later").
+  - Every device showing the game hears them: players, spectators, and waiting players who watch.
+  - The speaker switch is 🔊 / 🔇 in the top bar, on by default and remembered per device.
+  - Tones come from Web Audio and are unlocked at the first tap or key press.
+  - Each device works out its beeps from the synced match clock, and a jump in the clock skips the missed beeps.
+- **Questions:** answered with "go", so the recommended options and proposed values stand:
+  1. The values as proposed: countdown 660 Hz 0.15 s; Go! 990 Hz 0.3 s; clock beep 880 Hz 0.12 s; high beep 1320 Hz 0.12 s; double beep 2 × 880 Hz 0.1 s with 0.15 s of silence between; horn 220 Hz, buzzier (sawtooth), 0.8 s; volume 0.2. A clock jump of more than 1.5 s plays none of the skipped beeps.
+  2. a) the button is kept small now, and the 667 px fix comes in slice 7.
+  3. a) an iPhone on silent may stay quiet; this is accepted and goes in the playtest notes.
+  4. a) no beeps for waiting players who aren't watching the match.
+- **Built (2026-10-29):**
+  - `client/src/game/beeps.ts`: `BeepClock` turns each update of phase, countdown and time left into the beeps due.
+    - A count beep each time the 3-2-1 changes, then Go! as the match runs.
+    - The clock marks are 1:00, 0:10 to 0:04, 0:03 to 0:01, and the horn at 0:00, only while running. An early end leaves time on the clock, so there's no horn.
+    - A page opened mid-match doesn't beep for where the clock already is.
+  - `sound.ts` plays the tones, with a 10 ms fade in and a 20 ms fade out so they don't click. It is unlocked by the page's taps and key presses (`main.ts`).
+  - `soundSetting.ts` holds the remembered switch (`sinkOrSail.sound`, "on" / "off").
+  - `game.ts` runs the beeps each frame. While the switch is off nothing plays.
+  - The page lists every beep it played in `data-beeps`, for the browser test.
+  - `tuning.ts` gains `client.sound`.
+  - **Tests:** beeps (9), the switch (4), and a browser test: 3, 2, 1, Go!; the switch turns beeps off; saved on the device; still off for the next match.
+  - **Runs:**
+    - Type-check clean; unit 1033 passed (plus 1 skipped). The new sound test passed alone and in both full runs.
+    - Both full browser runs (runs 24 and 25, peak load 19 and 24) had the same one failure, in "loads, joins a room and shows a ship": the game view appeared only after the 3-2-1, so the page went straight to "Go!".
+    - This is the slice 9 failure. It also failed in 2 of the 3 runs before this slice, it passes on its own, and this slice doesn't touch it.
+    - The user chose to commit as it is and **investigate later** (Later, "Smoke test misses the 3-2-1").
+
 ## Later
+
+- **(2026-10-29, to investigate) Smoke test misses the 3-2-1:**
+  - "loads, joins a room and shows a ship" fails under load in about 4 of the last 7 full browser runs (Stage 3 slices 9–11, Stage 4 slice 1).
+  - The game view appears more than 3 s after Start, so `#countdown` is already "Go!".
+  - Slice 9's runs saw the view in 0.4 s with the countdown text updating late.
+  - It passes on its own. To find out: whether the view's start or its first drawn frames are late, and why (load, the scene's boot). Then fix the cause, or ask how the test should wait. Never weaken it without asking.
 
 - **(2026-10-25, Stage 5) Ship types**, discussed with the user ahead of Stage 5 (not to build before then):
   - **Five types:** Frigate, Cutter, Ironclad, Gunboat, Long gun. Settings: health, size, rate of fire, damage, gun range and energy (bar size and refill rate; boost and shield cost the same for all).
