@@ -1102,6 +1102,41 @@ Drafted from `docs/design.md`, the roadmap and the "Later" notes. Question: **is
     - Chrome's page CPU in these runs was about 386%, against 322% in slice 6's run and 328–375% in earlier ones.
     - The user chose to commit as it is.
 
+### 2026-10-30 — Stage 4 slice 8 plan: first-match control hints
+
+- **Why:** the 2026-10-28 new-player watch item (a child gunner on a phone barely fired) and the mock-ups' control labels.
+- **Answers (user: "go with your suggestions", also the go-ahead):**
+  1. a) each hint stays until its control is first used on this device (remembered), and fades after 30 s of play; a "Hide hints" button clears them.
+  2. a) laptops get a one-line key guide along the bottom of the sea.
+  3. a) a Pack hint when your crew first holds a pack your role can use (the Pack-button watch item).
+  4. **The wording as proposed:**
+     - **Phone pilot:** "Touch anywhere on this side to steer", "Hold for speed (uses energy)", "Drop your mine".
+     - **Phone gunner:** "Touch anywhere on this side to aim", "Hold to fire", "Hold to block shots (uses energy)", "Fire your torpedo" / "Fire your EMP".
+     - **Laptop pilot:** "W A S D steer · Space boost · E drop the mine".
+     - **Laptop gunner:** "Mouse aims · click fires · right-click shields · E fires the pack".
+     - **Ghost:** "Steer your ghost: W A S D" or "… the stick".
+- **Built (2026-10-30):**
+  - **`client/src/game/hints.ts`:**
+    - `hintsFor`: the hints to show, by role, phone or laptop, ghost, usable pack and seconds of play; none from 30 s (`client.hintSeconds`).
+    - `usedControls`: the controls an input used, as device:role:control (a stick or aim moved past 0.3; any button held).
+    - `loadUsedHints` and `saveUsedHints`: `sinkOrSail.hints`.
+    - The laptop line goes once both of the role's main controls are used (pilot: steer and boost; gunner: fire and shield).
+  - **`index.html`:** cream hint labels with ink borders.
+    - **Phone:** the left-side hint above the stick, under Boost or Fire, under Shield, left of Pack.
+    - **Laptop:** the key line along the bottom of the sea.
+    - **"Hide hints":** a small button at the top right of the sea. It marks the hints showing as used.
+  - **`game.ts`:** each frame records the controls used and shows the hints still needed, for a crew member during the countdown and the match.
+  - **Chosen while building (to confirm):** "Hide hints" counts as having used those controls, so they don't come back on this device. The laptop's mouse aim counts as used as soon as the mouse moves.
+  - **Checked by eye:** a throwaway screenshot (deleted) of a pilot and a gunner on a 667 × 375 phone. The Shield hint then moved under its button, clear of the middle of the sea.
+  - **Tests:**
+    - hints (9): each role on a phone, the laptop lines, the ghost, used controls, the 30 s fade, reading inputs, remembering (and blocked or odd storage);
+    - browser (2): a phone gunner's "Hold to fire" goes on firing and stays gone next match while Shield's comes back; a laptop pilot's key line goes after steering and boosting.
+  - **Runs:**
+    - Type-check clean; unit 1083 passed (plus 1 skipped).
+    - Full run 36 (peak load 28) had one failure: the laptop mine-pack test's top-bar pack slots were not filled in within 5 s of Start. That is probably the top bar waiting for the scene, like the phone Fire button.
+    - It passed alone, as did the later groups.
+    - The user chose to **commit, then fix the wait** (the top bar and phone controls not waiting for the scene), with its own plan.
+
 ## Later
 
 - **(2026-10-29, Stage 5) Sound by distance:** with up to 10 ships and a camera that follows your ship, other ships' sounds get quieter the further away they are, and nearly silent off screen. Stage 4 slice 2's volume rule is the place to add it. It works alongside the cap of 8 sounds at once.

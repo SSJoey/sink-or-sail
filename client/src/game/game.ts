@@ -1,12 +1,13 @@
 import * as Phaser from "phaser";
 import type { Room } from "@colyseus/sdk";
-import { ClientMessage, DEFAULT_LAYOUT, LAYOUTS, PACK_LABELS, Phase, TUNING, inStorm, isLayoutId, isReefAmount, reefsFor, rolePack, type CueKind, type PackType, type Role, type SoundCue } from "@sink-or-sail/shared";
+import { ClientMessage, DEFAULT_LAYOUT, LAYOUTS, PACK_LABELS, Phase, TUNING, inStorm, isLayoutId, isReefAmount, packButtonLit, reefsFor, rolePack, type CueKind, type PackType, type Role, type SoundCue } from "@sink-or-sail/shared";
 import { CREW_STYLES } from "./crews.ts";
 import { GameScene } from "./GameScene.ts";
 import type { ShipEffect } from "./effects.ts";
 import { empText, formatClock, livesHtml, packSlotLabel, scoreHtml } from "./hud.ts";
 import { BeepClock, type BeepKind } from "./beeps.ts";
 import { isDamaged } from "./damageLook.ts";
+import { hintsFor, loadUsedHints, saveUsedHints, usedControls, type Hint, type HintSituation, type HintSpot } from "./hints.ts";
 import { sound } from "./sound.ts";
 import { SfxMixer, cueVolume, soundSeconds } from "./sfx.ts";
 import { loadSoundOn, saveSoundOn, soundButtonText } from "./soundSetting.ts";
@@ -161,6 +162,15 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
     saveSoundOn(soundStore, soundOn);
     soundButton.textContent = soundButtonText(soundOn);
   };
+  // Stage 4 slice 8: control hints, until each control is first used on this device (remembered).
+  const usedHints = loadUsedHints(soundStore);
+  const hintEls = { left: byId("hint-left"), boost: byId("hint-boost"), fire: byId("hint-fire"), shield: byId("hint-shield"), pack: byId("hint-pack"), keys: byId("hint-keys") };
+  let shownHints: Hint[] = [];
+  const hideHints = byId("hints-hide");
+  hideHints.onclick = () => {
+    for (const hint of shownHints) for (const k of hint.keys) usedHints.add(k);
+    saveUsedHints(soundStore, usedHints);
+  };
   const beepClock = new BeepClock();
   // The 3-2-1, the layout banner and the countdown beeps run on a loop of their own from the room state, so they don't
   // wait for the sea to load (on a slow device the scene's first frame can come near the end of the countdown).
@@ -249,6 +259,8 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
       } else {
         overSince = null;
       }
+      shownHints = showHints(state, frame, mine, input, touchLayer.active, usedHints, soundStore, hintEls);
+      hideHints.hidden = shownHints.length === 0;
       const spectator = state.players.get(room.sessionId)?.spectator === true;
       byId("hud-back").hidden = mine !== null || spectator;
       byId("hud-play-next").hidden = !spectator;
@@ -454,6 +466,48 @@ function showPauseControls(state: RoomStateView, seated: boolean, isHost: boolea
   const line = byId("paused-text");
   if (line.textContent !== text) line.textContent = text;
   byId("paused-host").hidden = !isHost;
+}
+
+/**
+ * Stage 4 slice 8: records the controls this frame's input used (remembered on the device), then shows the hints
+ * still needed by their controls. Only for a crew member, during the countdown and the match.
+ */
+function showHints(
+  state: RoomStateView,
+  frame: Frame | null,
+  seat: { crew: number; role: Role } | null,
+  input: unknown,
+  phone: boolean,
+  used: Set<string>,
+  store: Storage | null,
+  els: Record<HintSpot, HTMLElement>,
+): Hint[] {
+  const playing = state.phase === Phase.Countdown || state.phase === Phase.Running;
+  let hints: Hint[] = [];
+  if (seat && playing) {
+    const ship = frame?.ships[seat.crew];
+    const held = ship ? rolePack(ship, seat.role) : null;
+    const duration = state.matchMode === "lastAfloat" ? TUNING.lastAfloat.duration : TUNING.match.duration;
+    const situation: HintSituation = {
+      role: seat.role,
+      phone,
+      ghost: ship?.out === true,
+      pack: packButtonLit(held, seat.role) ? held : null,
+      elapsed: state.phase === Phase.Running ? duration - state.timeLeft : 0,
+    };
+    const fresh = usedControls(situation, input as Parameters<typeof usedControls>[1]).filter((k) => !used.has(k));
+    if (fresh.length) {
+      for (const k of fresh) used.add(k);
+      saveUsedHints(store, used);
+    }
+    hints = hintsFor(situation, used);
+  }
+  for (const [spot, el] of Object.entries(els) as [HintSpot, HTMLElement][]) {
+    const hint = hints.find((h) => h.spot === spot);
+    el.hidden = !hint;
+    if (hint && el.textContent !== hint.text) el.textContent = hint.text;
+  }
+  return hints;
 }
 
 /** The 3-2-1 (and "Go!"), and during it the banner naming the layout (with Random, the one it picked). */
