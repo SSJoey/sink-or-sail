@@ -178,7 +178,8 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
       canvasHost.dataset.beeps = played.join(",");
     }
   };
-  countdownLoop = requestAnimationFrame(countdownTick);
+  // The first tick at once (not on the next frame, which comes after Phaser is set up), so the first count is caught.
+  countdownTick();
   const mixer = new SfxMixer();
   const stoppers = new Map<number, () => void>();
 
@@ -434,7 +435,11 @@ function showPackSlots(el: HTMLElement, content: (PackType | null)[] | string | 
     img.title = PACK_LABELS[pack];
     return img;
   };
-  el.replaceChildren(document.createTextNode("Packs: "), slot(content[0] ?? null), document.createTextNode(" · "), slot(content[1] ?? null));
+  // Stage 4 slice 7: "Packs:" in a label of its own, left out on small screens.
+  const name = document.createElement("span");
+  name.className = "hud-label";
+  name.textContent = "Packs: ";
+  el.replaceChildren(name, slot(content[0] ?? null), document.createTextNode(" · "), slot(content[1] ?? null));
 }
 
 function showPauseControls(state: RoomStateView, seated: boolean, isHost: boolean, paused: HTMLElement): void {
@@ -527,14 +532,18 @@ function updateHud(frame: Frame | null, seat: { crew: number; role: Role } | nul
 
   if (!seat) {
     role.textContent = watchingLabel(lastAfloat ? "lastAfloat" : "sinkCount");
+    role.style.background = "";
     crew.textContent = "";
     bar.hidden = true;
     return;
   }
   const style = CREW_STYLES[seat.crew] ?? CREW_STYLES[0];
+  // Stage 4 slice 7: the role as a tag in the crew colour; the crew name in ink. The Boost button and the lit Pack
+  // button's glow use the crew colour too.
   role.textContent = roleLabel[seat.role];
+  role.style.background = style.css;
   crew.textContent = `${style.symbol} ${style.name}`;
-  crew.style.color = style.css;
+  document.getElementById("game-screen")!.style.setProperty("--crew", style.css);
   bar.hidden = false;
   const energy = frame?.ships[seat.crew]?.energy ?? 0;
   fill.style.width = `${(100 * energy) / TUNING.energy.max}%`;

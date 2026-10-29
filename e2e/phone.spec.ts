@@ -60,3 +60,28 @@ test("phone: the gunner's aiming stick aims without firing; only Fire fires", as
   await expect.poll(shots, { timeout: 3000 }).toBeGreaterThan(0);
   await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
 });
+
+// Stage 4 slice 7: the 667 px fix. On a small phone held sideways, the host's top bar (role, crew, energy, packs,
+// score, clock, sound, Pause, Exit) fits the screen and the energy bar keeps at least 120 px.
+test("phone: on a 667 px screen the top bar fits and the energy bar keeps its width", async ({ browser }) => {
+  const page = await (await browser.newContext({ viewport: { width: 667, height: 375 }, hasTouch: true, isMobile: true })).newPage();
+  await page.goto(GAME_PAGE);
+  await page.fill("#name", "Small");
+  await page.click("#create");
+  await expect(page.locator("#code")).toHaveText(/^[A-Z]{4}$/);
+  await page.click("#start");
+  await expect(page.locator("#hud-pause")).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator("#hud-exit")).toBeVisible();
+  const sizes = await page.evaluate(() => {
+    const hud = document.getElementById("hud")!;
+    const parts = [...hud.children].filter((el) => !(el as HTMLElement).hidden) as HTMLElement[];
+    return {
+      overflow: hud.scrollWidth - hud.clientWidth,
+      right: Math.max(...parts.map((el) => el.getBoundingClientRect().right)) - window.innerWidth,
+      energy: document.getElementById("hud-energy")!.getBoundingClientRect().width,
+    };
+  });
+  expect(sizes.overflow).toBeLessThanOrEqual(0);
+  expect(sizes.right).toBeLessThanOrEqual(0);
+  expect(sizes.energy).toBeGreaterThanOrEqual(120);
+});

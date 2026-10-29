@@ -86,6 +86,7 @@ export function startLobby(): void {
     joinScreen.hidden = true;
     roomScreen.hidden = false;
     byId("code").textContent = room.roomId;
+    byId("head-code").textContent = room.roomId;
     byId("status").textContent = "";
     showError("");
 
@@ -262,6 +263,8 @@ export function startLobby(): void {
     lives.value = String(state.lives);
     lives.disabled = matchOn;
     byId("mode-status").textContent = isHost ? "" : settingsText(state.mode, state.lives);
+    // Stage 4 slice 7: the header's mode badge.
+    byId("head-mode").textContent = state.mode === "lastAfloat" ? "Last Afloat" : "Sink Count";
 
     // Hazards and reefs: the host's checkbox and dropdown (reefs greyed out with hazards off); others see the settings.
     byId("hazards-host").hidden = !isHost;
@@ -365,7 +368,8 @@ export function startLobby(): void {
     if (mine) {
       const title = byId("my-crew-title");
       title.textContent = `Your crew: ${mine.label}`;
-      title.style.color = mine.colour;
+      // Stage 4 slice 7: a small hull in the crew colour beside the title (the title itself in ink).
+      byId("my-crew-hull").style.color = mine.colour;
       for (const role of ROLES) {
         const button = byId<HTMLButtonElement>(`role-${role}`);
         const who = mine[role];

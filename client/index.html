@@ -5,181 +5,298 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
     <title>Sink or Sail</title>
     <style>
-      body { margin: 0; padding: 16px; font: 18px/1.4 sans-serif; background: #1d4f91; color: #fff; }
-      input, button, select { font: inherit; padding: 8px 12px; margin: 4px 0; }
-      button { min-width: 44px; min-height: 44px; }
-      [hidden] { display: none !important; }
-      #seats button { display: block; width: 100%; max-width: 320px; text-align: left; }
-      #code { font-size: 40px; letter-spacing: 6px; font-weight: bold; }
-      .error { color: #ffd166; min-height: 1.4em; }
-      #game-screen { position: fixed; inset: 0; display: flex; flex-direction: column; background: #0b2545; }
-      #hud { display: flex; align-items: center; gap: 16px; padding: 0 16px; height: 48px; flex: none; font-weight: bold; }
-      #hud-energy { flex: 1; max-width: 360px; height: 16px; border: 2px solid #fff; border-radius: 4px; overflow: hidden; }
-      #hud-energy-fill { height: 100%; width: 100%; background: #7ee081; }
-      #game { flex: 1; min-height: 0; }
-      #hud-clock { margin-left: auto; font-variant-numeric: tabular-nums; }
-      #game-screen, #game-screen * { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+      /* Stage 4 slice 7: the sea-chart look (look-options canvas: lobby and controller mock-ups). */
+      :root {
+        --sea: #bfd9e3; --ink: #3b2f22; --ink-dark: #1e170f; --cream: #f6ecd3; --paper: #fffdf6; --deep: #1f4a63;
+        --red: #b23a2e; --green: #2d5e2a; --shadow: 4px 4px 0 rgba(59,47,34,0.35);
+        --serif: Georgia, "Times New Roman", serif;
+      }
       html, body { overscroll-behavior: none; }
-      #touch { position: absolute; left: 0; right: 0; top: 48px; bottom: 0; }
-      #stick-base, #stick-knob { position: absolute; left: 0; top: 0; border-radius: 50%; pointer-events: none; }
-      #stick-base { width: 120px; height: 120px; border: 3px solid rgba(255,255,255,0.35); }
-      #stick-base.held { border-color: rgba(255,255,255,0.7); }
-      #stick-knob { width: 56px; height: 56px; background: rgba(255,255,255,0.45); }
-      .touch-btn { position: absolute; border-radius: 50%; border: 3px solid rgba(255,255,255,0.7); background: rgba(255,255,255,0.15); color: #fff; font: bold 18px sans-serif; padding: 0; }
-      .touch-btn.held { background: rgba(255,255,255,0.5); }
-      #btn-boost { width: 120px; height: 120px; right: 40px; bottom: 40px; }
-      #btn-fire { width: 110px; height: 110px; right: 40px; bottom: 40px; }
-      #btn-shield { width: 80px; height: 80px; right: 170px; bottom: 55px; }
-      /* Small Pack button above Boost / Fire; dim unless this role can use what's loaded. */
-      #btn-pack { width: 76px; height: 76px; right: 57px; bottom: 175px; font-size: 14px; border-radius: 12px; opacity: 0.4; }
-      #btn-pack.lit { opacity: 1; background: rgba(255,209,102,0.35); border-color: #ffd166; }
-      #hud-pack { white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; }
-      /* Stage 3 pack icons (white on the dark bar and button). */
-      .pack-icon { width: 20px; height: 20px; vertical-align: middle; }
-      #btn-pack { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
-      /* Host's mode buttons: the chosen one is highlighted. */
-      .mode-btn[aria-pressed="true"] { background: #ffd166; color: #0b2545; font-weight: bold; }
-      #hazards-host { margin-right: 16px; }
-      #hud-emp { color: #7fd8ff; white-space: nowrap; }
-      /* EMP'd crew: every button dim (the stick still steers). */
-      #touch.emp .touch-btn { opacity: 0.25; }
-      .overlay-text { position: absolute; left: 50%; transform: translateX(-50%); pointer-events: none; text-shadow: 0 2px 6px rgba(0,0,0,0.6); text-align: center; }
-      #countdown { top: 35%; font-size: 96px; font-weight: bold; }
-      /* Stage 2 closing storm: a small status line at the top of the sea; the banner moves down below it. */
-      #storm-status { top: 56px; font-size: 16px; font-weight: bold; }
-      #storm-status.in-storm { color: #ff6b6b; }
-      #storm-status:not([hidden]) ~ #banner { top: 92px; }
-      #banner { top: 64px; font-size: 22px; font-weight: bold; background: rgba(11,37,69,0.85); padding: 8px 16px; border-radius: 8px; }
-      #scoreboard { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); background: rgba(11,37,69,0.95); padding: 16px 24px; border-radius: 12px; text-align: center; min-width: 280px; }
-      #scoreboard h2 { margin: 0 0 8px; }
-      /* Stage 3 results table. */
-      .results { border-collapse: collapse; margin: 0 auto 8px; }
-      .results th, .results td { padding: 2px 8px; text-align: left; white-space: nowrap; }
-      .results th { font-size: 13px; border-bottom: 1px solid rgba(255,255,255,0.4); }
-      #results-countdown, #results-wait { font-size: 13px; margin: 4px 0; }
-      .awards { list-style: none; padding: 0; margin: 4px 0 8px; font-size: 14px; }
-      #paused { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); background: rgba(11,37,69,0.95); padding: 16px 24px; border-radius: 12px; text-align: center; min-width: 280px; }
-      #hud button { padding: 4px 12px; min-height: 36px; }
-      /* Stage 4 speaker switch: kept small (the 667 px top bar is tight; the real fix comes with the art). */
-      #hud #hud-sound { padding: 4px 6px; }
-      #rotate { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: #0b2545; font-size: 24px; text-align: center; padding: 24px; }
-      /* Stage 3: your crew and the crews in the room. */
-      #my-crew-title { margin: 8px 0 0; }
+      body {
+        margin: 0; font: 17px/1.4 var(--serif); color: var(--ink); min-height: 100vh;
+        background-color: var(--sea);
+        background-image: linear-gradient(rgba(59,47,34,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(59,47,34,0.1) 1px, transparent 1px);
+        background-size: 130px 130px;
+      }
+      input, button, select { font: inherit; color: var(--ink-dark); }
+      input, select { padding: 8px 12px; margin: 4px 0; border: 2px solid var(--ink); background: var(--paper); border-radius: 0; }
+      button { min-width: 44px; min-height: 44px; padding: 8px 14px; margin: 4px 0; border: 2px solid var(--ink); background: var(--cream); color: var(--ink); font-weight: 600; cursor: pointer; border-radius: 0; }
+      button:disabled { opacity: 0.5; cursor: default; }
+      button.primary, #join, #create, #ready, #start, #play-again { background: var(--ink); color: var(--cream); border-color: var(--ink-dark); }
+      [hidden] { display: none !important; }
+      h1, h2, h3 { font-weight: 400; margin: 0 0 8px; }
+      h2 { font-size: 22px; }
+      h3 { font-size: 19px; }
+      .card { background: var(--cream); border: 2px solid var(--ink); box-shadow: var(--shadow); padding: 16px; margin: 0 0 16px; }
+      .error { color: var(--red); font-weight: 600; min-height: 1.4em; margin: 8px 16px; }
       .note { margin: 2px 0 8px; font-size: 13px; font-style: italic; }
-      #role-buttons, .role-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 160px)); gap: 8px; }
-      /* Stage 3 slice 3: the waiting screen. */
-      #waiting-figures { display: grid; grid-template-columns: repeat(3, minmax(0, 120px)); gap: 8px; margin: 12px 0; }
-      #waiting-figures div { display: flex; flex-direction: column; align-items: center; padding: 8px; border: 1px solid rgba(255,255,255,0.4); }
-      #waiting-figures strong { font-size: 22px; }
-      #waiting-figures span { text-align: center; }
-      #w-pair { display: flex; flex-wrap: wrap; gap: 8px; }
-      .role-btn { display: flex; flex-direction: column; align-items: center; gap: 2px; min-height: 56px; }
-      .role-btn[aria-pressed="true"] { background: #ffd166; font-weight: 600; }
+      .tag { border: 2px solid var(--ink); padding: 2px 8px; font-size: 13px; font-weight: 600; white-space: nowrap; }
+      .tag.dark { background: var(--ink); color: var(--cream); }
+
+      /* Join screen. */
+      #join-screen { max-width: 420px; margin: 0 auto; padding: 0 16px 24px; }
+      #hero { text-align: center; padding: 28px 0 20px; }
+      #hero svg { display: block; margin: 0 auto 8px; }
+      #hero h1 { font-size: 44px; line-height: 1; }
+      #hero p { margin: 4px 0 0; font-style: italic; }
+      #join-form { display: flex; flex-direction: column; gap: 4px; }
+      #join-form label { font-size: 14px; font-weight: 600; display: flex; flex-direction: column; }
+      #code-input { font-size: 26px; font-weight: 600; letter-spacing: 0.3em; text-transform: uppercase; }
+      #join-row { display: grid; grid-template-columns: 2fr 1fr; gap: 8px; margin-top: 8px; }
+      .or { display: flex; align-items: center; gap: 12px; margin: 18px 0 12px; font-size: 14px; font-style: italic; }
+      .or::before, .or::after { content: ""; flex: 1; height: 1px; background: var(--ink); opacity: 0.4; }
+      #create { width: 100%; }
+      #join-hint { font-size: 13px; text-align: center; margin: 16px 8px; }
+
+      /* Room screen: a header bar, two columns on wide screens (one on phones), a footer bar. */
+      .bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 16px; background: var(--cream); }
+      #room-head { border-bottom: 2px solid var(--ink); justify-content: space-between; }
+      #room-head .brand { font-size: 22px; }
+      #room-head .tags { display: flex; gap: 8px; }
+      #room-body { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 20px; max-width: 1040px; margin: 0 auto; padding: 16px; }
+      @media (max-width: 760px) {
+        #room-body { grid-template-columns: minmax(0, 1fr); }
+        #room-foot { gap: 6px; padding: 8px 10px; }
+        #room-foot button { min-height: 40px; padding: 4px 10px; font-size: 15px; }
+        #room-foot #start, #room-foot #ready { min-width: 110px; font-size: 17px; }
+      }
+      #room-foot { border-top: 2px solid var(--ink); position: sticky; bottom: 0; justify-content: center; }
+      #room-foot #start, #room-foot #ready { min-width: 160px; font-size: 19px; }
+      #ready[aria-pressed="true"] { background: var(--green); border-color: var(--ink-dark); }
+      #ready-count { font-size: 14px; font-weight: 600; }
+      #name-row { margin: 0 0 12px; }
+      #my-crew-head { display: flex; align-items: center; gap: 10px; }
+      #my-crew-hull { width: 44px; height: 22px; flex: none; }
+      #my-crew-title { margin: 0; font-size: 22px; }
+      #role-buttons, .role-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border: 2px solid var(--ink); margin: 8px 0; }
+      .role-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 60px; margin: 0; border: 0; background: var(--paper); font-weight: 400; }
+      .role-btn + .role-btn { border-left: 2px solid var(--ink); }
+      .role-btn strong { font-size: 16px; }
+      .role-btn span { font-size: 13px; font-style: italic; }
+      .role-btn[aria-pressed="true"] { background: var(--ink); color: var(--cream); }
       /* A taken role can't be tapped, but stays easy to read (yours, or your partner's). */
-      .role-btn:disabled { color: #1b1b1b; opacity: 1; }
-      .role-btn:disabled:not([aria-pressed="true"]) { background: #d9d9d9; }
-      #crew-list { list-style: none; padding: 0; margin: 0; max-width: 520px; }
-      #crew-list li { display: flex; align-items: center; gap: 10px; min-height: 48px; border-bottom: 1px solid rgba(255,255,255,0.3); }
-      #crew-list .crew-name { flex: 1; }
-      #crew-list li > span:first-child { white-space: nowrap; }
-      #ready[aria-pressed="true"] { background: #7ee081; font-weight: 600; }
+      .role-btn:disabled { opacity: 1; cursor: default; }
+      .crew-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+      #crew-list { list-style: none; padding: 0; margin: 0 0 16px; background: var(--cream); border: 2px solid var(--ink); }
+      #crew-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; min-height: 52px; padding: 4px 12px; border-bottom: 1px solid rgba(59,47,34,0.3); box-sizing: border-box; }
+      #crew-list li:last-child { border-bottom: 0; }
+      #crew-list .crew-name { flex: 1 1 120px; min-width: 0; }
+      #crew-list li > span:first-child { white-space: nowrap; font-weight: 600; }
+      #crew-list li > span:nth-child(3) { font-size: 13px; font-weight: 600; }
+      #crew-list button { background: var(--ink); color: var(--cream); font-size: 14px; }
+      /* Host card: the QR code (on white, so it scans) beside the room code; then the settings. */
+      #join-card { display: flex; align-items: center; gap: 16px; }
+      #qr svg { width: 132px; height: 132px; display: block; background: #fff; border: 2px solid var(--ink); }
+      #code-label { margin: 0; font-size: 13px; font-weight: 600; }
+      #code { display: block; font-size: 40px; letter-spacing: 0.25em; font-weight: 600; color: var(--ink-dark); line-height: 1.1; }
+      #qr-caption { font-size: 13px; margin: 4px 0 0; }
+      #settings p { margin: 0; padding: 6px 0; border-bottom: 1px solid rgba(59,47,34,0.3); display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+      #settings p:last-child { border-bottom: 0; }
+      #settings p:empty { display: none; }
+      .mode-btn { font-weight: 400; }
+      .mode-btn[aria-pressed="true"] { background: var(--ink); color: var(--cream); font-weight: 600; }
+      #hazards-host { margin-right: 16px; }
       /* Stage 3 slice 8: a spectator's lobby shows the code large, for a TV or a laptop everyone can see. */
       .spectating #join-card #qr svg { width: 260px; height: 260px; }
       .spectating #code { font-size: 72px; letter-spacing: 0.2em; }
       #spectating { font-size: 18px; }
-      /* Stage 3: the QR code and room code side by side. */
-      #join-card { display: flex; align-items: center; gap: 16px; }
-      #qr svg { width: 132px; height: 132px; display: block; background: #fff; }
-      #qr-caption { font-size: 14px; max-width: 360px; }
+      /* Stage 3 slice 3: the waiting screen. */
+      #waiting-head { text-align: center; }
+      #waiting-head svg { display: block; margin: 0 auto 4px; }
+      #waiting-figures { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 12px 0; background: var(--cream); border: 2px solid var(--ink); }
+      #waiting-figures div { display: flex; flex-direction: column; align-items: center; padding: 10px 6px; }
+      #waiting-figures div + div { border-left: 1px solid rgba(59,47,34,0.3); }
+      #waiting-figures strong { font-size: 22px; }
+      #waiting-figures span { text-align: center; font-size: 13px; }
+      #w-pair { display: flex; flex-wrap: wrap; gap: 8px; }
+
+      /* The game screen: a cream top bar above the sea (it never covers the sea). */
+      #game-screen { position: fixed; inset: 0; display: flex; flex-direction: column; background: var(--deep); }
+      #game-screen, #game-screen * { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+      #hud { display: flex; align-items: center; gap: 14px; padding: 0 14px; height: 48px; flex: none; font-weight: 600; background: var(--cream); color: var(--ink); border-bottom: 2px solid var(--ink); box-sizing: border-box; }
+      #hud > * { flex: none; }
+      #hud-role { padding: 3px 10px; border: 2px solid var(--ink-dark); background: var(--ink); color: #fff; }
+      #hud-energy { flex: 1 1 auto; min-width: 120px; max-width: 360px; height: 14px; border: 2px solid var(--ink); background: var(--paper); overflow: hidden; }
+      #hud-energy-fill { height: 100%; width: 100%; background: #7ee081; }
+      #hud-pack { white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; }
+      #hud-emp { color: #1d5fa8; white-space: nowrap; }
+      #hud-clock { margin-left: auto; font-variant-numeric: tabular-nums; }
+      #hud button { padding: 2px 12px; min-height: 34px; margin: 0; }
+      #hud #hud-sound { padding: 2px 6px; }
+      /* Pack icons are white files; ink on the cream bar and buttons. */
+      .pack-icon { width: 20px; height: 20px; vertical-align: middle; filter: brightness(0); }
+      #game { flex: 1; min-height: 0; }
+      /* Stage 4 slice 7, the 667 px fix: on small screens the bar tightens so the energy bar keeps its width. */
+      @media (max-width: 720px) {
+        #hud { gap: 7px; padding: 0 8px; font-size: 13px; }
+        #hud-crew, .hud-label { display: none; }
+        #hud-role { padding: 2px 6px; }
+        #hud button { padding: 2px 6px; min-height: 30px; min-width: 30px; font-size: 13px; }
+        #hud #hud-sound { padding: 2px 3px; }
+        .pack-icon { width: 16px; height: 16px; }
+      }
+
+      /* Phone controls (the controller mock-ups). */
+      #touch { position: absolute; left: 0; right: 0; top: 48px; bottom: 0; }
+      #stick-base, #stick-knob { position: absolute; left: 0; top: 0; border-radius: 50%; pointer-events: none; }
+      #stick-base { width: 120px; height: 120px; border: 3px solid var(--ink); background: rgba(246,236,211,0.45); box-sizing: border-box; }
+      #stick-base.held { background: rgba(246,236,211,0.7); }
+      #stick-knob { width: 56px; height: 56px; background: var(--ink); border: 3px solid var(--cream); box-sizing: border-box; box-shadow: 0 2px 0 rgba(30,23,15,0.4); }
+      .touch-btn { position: absolute; border-radius: 50%; border: 3px solid var(--ink-dark); background: var(--cream); color: var(--ink); font: 600 18px var(--serif); padding: 0; margin: 0; box-shadow: 0 3px 0 rgba(30,23,15,0.45); }
+      .touch-btn.held { transform: translateY(2px); box-shadow: 0 1px 0 rgba(30,23,15,0.45); filter: brightness(0.9); }
+      #btn-boost { width: 120px; height: 120px; right: 40px; bottom: 40px; background: var(--crew, var(--ink)); color: #fff; font-size: 24px; }
+      #btn-fire { width: 110px; height: 110px; right: 40px; bottom: 40px; background: var(--red); color: #fff; font-size: 24px; }
+      #btn-shield { width: 80px; height: 80px; right: 170px; bottom: 55px; }
+      /* Small Pack button above Boost / Fire; dim unless this role can use what's loaded (then it glows in the crew colour). */
+      #btn-pack { width: 76px; height: 76px; right: 57px; bottom: 175px; font-size: 14px; opacity: 0.45; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; }
+      #btn-pack.lit { opacity: 1; box-shadow: 0 0 0 6px color-mix(in srgb, var(--crew, var(--ink)) 45%, transparent), 0 3px 0 rgba(30,23,15,0.45); }
+      /* EMP'd crew: every button dim (the stick still steers). */
+      #touch.emp .touch-btn { opacity: 0.25; }
+
+      /* Overlays on the sea. */
+      .overlay-text { position: absolute; left: 50%; transform: translateX(-50%); pointer-events: none; text-align: center; }
+      #countdown { top: 35%; font-size: 96px; font-weight: 600; color: var(--ink-dark); text-shadow: 0 0 6px var(--cream), 0 0 2px var(--cream), 0 0 12px var(--cream); }
+      /* Stage 2 closing storm: a small status line at the top of the sea; the banner moves down below it. */
+      #storm-status { top: 56px; font-size: 15px; font-weight: 600; background: var(--ink); color: var(--cream); padding: 4px 12px; }
+      #storm-status.in-storm { background: var(--red); color: #fff; }
+      #storm-status:not([hidden]) ~ #banner { top: 92px; }
+      #banner { top: 64px; font-size: 20px; font-weight: 600; background: var(--cream); color: var(--ink); border: 2px solid var(--ink); box-shadow: var(--shadow); padding: 8px 16px; }
+      #scoreboard, #paused { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); background: var(--cream); color: var(--ink); border: 2px solid var(--ink); box-shadow: var(--shadow); padding: 16px 24px; text-align: center; min-width: 280px; max-height: calc(100% - 32px); overflow: auto; box-sizing: border-box; }
+      #scoreboard h2 { margin: 0 0 8px; font-size: 28px; }
+      /* Stage 3 results table. */
+      .results { border-collapse: collapse; margin: 0 auto 8px; }
+      .results th, .results td { padding: 3px 8px; text-align: left; white-space: nowrap; }
+      .results th { font-size: 13px; border-bottom: 2px solid var(--ink); }
+      .results td { border-bottom: 1px solid rgba(59,47,34,0.3); }
+      #results-countdown, #results-wait { font-size: 13px; margin: 4px 0; }
+      .awards { list-style: none; padding: 0; margin: 4px 0 8px; font-size: 14px; }
+      #rotate { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: var(--sea); color: var(--ink); font-size: 24px; text-align: center; padding: 24px; }
     </style>
   </head>
   <body>
-    <h1>Sink or Sail</h1>
-
     <section id="join-screen">
-      <label>Your name <input id="name" maxlength="24" autocomplete="nickname" /></label>
-      <p><button id="create">Create room</button></p>
-      <p>
+      <div id="hero">
+        <svg width="220" height="90" viewBox="-110 -45 220 90" aria-hidden="true">
+          <g fill="none" stroke="#3b2f22" stroke-opacity="0.35" stroke-width="1.4" stroke-linecap="round"><path d="M-95 -20 q6 -5 12 0 t12 0"></path><path d="M70 -30 q6 -5 12 0 t12 0"></path><path d="M75 25 q6 -5 12 0 t12 0"></path></g>
+          <g fill="none" stroke="#3b2f22" stroke-width="1.2" opacity="0.5"><path d="M-40 14 q-24 10 -50 12"></path><path d="M-34 24 q-18 14 -44 20"></path></g>
+          <g transform="rotate(-12) scale(2)"><path d="M24 0 C 16 -10, -6 -11, -19 -8 Q -22 0 -19 8 C -6 11, 16 10, 24 0 Z" fill="#c9782a" stroke="#1e170f" stroke-width="1.4" stroke-linejoin="round"></path><g fill="none" stroke="#f6ecd3" stroke-width="1" stroke-linecap="round"><path d="M-15 -4 L-15 4"></path><path d="M11 -6 Q16 0 11 6"></path></g><g transform="rotate(40)"><rect x="0" y="-2" width="13" height="4" fill="#1e170f" stroke="#f6ecd3" stroke-width="0.7"></rect><circle r="4.5" fill="#1e170f" stroke="#f6ecd3" stroke-width="1"></circle></g></g>
+        </svg>
+        <h1>Sink or Sail</h1>
+        <p>Two to a ship. Last one afloat wins.</p>
+      </div>
+      <div id="join-form" class="card">
         <label>Room code <input id="code-input" maxlength="8" autocapitalize="characters" autocomplete="off" /></label>
-        <button id="join">Join</button>
-        <button id="watch">Watch</button>
-      </p>
+        <label>Your name <input id="name" maxlength="24" autocomplete="nickname" /></label>
+        <div id="join-row"><button id="join">Join room</button><button id="watch">Watch</button></div>
+      </div>
+      <div class="or">or</div>
+      <button id="create">Host a new room</button>
+      <p id="join-hint">Scanning the host's QR code fills in the room code for you. No account needed.</p>
     </section>
 
     <section id="room-screen" hidden>
-      <p id="spectating" hidden>You're watching. <strong>Join on your phone:</strong> scan the code or type it in.</p>
-      <div id="join-card">
-        <div id="qr" role="img" aria-label="QR code to join this room"></div>
-        <div>
-          <p>Room code <span id="code"></span></p>
-          <p id="qr-caption"></p>
+      <header id="room-head" class="bar">
+        <span class="brand">Sink or Sail</span>
+        <span class="tags"><span id="head-code" class="tag"></span><span id="head-mode" class="tag dark"></span></span>
+      </header>
+      <div id="room-body">
+        <div class="col">
+          <p id="spectating" class="card" hidden>You're watching. <strong>Join on your phone:</strong> scan the code or type it in.</p>
+          <p id="name-row">
+            Your name: <strong id="my-name"></strong> <button id="name-change">Change</button>
+            <span id="name-edit" hidden>
+              <input id="name-new" maxlength="24" autocomplete="nickname" aria-label="New name" />
+              <button id="name-save">Save</button> <button id="name-cancel">Cancel</button>
+            </span>
+          </p>
+          <p id="status"></p>
+          <section id="my-crew" class="card" hidden>
+            <div id="my-crew-head">
+              <svg id="my-crew-hull" viewBox="-24 -12 48 24" aria-hidden="true"><path d="M22 0 C 15 -9, -5 -10, -18 -7 Q -21 0 -18 7 C -5 10, 15 9, 22 0 Z" fill="currentColor" stroke="#1e170f" stroke-width="2"></path></svg>
+              <div><h2 id="my-crew-title"></h2><p class="note">Colour assigned automatically</p></div>
+            </div>
+            <div id="role-buttons">
+              <button id="role-pilot" class="role-btn" aria-pressed="false"><strong>Pilot</strong><span id="role-pilot-who"></span></button>
+              <button id="role-gunner" class="role-btn" aria-pressed="false"><strong>Gunner</strong><span id="role-gunner-who"></span></button>
+            </div>
+            <div class="crew-actions"><button id="find-partner">Find me a partner</button> <button id="play-bot">Play with a bot</button> <button id="remove-bot">Remove bot</button> <button id="leave-crew">Leave this crew</button></div>
+          </section>
+          <section id="waiting" hidden>
+            <div id="waiting-head">
+              <svg width="150" height="90" viewBox="0 0 150 90" aria-hidden="true">
+                <path d="M75 45 m0 -4 a4 4 0 1 1 -4 4 a8 8 0 1 1 8 8 a14 14 0 1 1 -14 -14 a22 22 0 1 1 22 22 a30 30 0 1 1 -30 -30" fill="none" stroke="#3b2f22" stroke-width="2" stroke-linecap="round"></path>
+                <g transform="translate(128,20) rotate(150)"><path d="M14 0 C 9 -6, -4 -6, -11 -5 Q -13 0 -11 5 C -4 6, 9 6, 14 0 Z" fill="#b0407a" stroke="#1e170f" stroke-width="1.6"></path></g>
+                <g transform="translate(22,70) rotate(-20)"><path d="M14 0 C 9 -6, -4 -6, -11 -5 Q -13 0 -11 5 C -4 6, 9 6, 14 0 Z" fill="#2a7f78" stroke="#1e170f" stroke-width="1.6"></path></g>
+              </svg>
+              <h2>A match is under way</h2>
+              <p>You'll join at the start of the next round. Set up your crew while you wait.</p>
+            </div>
+            <div id="waiting-figures">
+              <div><strong id="w-afloat"></strong><span>ships afloat</span></div>
+              <div><strong id="w-clock"></strong><span id="w-clock-label"></span></div>
+              <div><strong id="w-others"></strong><span>others waiting</span></div>
+            </div>
+            <div class="card">
+              <h3>Your crew for the next round</h3>
+              <div class="role-pair">
+                <button id="w-role-pilot" class="role-btn" aria-pressed="true"><strong>Pilot</strong></button>
+                <button id="w-role-gunner" class="role-btn" aria-pressed="false"><strong>Gunner</strong></button>
+              </div>
+              <p id="w-partner"></p>
+              <div id="w-pair"></div>
+              <div class="crew-actions"><button id="w-bot">Play with a bot</button> <button id="w-remove-bot" hidden>Remove bot</button> <button id="w-alone" hidden>Wait alone</button> <button id="w-watch">Watch the match</button></div>
+              <p class="note">Your crew colour is assigned when the round starts.</p>
+            </div>
+          </section>
+          <h2>Crews in this room</h2>
+          <ul id="crew-list"></ul>
+          <div id="last-result" class="card" hidden></div>
+        </div>
+        <div class="col">
+          <div id="host-card" class="card">
+            <div id="join-card">
+              <div id="qr" role="img" aria-label="QR code to join this room"></div>
+              <div>
+                <p id="code-label">Room code</p>
+                <span id="code"></span>
+                <p id="qr-caption"></p>
+              </div>
+            </div>
+          </div>
+          <div id="settings" class="card">
+            <p>
+              <label id="packs-host" hidden><input type="checkbox" id="packs-toggle" /> Packs on</label>
+              <span id="packs-status"></span>
+            </p>
+            <p id="mode-host" hidden>
+              <button id="mode-sinkCount" class="mode-btn" aria-pressed="true">Sink Count</button>
+              <button id="mode-lastAfloat" class="mode-btn" aria-pressed="false">Last Afloat</button>
+              <label id="lives-host" hidden>Lives <select id="lives-select"></select></label>
+            </p>
+            <p id="mode-status"></p>
+            <p>
+              <label id="hazards-host" hidden><input type="checkbox" id="hazards-toggle" /> Hazards on</label>
+              <label id="reefs-host" hidden>Reefs <select id="reefs-select"></select></label>
+              <span id="hazards-status"></span>
+            </p>
+            <p>
+              <label id="layout-host" hidden>Layout <select id="layout-select"></select></label>
+              <span id="layout-status"></span>
+            </p>
+            <p>
+              <label id="bot-ships-host" hidden>Bot ships <select id="bot-ships-select"></select></label>
+              <span id="bot-ships-status"></span>
+            </p>
+          </div>
         </div>
       </div>
-      <p>
-        Your name: <strong id="my-name"></strong> <button id="name-change">Change</button>
-        <span id="name-edit" hidden>
-          <input id="name-new" maxlength="24" autocomplete="nickname" aria-label="New name" />
-          <button id="name-save">Save</button> <button id="name-cancel">Cancel</button>
-        </span>
-      </p>
-      <p id="status"></p>
-      <section id="my-crew" hidden>
-        <h2 id="my-crew-title"></h2>
-        <p class="note">Colour assigned automatically</p>
-        <div id="role-buttons">
-          <button id="role-pilot" class="role-btn" aria-pressed="false"><strong>Pilot</strong><span id="role-pilot-who"></span></button>
-          <button id="role-gunner" class="role-btn" aria-pressed="false"><strong>Gunner</strong><span id="role-gunner-who"></span></button>
-        </div>
-        <p><button id="find-partner">Find me a partner</button> <button id="play-bot">Play with a bot</button> <button id="remove-bot">Remove bot</button> <button id="leave-crew">Leave this crew</button></p>
-      </section>
-      <section id="waiting" hidden>
-        <h2>A match is under way</h2>
-        <p>You'll join at the start of the next round. Set up your crew while you wait.</p>
-        <div id="waiting-figures">
-          <div><strong id="w-afloat"></strong><span>ships afloat</span></div>
-          <div><strong id="w-clock"></strong><span id="w-clock-label"></span></div>
-          <div><strong id="w-others"></strong><span>others waiting</span></div>
-        </div>
-        <h3>Your crew for the next round</h3>
-        <div class="role-pair">
-          <button id="w-role-pilot" class="role-btn" aria-pressed="true"><strong>Pilot</strong></button>
-          <button id="w-role-gunner" class="role-btn" aria-pressed="false"><strong>Gunner</strong></button>
-        </div>
-        <p id="w-partner"></p>
-        <div id="w-pair"></div>
-        <p><button id="w-bot">Play with a bot</button> <button id="w-remove-bot" hidden>Remove bot</button> <button id="w-alone" hidden>Wait alone</button> <button id="w-watch">Watch the match</button></p>
-        <p class="note">Your crew colour is assigned when the round starts.</p>
-      </section>
-      <h2>Crews in this room</h2>
-      <ul id="crew-list"></ul>
-      <p><button id="ready" aria-pressed="false">Ready</button> <span id="ready-count"></span></p>
-      <p><button id="watch-instead" hidden>Watch instead</button> <button id="play-next" hidden>Play next round</button></p>
-      <div id="last-result" hidden></div>
-      <p>
-        <label id="packs-host" hidden><input type="checkbox" id="packs-toggle" /> Packs on</label>
-        <span id="packs-status"></span>
-      </p>
-      <p id="mode-host" hidden>
-        <button id="mode-sinkCount" class="mode-btn" aria-pressed="true">Sink Count</button>
-        <button id="mode-lastAfloat" class="mode-btn" aria-pressed="false">Last Afloat</button>
-        <label id="lives-host" hidden>Lives <select id="lives-select"></select></label>
-      </p>
-      <p id="mode-status"></p>
-      <p>
-        <label id="hazards-host" hidden><input type="checkbox" id="hazards-toggle" /> Hazards on</label>
-        <label id="reefs-host" hidden>Reefs <select id="reefs-select"></select></label>
-        <span id="hazards-status"></span>
-      </p>
-      <p>
-        <label id="layout-host" hidden>Layout <select id="layout-select"></select></label>
-        <span id="layout-status"></span>
-      </p>
-      <p>
-        <label id="bot-ships-host" hidden>Bot ships <select id="bot-ships-select"></select></label>
-        <span id="bot-ships-status"></span>
-      </p>
-      <p><button id="start">Start match</button> <span id="match"></span></p>
-      <p><button id="leave">Leave room</button></p>
+      <footer id="room-foot" class="bar">
+        <span id="ready-count"></span>
+        <button id="ready" aria-pressed="false">Ready</button>
+        <button id="start">Start match</button> <span id="match"></span>
+        <button id="watch-instead" hidden>Watch instead</button> <button id="play-next" hidden>Play next round</button>
+        <button id="leave">Leave room</button>
+      </footer>
     </section>
 
     <p id="error" class="error" role="alert"></p>

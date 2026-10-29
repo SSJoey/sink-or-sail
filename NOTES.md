@@ -1063,6 +1063,45 @@ Drafted from `docs/design.md`, the roadmap and the "Later" notes. Question: **is
     - It passed alone, as did the three later groups.
     - The user chose to commit as it is (2026-10-30).
 
+### 2026-10-30 — Stage 4 slice 7 plan: sea-chart look for the screens and the top bar (with the 667 px fix)
+
+- **From the mock-ups** (Join, Crew and role, Host settings, Waiting, both phone controllers; read 2026-10-30):
+  - **Everywhere:** a pale chart-blue background with the ink grid; cream cards with a 2px ink border and an offset shadow; ink text; dark ink main buttons with cream text; system serif fonts (Georgia).
+  - **Join screen:** the title over an inked ship.
+  - **Lobby:** a cream header with the code and a mode badge, a "Your crew" card with a two-part Pilot/Gunner switch, a crew list with colour swatches, and a footer with Ready/Start. The host card holds the QR code (on white) and the settings.
+  - **Waiting screen:** as its mock-up.
+  - **Overlays:** the countdown in ink with a cream outline; cream banner, storm status, results and pause cards.
+  - **Phone controls:** a cream stick with an ink knob; Boost in the crew colour; Fire chart red; Shield and Pack cream, the Pack button glowing in the crew colour when lit. The mock-ups' "Touch anywhere" hint is left for slice 8.
+  - **Unchanged:** every id, so tests and code still find everything.
+  - **667 px fix:** under 720 px the top bar gets smaller text, tighter gaps and compact buttons; the energy bar keeps at least 120 px.
+- **Question 1:** a) the top bar is a cream strip above the sea, with an ink line under it. The role is a tag in the crew colour; the crew name is ink.
+- **Question 2:** b) the energy bar keeps today's green fill.
+- **Question 3:** b) on wide screens the lobby has two columns: your crew and the crews on the left, the host card and settings on the right. On phones it is one column.
+- **Go-ahead:** "yes" (2026-10-30).
+- **Built (2026-10-30):**
+  - **`client/index.html`:**
+    - new styles (colour variables; cream cards with an ink border and offset shadow; ink main buttons; Georgia);
+    - the join screen as its mock-up: an inked ship and title, a code-and-name card, Join room and Watch, "or", Host a new room, and a hint;
+    - the room screen:
+      - a header bar with the code and a mode badge;
+      - two columns: on the left your name, your crew card with the hull swatch and the Pilot/Gunner switch, the waiting screen, and the crews; on the right the host card with the QR code and the settings card;
+      - a sticky footer with Ready, Start, Watch instead / Play next round and Leave. It is compact on phones.
+    - Every id is kept. The button wording follows the mock-up: Create room → "Host a new room", Join → "Join room".
+  - **Top bar:** cream with an ink line, the role tag in the crew colour, the crew name in ink, ink pack icons, and the energy bar's green kept.
+  - **667 px fix:** under 720 px the gaps and text tighten, the crew name and the "Packs:" word are left out (the role tag's colour and the score's symbols still show the crew), and the energy bar keeps at least 120 px.
+  - **Overlays:** the countdown in ink with a cream glow; the storm status as an ink tag (red when you're in the storm); cream banner, results and pause cards; "Rotate your phone" on the chart blue.
+  - **Phone controls:** a cream stick with an ink knob; Boost in the crew colour; Fire chart red; Shield and Pack cream, Pack glowing in the crew colour when lit. Buttons press down when held.
+  - **`lobby.ts`:** the header's code and mode, and the crew hull colour (the title is ink).
+  - **`game.ts`:** the role tag colour, a `--crew` colour for the controls, and the "Packs:" label in a span of its own.
+  - **Checked by eye:** throwaway screenshots (deleted) of the join screen, lobby, waiting screen, countdown, phone game with controls, pause and results, on a laptop and a phone. After them, the phone footer was made compact and crew rows wrap.
+  - **Tests:** browser (1 new): on a 667 × 375 phone the host's top bar fits and the energy bar is at least 120 px (before: 4 px).
+  - **Runs:**
+    - Type-check clean; unit 1074 passed (plus 1 skipped).
+    - Full runs 34 and 35 (peak load 32 and 34) each failed only the sound test: the page's frames came over a second apart during the 3-2-1, so it heard "count,go", then "count,count,go".
+    - Between them, the countdown loop's first tick was moved to run at once when the game view opens (not on the next frame). The sound test then passed 4 of 4 alone.
+    - Chrome's page CPU in these runs was about 386%, against 322% in slice 6's run and 328–375% in earlier ones.
+    - The user chose to commit as it is.
+
 ## Later
 
 - **(2026-10-29, Stage 5) Sound by distance:** with up to 10 ships and a camera that follows your ship, other ships' sounds get quieter the further away they are, and nearly silent off screen. Stage 4 slice 2's volume rule is the place to add it. It works alongside the cap of 8 sounds at once.
