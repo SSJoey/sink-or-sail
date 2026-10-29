@@ -33,8 +33,15 @@ describe("the crews in the room (Stage 3)", () => {
 describe("your own crew (Stage 3)", () => {
   it("shows who holds each role, whether you are alone, and its colour", () => {
     const players = [p("ana", "Ana", 1, "gunner"), p("ben", "Ben", 1, "pilot"), p("sam", "Sam", 0, "pilot")];
-    expect(myCrew(players, "ana")).toEqual({ crew: 1, label: "■ Crew 2", colour: "#E8559A", role: "gunner", pilot: "Ben", gunner: "Ana (you)", alone: false, crews: 2 });
+    expect(myCrew(players, "ana")).toEqual({ crew: 1, label: "■ Crew 2", colour: "#E8559A", role: "gunner", pilot: "Ben", gunner: "Ana (you)", alone: false, withBot: false, crews: 2 });
     expect(myCrew(players, "sam")).toMatchObject({ crew: 0, pilot: "Sam (you)", gunner: null, alone: true });
+  });
+
+  it("says whether your partner is a bot (slice 9), for Remove bot", () => {
+    const bot = { ...p("bot:1", "Bot", 0, "gunner", true), bot: true };
+    expect(myCrew([p("ana", "Ana", 0, "pilot"), bot], "ana")).toMatchObject({ gunner: "Bot", alone: false, withBot: true });
+    expect(myCrew([p("ana", "Ana", 0, "pilot"), p("ben", "Ben", 0, "gunner")], "ana")).toMatchObject({ withBot: false });
+    expect(crewRows([p("ana", "Ana", 0, "pilot"), bot], "ana", "ana")[0]).toMatchObject({ names: "Ana ★ (you) & Bot", status: "Not ready", join: null });
   });
 
   it("is null for a player without a crew (joined during a match)", () => {

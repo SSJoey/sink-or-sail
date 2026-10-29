@@ -42,6 +42,10 @@ export const ClientMessage = {
   /** Stage 3 slice 8: a player becomes a spectator (between matches), and a spectator a player ("Play next round"). */
   Watch: "watch",
   PlayNextRound: "playNextRound",
+  /** Stage 3 slice 9: a bot takes your crew's free role (between matches), or, waiting out a match, plays with you
+   *  next round; Remove bot takes it out (your crew waits for a partner again), or, waiting, changes your mind. */
+  PlayWithBot: "playWithBot",
+  RemoveBot: "removeBot",
   /** Start the match (host only). */
   Start: "start",
   /** The sender's role input; see input.ts. */
@@ -107,6 +111,8 @@ export const RejectReason = {
   AlreadyAlone: "alreadyAlone",
   /** Stage 3: Play next round with 6 players already. */
   RoomFull: "roomFull",
+  /** Stage 3 slice 9: Remove bot when your crew has no bot. */
+  NoBot: "noBot",
 } as const;
 export type RejectReason = (typeof RejectReason)[keyof typeof RejectReason];
 

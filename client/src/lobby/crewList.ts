@@ -9,6 +9,8 @@ export interface LobbyPlayer {
   role?: string;
   ready: boolean;
   connected: boolean;
+  /** Stage 3 slice 9: a partner bot. */
+  bot?: boolean;
 }
 
 export interface CrewRow {
@@ -59,7 +61,7 @@ export function crewRows(players: readonly LobbyPlayer[], hostId: string, myId: 
   });
 }
 
-/** Your crew: its colour, who holds each role, whether you're alone in it, and how many crews there are; null without one. */
+/** Your crew: its colour, who holds each role, whether you're alone in it (or with a bot), and how many crews there are; null without one. */
 export function myCrew(players: readonly LobbyPlayer[], myId: string) {
   const me = players.find((pl) => pl.id === myId);
   if (!me || me.crew === undefined) return null;
@@ -76,6 +78,8 @@ export function myCrew(players: readonly LobbyPlayer[], myId: string) {
     pilot: holder("pilot"),
     gunner: holder("gunner"),
     alone: members.length === 1,
+    /** Slice 9: the other role is a bot's (for Remove bot). */
+    withBot: members.some((m) => m.bot === true),
     crews: crewsOf(players).size,
   };
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { RejectReason, type Seat } from "@sink-or-sail/shared";
-import { closeUpCrews, crewsReady, findPartner, leaveCrew, placeJoiner, refreshWaiting, seatWaiting, type CrewRoster } from "./crews.ts";
+import { addBot, closeUpCrews, crewsReady, findPartner, isBotId, leaveCrew, placeJoiner, refreshWaiting, removeBot, seatWaiting, type CrewRoster } from "./crews.ts";
 
 /** A roster from "id: crew role" entries (crew numbered from 0; null for no crew) and when crews started waiting. */
 function roster(seats: Record<string, Seat | null>, waiting: Record<number, number> = {}): CrewRoster {
@@ -134,5 +134,72 @@ describe("placing players who waited out a match (slice 3)", () => {
     const r = seatWaiting(start, [w("tom", "pilot", "ana"), w("ana", "pilot")], 5);
     expect(r.seats.get("tom")).toEqual(seat(1, "pilot"));
     expect(r.seats.get("ana")).toEqual(seat(1, "gunner"));
+  });
+});
+
+describe("partner bots (slice 9)", () => {
+  it("bots have ids of their own, never a session id", () => {
+    expect(isBotId("bot:1")).toBe(true);
+    expect(isBotId("aB3dE5fG7")).toBe(false);
+  });
+
+  it("Play with a bot: a bot takes the free role of a player who is alone; the crew no longer waits", () => {
+    const r = addBot(roster({ ana: seat(0, "gunner"), ben: seat(1, "pilot") }, { 0: 1, 1: 2 }), "ana", "bot:1", 5);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.roster.seats.get("bot:1")).toEqual(seat(0, "pilot"));
+    expect([...r.roster.waiting.keys()]).toEqual([1]);
+  });
+
+  it("Play with a bot isn't for a player who has a partner, or no crew", () => {
+    expect(addBot(roster({ ana: seat(0, "pilot"), ben: seat(0, "gunner") }), "ana", "bot:1", 5)).toEqual({ ok: false, reason: RejectReason.AlreadyPaired });
+    expect(addBot(roster({ ana: null }), "ana", "bot:1", 5)).toEqual({ ok: false, reason: RejectReason.InvalidSeat });
+  });
+
+  it("Remove bot: the bot leaves and the crew waits for a partner again", () => {
+    const r = removeBot(roster({ ana: seat(0, "gunner"), "bot:1": seat(0, "pilot") }), "ana", 6);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(seatsOf(r.roster)).toEqual({ ana: seat(0, "gunner") });
+    expect(r.roster.waiting.get(0)).toBe(6);
+    expect(removeBot(roster({ ana: seat(0, "gunner"), ben: seat(0, "pilot") }), "ana", 6)).toEqual({ ok: false, reason: RejectReason.NoBot });
+  });
+
+  it("a bot never stays in a crew without a player", () => {
+    const r = refreshWaiting(roster({ "bot:1": seat(0, "pilot"), ben: seat(1, "pilot") }), 3);
+    expect(seatsOf(r)).toEqual({ ben: seat(1, "pilot") });
+    const left = leaveCrew(roster({ ana: seat(0, "gunner"), "bot:1": seat(0, "pilot") }), "ana", 4);
+    expect(left.ok && seatsOf(left.roster)).toEqual({ ana: seat(1, "gunner") });
+  });
+
+  it("a player who joins takes a bot's place first (the bot leaves), then a crew waiting for a partner", () => {
+    const start = roster({ ana: seat(0, "pilot"), ben: seat(1, "gunner"), "bot:1": seat(1, "pilot"), cat: null }, { 0: 1 });
+    const r = placeJoiner(start, "cat", 9, false);
+    expect(r.seats.get("cat")).toEqual(seat(1, "pilot"));
+    expect(r.seats.has("bot:1")).toBe(false);
+    expect(r.waiting.get(0)).toBe(1);
+  });
+
+  it("during a match a joiner waits; when it ends they take the bot's place", () => {
+    const start = roster({ ben: seat(0, "gunner"), "bot:1": seat(0, "pilot"), cat: null });
+    const during = placeJoiner(start, "cat", 9, true);
+    expect(during.seats.get("cat")).toBeNull();
+    expect(during.seats.get("bot:1")).toEqual(seat(0, "pilot"));
+    const after = seatWaiting(during, [{ id: "cat", role: "gunner", partner: "" }], 10);
+    expect(after.seats.get("cat")).toEqual(seat(0, "pilot"));
+    expect(after.seats.has("bot:1")).toBe(false);
+  });
+
+  it("a waiting player who chose Play with a bot starts a crew with a bot when the match ends", () => {
+    const start = roster({ a: seat(0, "pilot"), b: seat(0, "gunner"), tom: null });
+    const r = seatWaiting(start, [{ id: "tom", role: "gunner", partner: "", bot: "bot:2" }], 5);
+    expect(r.seats.get("tom")).toEqual(seat(1, "gunner"));
+    expect(r.seats.get("bot:2")).toEqual(seat(1, "pilot"));
+  });
+
+  it("counts a bot as always ready", () => {
+    const seats = roster({ a: seat(0, "pilot"), "bot:1": seat(0, "gunner") }).seats;
+    expect(crewsReady(seats, new Set(["a"]))).toEqual({ ready: 1, crews: 1 });
+    expect(crewsReady(seats, new Set())).toEqual({ ready: 0, crews: 1 });
   });
 });

@@ -48,5 +48,6 @@ describe("spectators (Stage 3)", () => {
     expect(joinErrorText(new Error(JoinError.RoomFull))).toBe("That room is full.");
     expect(joinErrorText(new Error(JoinError.SpectatorsFull))).toBe("That room already has 4 watching.");
     expect(rejectedText({ reason: RejectReason.RoomFull })).toBe("The room already has 6 players: keep watching for now.");
+    expect(rejectedText({ reason: RejectReason.NoBot })).toBe("Your crew has no bot.");
   });
 });

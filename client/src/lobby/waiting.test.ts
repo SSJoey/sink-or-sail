@@ -34,4 +34,10 @@ describe("the waiting screen (Stage 3 slice 3)", () => {
     expect(view.pairWith).toEqual([]);
     expect(waitingView({ ...base, players }, "me").partnerName).toBeNull();
   });
+
+  it("shows that you chose Play with a bot for the next round (slice 9)", () => {
+    const withBot = players.map((x) => (x.id === "me" ? { ...x, withBot: true } : x));
+    expect(waitingView({ ...base, players: withBot }, "me")).toMatchObject({ withBot: true, partnerName: null });
+    expect(waitingView({ ...base, players }, "me").withBot).toBe(false);
+  });
 });

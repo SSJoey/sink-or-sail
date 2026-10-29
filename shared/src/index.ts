@@ -14,6 +14,7 @@ export * from "./sim/storm.ts";
 export * from "./sim/hazards.ts";
 export * from "./sim/results.ts";
 export * from "./sim/awards.ts";
+export * from "./sim/bots.ts";
 export * from "./sim/match.ts";
 export * from "./sim/step.ts";
 export * from "./sim/random.ts";

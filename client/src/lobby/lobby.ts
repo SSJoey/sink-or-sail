@@ -128,6 +128,11 @@ export function startLobby(): void {
     for (const role of ROLES) byId(`role-${role}`).onclick = () => takeSeat(room, myCrewNow ?? 0, role);
     byId("find-partner").onclick = () => { showError(""); room.send(ClientMessage.FindPartner); };
     byId("leave-crew").onclick = () => { showError(""); room.send(ClientMessage.LeaveCrew); };
+    // Stage 3 slice 9: a bot takes your crew's free role, or leaves it (also on the waiting screen, for the next round).
+    byId("play-bot").onclick = () => { showError(""); room.send(ClientMessage.PlayWithBot); };
+    byId("remove-bot").onclick = () => { showError(""); room.send(ClientMessage.RemoveBot); };
+    byId("w-bot").onclick = () => room.send(ClientMessage.PlayWithBot);
+    byId("w-remove-bot").onclick = () => room.send(ClientMessage.RemoveBot);
     // Stage 3 slice 3: setting up your crew for the next round while waiting out a match.
     for (const role of ROLES) byId(`w-role-${role}`).onclick = () => room.send(ClientMessage.SetNextRole, { role });
     // Stage 3 slice 8: watching instead of playing, and back.
@@ -289,8 +294,8 @@ export function startLobby(): void {
   function renderWaiting(room: Room, state: StateView, shown: boolean): void {
     byId("waiting").hidden = !shown;
     if (!shown) return;
-    const players: { id: string; name: string; crew?: number; nextRole: string; partner: string }[] = [];
-    state.players.forEach((pl, id) => players.push({ id, name: pl.name, crew: pl.crew, nextRole: pl.nextRole, partner: pl.partner }));
+    const players: { id: string; name: string; crew?: number; nextRole: string; partner: string; withBot: boolean }[] = [];
+    state.players.forEach((pl, id) => players.push({ id, name: pl.name, crew: pl.crew, nextRole: pl.nextRole, partner: pl.partner, withBot: pl.withBot }));
     const view = waitingView({
       players, mode: state.matchMode, timeLeft: state.timeLeft, matchStorm: state.matchStorm,
       stormStartsAt: state.stormStartsAt, stormClosedAt: state.stormClosedAt, ships: [...state.ships],
@@ -300,8 +305,10 @@ export function startLobby(): void {
     byId("w-clock-label").textContent = view.clock.label;
     byId("w-others").textContent = String(view.othersWaiting);
     for (const role of ROLES) byId(`w-role-${role}`).setAttribute("aria-pressed", String(view.nextRole === role));
-    byId("w-partner").textContent = view.partnerName ? `Paired with ${view.partnerName}` : "Looking for a partner";
+    byId("w-partner").textContent = view.partnerName ? `Paired with ${view.partnerName}` : view.withBot ? "Playing with a bot" : "Looking for a partner";
     byId("w-alone").hidden = view.partnerName === null;
+    byId("w-bot").hidden = view.withBot;
+    byId("w-remove-bot").hidden = !view.withBot;
     const pair = byId("w-pair");
     const wanted = view.pairWith.map((o) => o.id).join(",");
     if (pair.dataset.ids !== wanted) {
@@ -324,7 +331,7 @@ export function startLobby(): void {
    */
   function renderCrews(room: Room, state: StateView, matchOn: boolean): void {
     const players: LobbyPlayer[] = [];
-    state.players.forEach((pl, id) => players.push({ id, name: pl.name, crew: pl.crew, role: pl.role, ready: pl.ready, connected: pl.connected }));
+    state.players.forEach((pl, id) => players.push({ id, name: pl.name, crew: pl.crew, role: pl.role, ready: pl.ready, connected: pl.connected, bot: pl.bot }));
     const mine = myCrew(players, room.sessionId);
     myCrewNow = mine?.crew ?? null;
     byId("my-crew").hidden = mine === null;
@@ -351,6 +358,8 @@ export function startLobby(): void {
         button.disabled = matchOn || who !== null;
         byId(`role-${role}-who`).textContent = who ?? (mine.alone ? "Waiting for a partner" : "");
       }
+      byId("play-bot").hidden = matchOn || !mine.alone;
+      byId("remove-bot").hidden = matchOn || !mine.withBot;
       byId("find-partner").hidden = matchOn || !mine.alone;
       byId("leave-crew").hidden = matchOn || mine.alone || mine.crews >= CREWS.length;
     }

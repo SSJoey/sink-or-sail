@@ -15,6 +15,10 @@ export const Player = schema({
   partner: t.string().default(""),
   /** Stage 3: watching (a TV, a laptop, or a host who only hosts): never in a crew, not counted among the players. */
   spectator: t.boolean().default(false),
+  /** Stage 3 slice 9: a partner bot (named "Bot", always ready, not counted among the players). */
+  bot: t.boolean().default(false),
+  /** Slice 9, while waiting out a match without a crew: chose Play with a bot for the next round. */
+  withBot: t.boolean().default(false),
 }, "Player");
 export type Player = SchemaType<typeof Player>;
 

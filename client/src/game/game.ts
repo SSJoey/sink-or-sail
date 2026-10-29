@@ -32,6 +32,9 @@ export interface PlayerView {
   partner: string;
   /** Stage 3 slice 8: watching (never in a crew). */
   spectator: boolean;
+  /** Stage 3 slice 9: a partner bot; and, for a player waiting out a match, Play with a bot chosen for the next round. */
+  bot: boolean;
+  withBot: boolean;
 }
 export interface RoomStateView extends GameStateView {
   players: {

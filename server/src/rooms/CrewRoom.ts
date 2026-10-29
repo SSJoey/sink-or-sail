@@ -17,7 +17,11 @@ import {
   RECONNECT_WINDOW_SECONDS,
   ServerMessage,
   TUNING,
+  botGunner,
+  botPilot,
   closeTally,
+  newBotMind,
+  type BotMind,
   createWorld,
   earnedAwards,
   newTally,
@@ -46,7 +50,7 @@ import { MatchLog, fileSink, logFileName, type LogSink } from "../log/matchLog.t
 import { canChangeSeat, canEndMatch, canPause, canResume, canSetPacks, canStart, crewHasShip, everyCrewManned, nextHost, readLayout, readOnOff, readReefs, readLives, readMode, readReady, shipCount } from "./matchFlow.ts";
 import { generateUniqueCode } from "./roomCode.ts";
 import { isNameTaken, takeSeat, type SeatMap } from "./seats.ts";
-import { closeUpCrews, findPartner, leaveCrew, placeJoiner, refreshWaiting, seatWaiting, type CrewResult, type CrewRoster } from "./crews.ts";
+import { addBot, closeUpCrews, findPartner, isBotId, leaveCrew, placeJoiner, refreshWaiting, removeBot, seatWaiting, type CrewResult, type CrewRoster } from "./crews.ts";
 import { AwardState, CrewState, Player, ResultState } from "./state.ts";
 import { GhostControl } from "./ghostControl.ts";
 import { applyEvents, syncWorld } from "./sync.ts";
@@ -98,6 +102,9 @@ export class CrewRoom extends Room<{ state: CrewState }> {
   private tally: AwardTally = newTally(2);
   private matchSeed = 0;
   private joinCount = 0;
+  /** Stage 3 slice 9: each partner bot's mind this match (by its id), and a counter for new bots' ids. */
+  private botMinds = new Map<string, BotMind>();
+  private botCount = 0;
   /** Where each match's log goes; fields so tests can capture it in memory. */
   logSinkFor: (fileName: string) => LogSink = (fileName) => fileSink(join(LOG_DIR, fileName));
   logErrors: (error: unknown) => void = (error) => console.error("Match log write failed:", error);
@@ -157,6 +164,22 @@ export class CrewRoom extends Room<{ state: CrewState }> {
     this.onMessage(ClientMessage.FindPartner, (client) => crewAction(client, findPartner));
     this.onMessage(ClientMessage.LeaveCrew, (client) => crewAction(client, leaveCrew));
 
+    // Stage 3 slice 9: Play with a bot and Remove bot (between matches, like the other crew actions). A player
+    // waiting out a match chooses it for the next round instead (instead of pairing with someone).
+    this.onMessage(ClientMessage.PlayWithBot, (client) => {
+      const player = this.state.players.get(client.sessionId);
+      if (!player || player.spectator) return;
+      if (player.crew !== undefined) return crewAction(client, (roster, id, now) => addBot(roster, id, this.newBotId(), now));
+      this.unpair(client.sessionId);
+      player.withBot = true;
+    });
+    this.onMessage(ClientMessage.RemoveBot, (client) => {
+      const player = this.state.players.get(client.sessionId);
+      if (!player || player.spectator) return;
+      if (player.crew !== undefined) return crewAction(client, removeBot);
+      player.withBot = false;
+    });
+
     // Stage 3 slice 8: Watch instead (a player, between matches: their seat is freed) and Play next round (a spectator:
     // paired in like a joiner now, or waiting for the next round during a match).
     this.onMessage(ClientMessage.Watch, (client) => {
@@ -177,7 +200,7 @@ export class CrewRoom extends Room<{ state: CrewState }> {
     this.onMessage(ClientMessage.PlayNextRound, (client) => {
       const player = this.state.players.get(client.sessionId);
       if (!player || !player.spectator) return;
-      const players = [...this.state.players.values()].filter((p) => !p.spectator).length;
+      const players = [...this.state.players.values()].filter((p) => !p.spectator && !p.bot).length;
       if (players >= MAX_PLAYERS) {
         client.send(ServerMessage.Rejected, { reason: RejectReason.RoomFull } satisfies RejectedMessage);
         return;
@@ -204,6 +227,8 @@ export class CrewRoom extends Room<{ state: CrewState }> {
       if (other) {
         player.partner = otherId;
         other.partner = client.sessionId;
+        player.withBot = false;
+        other.withBot = false;
       }
     });
 
@@ -281,7 +306,7 @@ export class CrewRoom extends Room<{ state: CrewState }> {
       if (phase === Phase.Countdown || phase === Phase.Running || phase === Phase.Paused) return reject(RejectReason.NameLocked);
       const name = normaliseName((message as { name?: unknown } | null)?.name);
       if (name === null) return reject(RejectReason.InvalidName);
-      const others = [...this.state.players.entries()].filter(([id]) => id !== client.sessionId).map(([, p]) => p.name);
+      const others = [...this.state.players.entries()].filter(([id, p]) => id !== client.sessionId && !p.bot).map(([, p]) => p.name);
       if (isNameTaken(others, name)) return reject(RejectReason.NameTaken);
       player.name = name;
     });
@@ -307,13 +332,14 @@ export class CrewRoom extends Room<{ state: CrewState }> {
   onJoin(client: Client, options?: JoinOptions): void {
     const name = normaliseName(options?.name);
     if (name === null) throw new ServerError(ErrorCode.APPLICATION_ERROR, JoinError.InvalidName);
-    const names = [...this.state.players.values()].map((p) => p.name);
-    if (isNameTaken(names, name)) throw new ServerError(ErrorCode.APPLICATION_ERROR, JoinError.NameTaken);
+    // Stage 3 slice 9: bots (all named "Bot") don't hold a name and don't count among the players.
+    const people = [...this.state.players.values()].filter((p) => !p.bot);
+    if (isNameTaken(people.map((p) => p.name), name)) throw new ServerError(ErrorCode.APPLICATION_ERROR, JoinError.NameTaken);
     // Stage 3: up to 6 players plus up to 4 spectators.
     const watch = options?.watch === true;
-    const spectators = [...this.state.players.values()].filter((p) => p.spectator).length;
+    const spectators = people.filter((p) => p.spectator).length;
     if (watch && spectators >= MAX_SPECTATORS) throw new ServerError(ErrorCode.APPLICATION_ERROR, JoinError.SpectatorsFull);
-    if (!watch && this.state.players.size - spectators >= MAX_PLAYERS) throw new ServerError(ErrorCode.APPLICATION_ERROR, JoinError.RoomFull);
+    if (!watch && people.length - spectators >= MAX_PLAYERS) throw new ServerError(ErrorCode.APPLICATION_ERROR, JoinError.RoomFull);
 
     this.state.players.set(client.sessionId, new Player({ name, spectator: watch }));
     this.joinOrder.set(client.sessionId, this.joinCount++);
@@ -365,8 +391,9 @@ export class CrewRoom extends Room<{ state: CrewState }> {
     this.state.awards.clear();
     this.afloat = [];
     this.outAt = [];
-    // Stage 3: everyone's Ready clears with each match.
-    this.state.players.forEach((player) => { player.ready = false; });
+    // Stage 3: everyone's Ready clears with each match (a bot is always ready).
+    this.state.players.forEach((player) => { if (!player.bot) player.ready = false; });
+    this.botMinds = new Map();
     const seed = this.seedForMatch() >>> 0;
     const packsOn = this.state.packsEnabled;
     // A third ship only when someone sits in Crew 3 as the match starts.
@@ -432,7 +459,7 @@ export class CrewRoom extends Room<{ state: CrewState }> {
       return;
     }
     if (this.state.phase !== Phase.Running) return;
-    const result = step(this.world, this.shipInputs(), dt);
+    const result = step(this.world, this.shipInputs(dt), dt);
     this.packPressed.clear();
     this.world = result.world;
     // Stage 3 results: time on the water, and when each crew went out.
@@ -519,8 +546,8 @@ export class CrewRoom extends Room<{ state: CrewState }> {
     }
   }
 
-  /** Builds each ship's input from its seated, connected crew; empty seats are neutral. */
-  private shipInputs(): ShipInput[] {
+  /** Builds each ship's input from its seated, connected crew and its bot (if any); empty seats are neutral. */
+  private shipInputs(dt: number): ShipInput[] {
     const inputs: ShipInput[] = this.world!.ships.map(() => ({ pilot: NEUTRAL_PILOT, gunner: NEUTRAL_GUNNER }));
     this.state.players.forEach((player, sessionId) => {
       const seat = this.seatOf(sessionId);
@@ -531,6 +558,22 @@ export class CrewRoom extends Room<{ state: CrewState }> {
       const pack = !!latest.input.pack || this.packPressed.has(sessionId);
       if (latest.role === "pilot") ship.pilot = { ...latest.input, pack };
       else ship.gunner = { ...latest.input, pack };
+    });
+    // Stage 3 slice 9: partner bots work out their controls from the match state, each with its own seeded mind.
+    this.state.players.forEach((player, id) => {
+      const seat = player.bot ? this.seatOf(id) : null;
+      const ship = seat ? inputs[seat.crew] : undefined;
+      if (!seat || !ship) return;
+      const mind = this.botMinds.get(id) ?? newBotMind(this.matchSeed, seat.crew, seat.role);
+      if (seat.role === "pilot") {
+        const bot = botPilot(this.world!, seat.crew, mind, dt);
+        ship.pilot = bot.input;
+        this.botMinds.set(id, bot.mind);
+      } else {
+        const bot = botGunner(this.world!, seat.crew, mind, dt);
+        ship.gunner = bot.input;
+        this.botMinds.set(id, bot.mind);
+      }
     });
     // Stage 2: each ghost follows whichever of its crew's seated, connected players moved it last.
     for (const ghost of this.world!.ghosts) {
@@ -562,13 +605,23 @@ export class CrewRoom extends Room<{ state: CrewState }> {
   private applyCrews(roster: CrewRoster): void {
     let next = refreshWaiting(roster, this.crewClock++);
     if (!this.matchOn()) next = closeUpCrews(next);
+    // Slice 9: bots come and go with the roster.
+    for (const id of next.seats.keys()) {
+      if (isBotId(id) && !this.state.players.has(id)) this.state.players.set(id, new Player({ name: "Bot", bot: true, ready: true }));
+    }
+    for (const id of [...this.state.players.keys()]) {
+      if (isBotId(id) && !next.seats.has(id)) {
+        this.state.players.delete(id);
+        this.botMinds.delete(id);
+      }
+    }
     for (const [id, seat] of next.seats) {
       const before = this.seatOf(id);
       const same = before && seat ? before.crew === seat.crew && before.role === seat.role : before === seat;
       if (same) continue;
       this.applySeat(id, seat);
       const player = this.state.players.get(id);
-      if (player) player.ready = false;
+      if (player && !player.bot) player.ready = false;
       if (this.log && seat && this.matchOn()) this.logLine(seatLine(this.logTime(), this.nameOf(id), seat));
     }
     this.crewWaiting = new Map(next.waiting);
@@ -576,18 +629,21 @@ export class CrewRoom extends Room<{ state: CrewState }> {
   }
 
   /**
-   * After a match: players who waited it out get crews (a pair together; in the order they joined), with their
-   * chosen role; partners are forgotten; crew numbers close up.
+   * After a match: players who waited it out get crews (a pair together, or with a bot if they chose one; in the
+   * order they joined), with their chosen role; partners and bot choices are forgotten; crew numbers close up.
    */
   private settleCrews(): void {
     const waiters = [...this.state.players.entries()]
       .filter(([, p]) => p.crew === undefined && !p.spectator)
       .sort(([a], [b]) => (this.joinOrder.get(a) ?? 0) - (this.joinOrder.get(b) ?? 0))
-      .map(([id, p]) => ({ id, role: (p.nextRole === "gunner" ? "gunner" : "pilot") as Role, partner: p.partner }));
+      .map(([id, p]) => ({ id, role: (p.nextRole === "gunner" ? "gunner" : "pilot") as Role, partner: p.partner, bot: p.withBot ? this.newBotId() : undefined }));
     this.applyCrews(seatWaiting(this.crewRoster(), waiters, this.crewClock++));
     for (const { id } of waiters) {
       const player = this.state.players.get(id);
-      if (player) player.partner = "";
+      if (player) {
+        player.partner = "";
+        player.withBot = false;
+      }
     }
   }
 
@@ -602,6 +658,10 @@ export class CrewRoom extends Room<{ state: CrewState }> {
     for (const r of shipResults(this.world, this.afloat, this.outAt.map((t) => t ?? null))) {
       this.state.results.push(new ResultState({ ship: r.ship, place: r.place, sinkings: r.sinkings, afloatSeconds: r.afloatSeconds, livesLeft: r.livesLeft ?? -1, out: r.out }));
     }
+  }
+
+  private newBotId(): string {
+    return `bot:${++this.botCount}`;
   }
 
   /** A waiting player's partner (if any) is left without one. */

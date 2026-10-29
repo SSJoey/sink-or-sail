@@ -9,6 +9,8 @@ export interface WaitingPlayer {
   /** While waiting without a crew: the role wanted next round, and who they're paired with ("" for nobody). */
   nextRole: string;
   partner: string;
+  /** Slice 9: chose Play with a bot for the next round. */
+  withBot?: boolean;
 }
 
 export interface WaitingInput {
@@ -23,7 +25,7 @@ export interface WaitingInput {
 
 /**
  * What a player waiting out a match sees: ships afloat; the time left (or, in Last Afloat with the storm, the time
- * until it closes in, then "Closing" / "Closed"); how many others wait; their chosen role and partner; and the other
+ * until it closes in, then "Closing" / "Closed"); how many others wait; their chosen role and partner (or a bot); and the other
  * waiting players without a partner, to pair with.
  */
 export function waitingView(input: WaitingInput, myId: string) {
@@ -41,6 +43,7 @@ export function waitingView(input: WaitingInput, myId: string) {
     othersWaiting: waiting.filter((pl) => pl.id !== myId).length,
     nextRole: (me?.nextRole === "gunner" ? "gunner" : "pilot") as Role,
     partnerName: waiting.find((pl) => pl.id === me?.partner)?.name ?? null,
+    withBot: me?.withBot === true,
     pairWith: me?.partner ? [] : waiting.filter((pl) => pl.id !== myId && pl.partner === "").map((pl) => ({ id: pl.id, name: pl.name })),
   };
 }

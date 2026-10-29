@@ -188,6 +188,43 @@ export const TUNING = {
     stormChaserSeconds: 10,
     whirlpoolTouristSeconds: 5,
   },
+  /** Stage 3 partner bots (approved 2026-10-29): decent, never brilliant. They run on the server, from the match state. */
+  bots: {
+    /** A bot rethinks this often (its reaction time); between thinks it keeps its last controls. */
+    thinkEvery: 0.3,
+    /** Aim wobble, drawn with the seed at each think: up to this either side (radians, 6°). */
+    aimWobble: (6 * Math.PI) / 180,
+    /** The gunner fires when aimed within this of the target (5°) and the target is within `fireRange` (of the gun's 600). */
+    fireAngle: (5 * Math.PI) / 180,
+    fireRange: 550,
+    /** After a hit: the shield for this long, if energy is at least `shieldEnergy`. */
+    shieldSeconds: 1,
+    shieldEnergy: 30,
+    /** Torpedo: an enemy within this of the bow (12°) and this far away. */
+    torpedoAngle: (12 * Math.PI) / 180,
+    torpedoRange: 500,
+    /** EMP: an enemy within this of the ship's centre. */
+    empRange: 180,
+    /** The pilot closes to this distance from the nearest enemy and circles; it detours up to `packDetour` for a pack. */
+    fightDistance: 350,
+    packDetour: 500,
+    /** How far ahead the pilot looks for islands, wrecks and reefs. */
+    lookAhead: 120,
+    /** Mine: an enemy within this behind the ship. */
+    mineRange: 150,
+    // Proposed while building slice 9 (to confirm): when the pilot runs, and how wide a berth it gives hazards.
+    /** Escape: at or below this fraction of full health with an enemy within `escapeRange`, it sails away, boosting
+     *  if energy is at least `boostEnergy` (also when getting away from a whirlpool or the kraken). */
+    escapeHealth: 0.3,
+    escapeRange: 250,
+    boostEnergy: 30,
+    /** Keeps this far outside a whirlpool's reach and from the kraken's middle. */
+    whirlpoolBerth: 60,
+    krakenBerth: 250,
+    /** Stays this far inside the closing storm's circle (as it will be in `stormAhead` seconds). */
+    stormInset: 80,
+    stormAhead: 5,
+  },
   /** Stage 2: Last Afloat (approved 2026-10-26). */
   lastAfloat: {
     /** Lives per ship unless the host picks another number; each sinking costs one, and at 0 the crew is out. */

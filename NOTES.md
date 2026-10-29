@@ -659,6 +659,53 @@ Pack icons are art (Stage 4's "sea-chart art"); the user asked to bring them for
   - **Client:** Watch on the join screen; on the room screen, "You're watching. Join on your phone: …", a large QR code (260 px) and room code, the crews (no Join buttons for a spectator: found in a screenshot and closed on the server too), Play next round, and Watch instead for players between matches. During a match a spectator sees the whole sea with the top bar "Watching · Sink Count" (or Last Afloat), score, clock and storm status, no controls, and Play next round (then the waiting screen). Ships hidden in a moving storm stay hidden.
   - **Runs:** `npm test` passed (954 unit plus 1 skipped, 29 browser).
 
+### 2026-10-29 — Stage 3 slice 9 plan: partner bots
+
+- **What it builds:** **Play with a bot** on your crew panel when you're alone: a bot takes the crew's free role; the crew list shows "Ana & Bot"; a bot is always Ready. Bots run on the server: each tick their controls are worked out from the match state, like a player's input, with a small aiming wobble from the match seed (same seed, same bot). Whole bot ships are slice 10.
+  - **Bot gunner:** aims at the nearest enemy it can see, leading it a little, with some wobble; fires when in range and the island isn't in the way; raises the shield for about a second after a hit, if there's energy; fires a torpedo when an enemy is nearly dead ahead and in range; fires an EMP when an enemy is within its ring.
+  - **Bot pilot:** heads for a pack it can use; otherwise closes to fighting distance from the nearest enemy and circles; steers round islands, wrecks and reefs by looking a short way ahead; keeps out of whirlpools and away from the kraken; stays inside the closing storm's circle; boosts to escape; drops a mine when an enemy is close behind.
+- **Question 1:** a) **Play with a bot** on the waiting screen too, for the next round, as in the mock-up.
+- **Question 2:** a) between matches a joiner is paired into a crew with a bot first and the bot leaves; during a match the joiner waits and takes over at the next round; plus a **Remove bot** button (the crew goes back to waiting for a partner).
+- **Question 3, ok:** starting values in `tuning.ts`: a bot rethinks every 0.3 s (its reaction time); aim wobble up to ±6°; fires when aimed within 5° of the target and within 550 (of the gun's 600); shield 1 s after a hit, if energy is 30 or more; torpedo when an enemy is within 12° of the bow and 500 away; EMP when an enemy is within 180; fighting distance 350, detouring up to 500 for a pack; look-ahead for obstacles 120; mine when an enemy is within 150 behind.
+- **Question 4:** a) bots don't see ships hidden in a moving storm either.
+- **Question 5, ok:** bots don't count toward the 6-player limit (with 3 crews there are still at most 6 seats).
+- Logged: bots named "Bot" in the log.
+- **Chosen while building (to confirm):**
+  - **A joiner takes a bot's place before a crew waiting for a partner** (reading "pair into a crew with a bot first" literally). So a player alone and waiting stays alone if there is also a crew with a bot; they can press Play with a bot themselves.
+  - **A bot never stays without a player:** when its player leaves the room, presses Leave this crew or Watch instead, the bot goes too (also during a match: that ship then has nobody aboard, as when a crew leaves today).
+  - **Extra values** in `tuning.ts` (`bots`), not in the approved table:
+    - the pilot runs at 30% health or less with an enemy within 250, boosting if energy is 30 or more (also when getting away from a whirlpool or the kraken);
+    - it keeps 60 outside a whirlpool's reach and 250 from the kraken;
+    - it stays 80 inside the closing storm's circle as it will be 5 s ahead.
+  - **How the pilot steers round things:**
+    - it keeps 12 between its hull and an island or wreck on the way ahead;
+    - it takes turns sharper than 60° at 40% speed, so it doesn't drift wide;
+    - against an island, it stops pressing into it.
+  - **What the bots see:** they ignore ships hidden in an active or fading moving storm. The torpedo also waits for a clear line (no island or wreck in the way).
+- **Built (2026-10-29):**
+  - **Shared:**
+    - `sim/bots.ts`: `newBotMind` (seeded from the match seed, ship and role), `botGunner`, `botPilot`, `visibleEnemies`;
+    - `TUNING.bots`;
+    - messages `playWithBot` and `removeBot`; refusal `noBot`.
+  - **Server:**
+    - Bots sit in the room's players under ids like `bot:1`, named "Bot", always ready, with `bot: true`. They don't hold a name or count toward the 6 players.
+    - `crews.ts`: `addBot` and `removeBot`. A lone bot leaves. A joiner takes a bot's place. A waiting player who chose Play with a bot gets a new crew with one when the match ends (`withBot` on the player, cleared by pairing with someone). Bots count as ready.
+    - Each tick the room works out each bot's controls with its own mind, reset at every match start.
+    - The log's crews name bots "Bot".
+  - **Client:**
+    - Play with a bot and Remove bot on your crew panel between matches;
+    - Play with a bot and Remove bot on the waiting screen, showing "Playing with a bot";
+    - the crew list shows "Ana & Bot".
+  - **Measured:** in 2-minute all-bot matches with 3 ships, packs and hazards on, on every layout with two seeds, the ships came up against an island 3–21 times per match (Slalom's small rocks the most), each time for well under 2 s. A 4-minute bot match has dozens of shots and hits, sinkings and packs used.
+  - **Tests:**
+    - `sim/bots.test.ts` (22): aim, lead, firing rules, cover, hidden ships, shield, torpedo, EMP, packs, fighting distance, look-ahead, reefs, whirlpool, kraken, storm, running away, mine, island scrapes on every layout, a fight, the same seed giving the same match.
+    - Crew tests (9 new).
+    - `CrewRoom.bots.test.ts` (12).
+    - Client crew list and waiting screen (2 new).
+    - Browser `e2e/bots.spec.ts`: a solo laptop pilot plays with a bot gunner, which hits the other ship.
+    - Two room tests that compare a whole player now include the new `bot` and `withBot` fields.
+  - **Runs:** type-check clean; `npm run test:unit` passed (999 plus 1 skipped). Browser: none of 4 full runs was clean, each with 1 load failure in a test that doesn't use bots (the first smoke test three times, a phone test once). All of them pass on their own. Without the new bot test, the 27 "main" tests passed. The user chose to commit as it is (2026-10-29); it's added to the load watch item in CLAUDE.md.
+
 ## Later
 
 - **(2026-10-25, Stage 5) Ship types**, discussed with the user ahead of Stage 5 (not to build before then):
