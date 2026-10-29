@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { TUNING, createWorld, type SimEvent } from "@sink-or-sail/shared";
-import { awardsLine, controlLine, matchEndLine, matchStartLine, playerLine, positionLines, seatLine, simEventLines, type Roster } from "./events.ts";
+import { awardsLine, controlLine, matchEndLine, matchStartLine, playNextRoundLine, playerLine, positionLines, seatLine, simEventLines, type Roster } from "./events.ts";
 
 const roster: Roster = [
   { pilot: "Joey", gunner: "Sam" },
@@ -336,5 +336,32 @@ describe("spectators in the log (Stage 3)", () => {
   it("logs a spectator's join with role spectator and no ship", () => {
     expect(playerLine(1000, "playerJoined", "TV", null, true)).toEqual({ t: 1000, type: "playerJoined", player: "TV", ship: null, role: "spectator" });
     expect(playerLine(1000, "playerJoined", "Ana", null)).toEqual({ t: 1000, type: "playerJoined", player: "Ana", ship: null, role: null });
+  });
+});
+
+describe("bots, spectators and waiting players at match start (Stage 3 slice 11)", () => {
+  const three: Roster = [{ pilot: "Ana", gunner: "Bot" }, { pilot: "Ben", gunner: "Cat" }, { pilot: "Bot", gunner: "Bot" }];
+  const lobby = { bots: [["gunner"], [], ["pilot", "gunner"]] as const, botShips: [2], botShipsSetting: 2, spectators: ["TV"], waiting: 1 };
+
+  it("marks each crew's bots and bot ships, with the host's Bot ships setting, the spectators and how many wait", () => {
+    const line = matchStartLine("BOTS", three, { packsOn: true, seed: 1, mode: "sinkCount", lives: null, lobby });
+    expect(line.crews).toEqual([
+      { ship: 0, pilot: "Ana", gunner: "Bot", bots: ["gunner"], botShip: false },
+      { ship: 1, pilot: "Ben", gunner: "Cat", bots: [], botShip: false },
+      { ship: 2, pilot: "Bot", gunner: "Bot", bots: ["pilot", "gunner"], botShip: true },
+    ]);
+    expect(line).toMatchObject({ botShipsSetting: 2, spectators: ["TV"], waiting: 1 });
+  });
+
+  it("leaves them out when not given (as before)", () => {
+    const line = matchStartLine("BOTS", three, { packsOn: true, seed: 1, mode: "sinkCount", lives: null });
+    expect(line.crews).toEqual([{ ship: 0, pilot: "Ana", gunner: "Bot" }, { ship: 1, pilot: "Ben", gunner: "Cat" }, { ship: 2, pilot: "Bot", gunner: "Bot" }]);
+    expect(line).not.toHaveProperty("botShipsSetting");
+    expect(line).not.toHaveProperty("spectators");
+    expect(line).not.toHaveProperty("waiting");
+  });
+
+  it("logs a spectator asking to play the next round", () => {
+    expect(playNextRoundLine(4000, "TV")).toEqual({ t: 4000, type: "playNextRound", player: "TV" });
   });
 });

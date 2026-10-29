@@ -683,3 +683,48 @@ describe("Stage 3: awards in the summary", () => {
     expect(formatSummary(summarise(parseLog(sampleText)))).not.toContain("Awards");
   });
 });
+
+/**
+ * A hand-made Stage 3 match: Ana with a partner bot, Ben & Cat, and a bot ship; the host asked for 2 bot ships but
+ * only 1 fitted. TV watched from the start and Dee came to watch later (Dee again after a reconnect: still 2).
+ */
+const BOTS_LOG = [
+  { t: 0, type: "matchStart", room: "BOTS", crews: [
+    { ship: 0, pilot: "Ana", gunner: "Bot", bots: ["gunner"], botShip: false },
+    { ship: 1, pilot: "Ben", gunner: "Cat", bots: [], botShip: false },
+    { ship: 2, pilot: "Bot", gunner: "Bot", bots: ["pilot", "gunner"], botShip: true },
+  ], packsOn: false, seed: 1, mode: "lastAfloat", lives: 1, botShipsSetting: 2, spectators: ["TV"], waiting: 0, tuning: {} },
+  { t: 3000, type: "playerJoined", player: "Dee", ship: null, role: "spectator" },
+  { t: 5000, type: "playerReconnected", player: "Dee", ship: null, role: "spectator" },
+  { t: 6000, type: "playNextRound", player: "TV" },
+  { t: 9000, type: "sunk", ship: 2, crew: { pilot: "Bot", gunner: "Bot" }, by: 0, cause: "shot", livesLeft: 0 },
+  { t: 9000, type: "crewOut", ship: 2, crew: { pilot: "Bot", gunner: "Bot" } },
+  { t: 60000, type: "matchEnd", winner: null, endedEarly: true, reason: "endedEarly", scores: [] },
+];
+
+describe("Stage 3: bots and spectators in the summary", () => {
+  const summary = summarise(BOTS_LOG);
+
+  it("reads the bot ships, the host's setting, the spectators and who asked to play the next round", () => {
+    expect(summary.botShips).toEqual([2]);
+    expect(summary.botShipsSetting).toBe(2);
+    expect(summary.spectators).toEqual(["TV", "Dee"]);
+    expect(summary.playNextRound).toEqual(["TV"]);
+  });
+
+  it("logs from before slice 11 have none of them", () => {
+    const old = summarise(parseLog(sampleText));
+    expect([old.botShips, old.botShipsSetting, old.spectators, old.playNextRound]).toEqual([null, null, null, []]);
+  });
+
+  it("prints the bot ships and spectators in the header, and a bot ship's crew as Bots (bot ship)", () => {
+    const text = formatSummary(summary);
+    expect(text).toContain("· Last Afloat, 1 life ·");
+    expect(text).toContain("· Bot ships: 1 (2 asked) · Spectators: 2");
+    expect(text).toMatch(/^Crew 1\s+Ana & Bot\s/m);
+    expect(text).toMatch(/^Crew 3\s+Bots \(bot ship\)\s/m);
+    const none = formatSummary(summarise([{ ...BOTS_LOG[0]!, crews: BOTS_LOG[0]!.crews!.slice(0, 2), botShipsSetting: 0, spectators: [] }, BOTS_LOG.at(-1)!]));
+    expect(none).toContain("· Bot ships: none · Spectators: 0");
+    expect(formatSummary(summarise(parseLog(sampleText)))).not.toContain("Bot ships");
+  });
+});

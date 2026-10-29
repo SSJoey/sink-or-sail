@@ -193,3 +193,56 @@ Compare them with your notes. For example:
 ## Findings
 
 _(to fill in after the playtest)_
+
+# Stage 3 playtest
+
+One question: **can a group get playing within 30 seconds?**
+
+Time a **fresh group**: people who haven't joined this room before, with the game closed on their phones and laptops. Start the stopwatch when the host says "go, join" and stop it at **Go!** of the first match. Do it at least twice (two different groups, or the same group the next day). Then play a few rounds that try the rest of the lobby. It can run in the same session as the playtests above.
+
+## Before the timed start
+
+- The host starts the game in Docker (see "Before the players arrive" above), opens the room screen on the laptop or TV and leaves the **QR code** showing.
+- Nobody else has the game open yet.
+- The host chooses the settings beforehand (they aren't part of the 30 seconds).
+
+## Timed start: what players do
+
+1. Scan the QR code (or type the room code), type a name, **Join room**.
+2. You're paired into a crew as you join. Pick **Pilot** or **Gunner**; or **Find me a partner**, join a crew from the list, or **Play with a bot**.
+3. Tap **Ready**. The host sees "x of y crews ready" and taps **Start** (or starts anyway).
+
+## Rounds that try the rest
+
+- **Partner bot:** a player alone in a crew taps **Play with a bot**.
+- **Bot ships:** the host sets **Bot ships** to 1 (or 2 with few players).
+- **Late joiner:** someone joins during a match, waits on the waiting screen (pairs up, picks a role, can watch), and plays the next round.
+- **Spectator:** a TV or laptop joins with **Watch**, then taps **Play next round**. Or the host taps **Watch instead** and only hosts.
+- **Results:** the results table and awards, **Play again**, and the return to the lobby after 20 s.
+
+## Notes sheet: timed starts
+
+| Try | People (phones / laptops) | QR or typed code | Seconds to Go! | Where they got stuck or asked what to do |
+|---|---|---|---|---|
+| 1 | | | | |
+| 2 | | | | |
+
+## Notes sheet: one row per round
+
+| Round | Crews (pilot / gunner; bots) | Bot ships | Spectators / late joiners | Results and awards read? Play again? | Asked for another round? | Anything else (confusing, annoying, broken) |
+|---|---|---|---|---|---|---|
+| 1 | | | | | | |
+| 2 | | | | | | |
+| 3 | | | | | | |
+
+## After the playtest
+
+Summarise the logs as above (`npm run summary -- logs/*.jsonl`). The log opens only at match start, so the 30 seconds comes from the stopwatch, not the log. For Stage 3 the summary adds:
+
+- **Header:** "Bot ships: 1", with "(2 asked)" when fewer fitted than the host chose, and "Spectators: 2" (everyone who watched).
+- **Crews:** a partner bot is named "Bot" ("Ana & Bot"); a bot ship's crew shows as "Bots (bot ship)".
+- **Awards:** the awards shown at the end (as before).
+
+## Findings
+
+_(to fill in after the playtest)_

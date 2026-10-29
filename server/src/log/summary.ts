@@ -130,6 +130,13 @@ export interface MatchSummary {
   hazards: HazardOverview[] | null;
   /** Stage 3: the awards shown at the end (none in logs from before awards). */
   awards: { award: string; ship: number; detail: string }[];
+  /** Stage 3 slice 11: the crews held by bot ships and the host's Bot ships setting; null in older logs. */
+  botShips: number[] | null;
+  botShipsSetting: number | null;
+  /** Stage 3 slice 11: everyone who watched (at the start or joining later), once each; null in older logs. */
+  spectators: string[] | null;
+  /** Stage 3 slice 11: spectators who asked to play the next round during the match. */
+  playNextRound: string[];
 }
 
 export function parseLog(text: string): Line[] {
@@ -146,7 +153,7 @@ export function parseLog(text: string): Line[] {
   return lines;
 }
 
-type Crew = { ship: number; pilot: string | null; gunner: string | null };
+type Crew = { ship: number; pilot: string | null; gunner: string | null; botShip?: boolean };
 type Score = { ship: number; sinkings: number; livesLeft?: number; boostEnergy: number; shieldEnergy: number };
 
 export function summarise(lines: readonly Line[]): MatchSummary {
@@ -260,6 +267,20 @@ export function summarise(lines: readonly Line[]): MatchSummary {
     hazards: start?.hazardsOn === true ? hazardOverview(lines) : null,
     awards: ((lines.find((l) => l.type === "awards")?.awards as { award: string; ship: number; detail: string }[] | undefined) ?? [])
       .map((a) => ({ award: a.award, ship: a.ship, detail: a.detail })),
+    ...lobbyFigures(lines, start, crews),
+  };
+}
+
+/** Stage 3 slice 11: bot ships and spectators (logs from before slice 11 have no Bot ships setting). */
+function lobbyFigures(lines: readonly Line[], start: Line | undefined, crews: readonly Crew[]) {
+  const playNextRound = lines.filter((l) => l.type === "playNextRound").map((l) => l.player as string);
+  if (typeof start?.botShipsSetting !== "number") return { botShips: null, botShipsSetting: null, spectators: null, playNextRound };
+  const joined = lines.filter((l) => l.type === "playerJoined" && l.role === "spectator").map((l) => l.player as string);
+  return {
+    botShips: crews.filter((c) => c.botShip === true).map((c) => c.ship),
+    botShipsSetting: start.botShipsSetting,
+    spectators: [...new Set([...((start.spectators as string[] | undefined) ?? []), ...joined])],
+    playNextRound,
   };
 }
 
@@ -388,10 +409,10 @@ const r1 = (n: number) => String(Math.round(n * 10) / 10);
 export function formatSummary(s: MatchSummary): string {
   // Players know the crews as Crew 1 and Crew 2; the log's ship ids start at 0.
   const result = !s.complete ? "Log ends before the match did" : s.winner === null ? "Draw" : `Crew ${s.winner + 1} wins`;
-  const header = `Room ${s.room ?? "?"} · ${clock(s.durationSeconds)} · ${result}${s.endedEarly ? " (ended early by the host)" : ""} · Packs ${s.packsOn ? "on" : "off"} · ${modeText(s)} · ${s.layout}${s.layoutRandom ? " (Random)" : ""} · ${hazardsText(s)}`;
+  const header = `Room ${s.room ?? "?"} · ${clock(s.durationSeconds)} · ${result}${s.endedEarly ? " (ended early by the host)" : ""} · Packs ${s.packsOn ? "on" : "off"} · ${modeText(s)} · ${s.layout}${s.layoutRandom ? " (Random)" : ""} · ${hazardsText(s)}${lobbyText(s)}`;
   const rows = s.crews.map((c) => [
     `Crew ${c.ship + 1}`,
-    [c.pilot, c.gunner].map((n) => n ?? "—").join(" & "),
+    s.botShips?.includes(c.ship) ? "Bots (bot ship)" : [c.pilot, c.gunner].map((n) => n ?? "—").join(" & "),
     String(c.sinkings),
     String(c.shots),
     String(c.hits),
@@ -436,7 +457,14 @@ export function formatSummary(s: MatchSummary): string {
 const REEF_NAMES: Record<string, string> = { none: "None", few: "Few", all: "All" };
 const HAZARD_NAMES: Record<HazardOverview["kind"], string> = { movingStorm: "Moving storm", whirlpool: "Whirlpool", kraken: "Kraken" };
 const hazardsText = (s: MatchSummary) => (s.hazardsOn ? `Hazards on, reefs ${REEF_NAMES[s.reefs] ?? s.reefs}` : "Hazards off");
-const modeText = (s: MatchSummary) => (s.mode === "lastAfloat" ? `Last Afloat, ${s.lives ?? "?"} lives` : "Sink Count");
+const modeText = (s: MatchSummary) => (s.mode === "lastAfloat" ? `Last Afloat, ${s.lives ?? "?"} ${s.lives === 1 ? "life" : "lives"}` : "Sink Count");
+/** Stage 3 slice 11: "· Bot ships: 1 (2 asked) · Spectators: 2"; nothing for older logs. */
+function lobbyText(s: MatchSummary): string {
+  if (s.botShips === null || s.botShipsSetting === null) return "";
+  const n = s.botShips.length;
+  const botShips = n === 0 && s.botShipsSetting === 0 ? "none" : `${n}${s.botShipsSetting > n ? ` (${s.botShipsSetting} asked)` : ""}`;
+  return ` · Bot ships: ${botShips} · Spectators: ${s.spectators?.length ?? 0}`;
+}
 const ordinal = (n: number) => `${n}${n === 1 ? "st" : n === 2 ? "nd" : n === 3 ? "rd" : "th"}`;
 
 function table(head: string[], rows: string[][]): string[] {

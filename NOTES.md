@@ -735,6 +735,59 @@ Pack icons are art (Stage 4's "sea-chart art"); the user asked to bring them for
     - browser: the host adds a bot ship, which fires.
   - **Runs:** type-check clean; unit 1013 passed (plus 1 skipped); one full browser run, 31 of 31 passed (peak load 17).
 
+### 2026-10-29 — Stage 3 slice 11 plan: log and summary additions, then check matches
+
+The user agreed to every suggestion.
+
+- **Part 1 (log, summary, playtest sheet):**
+  - **Log, `matchStart`:**
+    - bot crew members are marked `bot: true`;
+    - each crew gets `botShip: true/false`;
+    - the host's Bot ships setting and how many fit;
+    - the names of the spectators watching;
+    - how many players are waiting for the next round.
+  - **Log, during the match:** a `playNextRound` line when a spectator or a waiting player asks to join the next round.
+  - **Summary:**
+    - the header adds "Bot ships: …" and "Spectators: …";
+    - bots show as "Ana & Bot", and a bot ship's crew as "Bots (bot ship)";
+    - the awards line stays as it is;
+    - a hand-made sample log is checked figure by figure.
+  - **`docs/playtest.md`:** a Stage 3 playtest section, timing a fresh group from opening the page to Go (target 30 s), with a notes sheet.
+- **Question 1 (lobby timing):** a) timed by hand on the playtest sheet. Nothing in the log, since it opens only at match start.
+- **Question 2 (spectators and waiting players):** a) names in `matchStart` and the `playNextRound` line; their whole stay isn't logged.
+- **Question 3:** a) yes, the summary header's "1 lives" becomes "1 life".
+- **Question 4, ok:** part 1 is built and committed first, then the check matches.
+- **Question 5 (results, Play again):** a) left out of the log, which closes at `matchEnd` as today.
+- **Part 2, five check matches** in Docker over the Wi-Fi, run by the user. Fix only what blocks a full match.
+  1. A fresh group joins by QR, timed to Go.
+  2. A solo player with a partner bot against a crew of two players.
+  3. 1 bot ship plus 2 player crews, Last Afloat, hazards on.
+  4. A late joiner waits, then plays the next round; a spectator watches on a TV, then picks Play next round.
+  5. Results, then Play again, then back to the lobby after 20 s.
+- **Part 1 built (2026-10-29):**
+  - **Log:**
+    - Each `matchStart` crew gets `bots`, the roles its bots play (pilot first), and `botShip`.
+    - The line adds `botShipsSetting`, `spectators` (names) and `waiting`. These fields come only from the room; when they aren't given, the line is as before.
+    - A spectator's **Play next round** during a match writes `playNextRound` (player).
+  - **Summary:**
+    - New figures: `botShips` (crews), `botShipsSetting`, `spectators` and `playNextRound`.
+    - `spectators` holds each name once: those at the start and those joining later as spectators.
+    - Logs from before slice 11 give null for the first three and an empty list for `playNextRound`.
+    - The header adds "· Bot ships: 1 (2 asked) · Spectators: 2", or "Bot ships: none". It's left out for older logs, so their summaries print as before.
+    - A bot ship's crew prints as "Bots (bot ship)".
+    - "1 lives" is now "1 life".
+  - **`docs/playtest.md`:** a Stage 3 playtest section with a timed start, rounds that try the rest of the lobby, two notes sheets and what the summary adds.
+  - **Chosen while building (to confirm):**
+    - The plan said "bot crew members are marked `bot: true`". The crews' `pilot` and `gunner` stay plain names (so older readers still work), and a `bots` list of roles goes beside them.
+    - `waiting` is almost always 0 at match start: between matches every player is in a crew. Late joiners show as `playerJoined` with no ship, as before.
+    - Waiting players don't ask to play the next round; they join it anyway. So `playNextRound` comes only from spectators.
+    - When fewer bot ships fit than asked, the header shows "Bot ships: 0 (2 asked)" rather than "none".
+  - **Tests:**
+    - events: 3 new (the lobby fields, left out when not given, `playNextRound`);
+    - room: 1 new (bots, a bot ship, the setting and a spectator in `matchStart`; Play next round logged);
+    - summary: 3 new, on a hand-made Stage 3 log (the figures, older logs, the header and crew names).
+  - **Runs:** type-check clean; unit 1020 passed (plus 1 skipped); one full browser run, 31 of 31 passed (peak load 24).
+
 ## Later
 
 - **(2026-10-25, Stage 5) Ship types**, discussed with the user ahead of Stage 5 (not to build before then):

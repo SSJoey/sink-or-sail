@@ -293,3 +293,33 @@ describe("bot ships (slice 10)", () => {
     expect(await rejected).toEqual({ reason: RejectReason.SeatTaken });
   });
 });
+
+describe("bots and spectators in the match log (slice 11)", () => {
+  it("match start marks the bots, the bot ship, the Bot ships setting and the spectators; Play next round is logged", async () => {
+    const { host, room, code } = await botAndRival("gunner");
+    const sink = memorySink();
+    room.logSinkFor = () => sink;
+    host.send(ClientMessage.SetBotShips, { count: 2 });
+    await waitFor(() => bots(room).length === 3);
+    const tv = await colyseus.sdk.joinById(code, { name: "TV", watch: true });
+    await waitFor(() => playerOf(room, tv)?.spectator === true);
+    host.send(ClientMessage.Start);
+    await waitFor(() => room.state.phase === Phase.Running);
+    await waitFor(() => sink.text().includes("\n"));
+    const lines = () => sink.text().split("\n").filter(Boolean).map((l) => JSON.parse(l));
+    expect(lines()[0]).toMatchObject({
+      type: "matchStart",
+      crews: [
+        { ship: 0, pilot: "Bot", gunner: "Ana", bots: ["pilot"], botShip: false },
+        { ship: 1, pilot: "Ben", gunner: null, bots: [], botShip: false },
+        { ship: 2, pilot: "Bot", gunner: "Bot", bots: ["pilot", "gunner"], botShip: true },
+      ],
+      botShipsSetting: 2,
+      spectators: ["TV"],
+      waiting: 0,
+    });
+    tv.send(ClientMessage.PlayNextRound);
+    await waitFor(() => lines().some((l) => l.type === "playNextRound"));
+    expect(lines().find((l) => l.type === "playNextRound")).toMatchObject({ player: "TV" });
+  });
+});

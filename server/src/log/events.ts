@@ -95,6 +95,16 @@ export function simEventLines(t: number, events: readonly SimEvent[], roster: Ro
   return lines;
 }
 
+/** Stage 3: the lobby as a match starts (bots per crew by role, the crews held by bot ships). */
+export interface MatchLobby {
+  bots: readonly (readonly Role[])[];
+  botShips: readonly number[];
+  botShipsSetting: number;
+  spectators: readonly string[];
+  /** Players with no crew, waiting for the next round. */
+  waiting: number;
+}
+
 export function matchStartLine(room: string, roster: Roster, match: {
   packsOn: boolean; seed: number; mode: GameMode; lives: number | null; layout?: LayoutId; layoutRandom?: boolean; hazardsOn?: boolean; reefs?: ReefAmount;
   /** Stage 2: the match's wrecks (none with hazards off). */
@@ -103,12 +113,20 @@ export function matchStartLine(room: string, roster: Roster, match: {
   storm?: StormTimes | null;
   /** Stage 2: match seconds to the first dynamic hazard, or null for none. */
   firstHazardAt?: number | null;
+  /** Stage 3: who in each crew is a bot, the bot ships, the host's Bot ships setting, the spectators, how many wait. */
+  lobby?: MatchLobby;
 }): LogLine {
+  const lobby = match.lobby;
   return {
     t: 0,
     type: "matchStart",
     room,
-    crews: roster.map((c, ship) => ({ ship, pilot: c.pilot, gunner: c.gunner })),
+    crews: roster.map((c, ship) => ({
+      ship,
+      pilot: c.pilot,
+      gunner: c.gunner,
+      ...(lobby && { bots: [...(lobby.bots[ship] ?? [])], botShip: lobby.botShips.includes(ship) }),
+    })),
     packsOn: match.packsOn,
     seed: match.seed,
     mode: match.mode,
@@ -120,6 +138,7 @@ export function matchStartLine(room: string, roster: Roster, match: {
     wrecks: (match.wrecks ?? []).map((w) => ({ wreck: w.id, x: r1(w.pos.x), y: r1(w.pos.y), pack: w.pack })),
     storm: match.storm ?? null,
     firstHazardAt: match.firstHazardAt ?? null,
+    ...(lobby && { botShipsSetting: lobby.botShipsSetting, spectators: [...lobby.spectators], waiting: lobby.waiting }),
     tuning: TUNING,
   };
 }
@@ -190,4 +209,9 @@ export function controlLine(t: number, type: "paused" | "resumed" | "endedEarly"
 /** Stage 3: the awards shown at the match end (written just before the matchEnd line). */
 export function awardsLine(t: number, awards: readonly EarnedAward[], roster: Roster): LogLine {
   return { t, type: "awards", awards: awards.map((a) => ({ award: a.award, ship: a.ship, crew: { ...crewOf(roster, a.ship) }, detail: a.detail })) };
+}
+
+/** Stage 3: a spectator asks to play the next round during a match. */
+export function playNextRoundLine(t: number, player: string): LogLine {
+  return { t, type: "playNextRound", player };
 }

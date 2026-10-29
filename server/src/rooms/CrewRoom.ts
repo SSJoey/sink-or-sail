@@ -45,7 +45,7 @@ import {
   type World,
 } from "@sink-or-sail/shared";
 import { LOG_DIR, firstHazardAt, fixedSeed, fixedStormTimes, joinAddress, testSink } from "../config.ts";
-import { awardsLine, controlLine, matchEndLine, matchMs, matchStartLine, playerLine, positionLines, seatLine, simEventLines, type LogLine, type Roster } from "../log/events.ts";
+import { awardsLine, controlLine, matchEndLine, matchMs, matchStartLine, playNextRoundLine, playerLine, positionLines, seatLine, simEventLines, type LogLine, type MatchLobby, type Roster } from "../log/events.ts";
 import { MatchLog, fileSink, logFileName, type LogSink } from "../log/matchLog.ts";
 import { canChangeSeat, canEndMatch, canPause, canResume, canSetPacks, canStart, crewHasShip, everyCrewManned, nextHost, readBotShips, readLayout, readOnOff, readReefs, readLives, readMode, readReady, shipCount } from "./matchFlow.ts";
 import { generateUniqueCode } from "./roomCode.ts";
@@ -206,6 +206,7 @@ export class CrewRoom extends Room<{ state: CrewState }> {
         return;
       }
       player.spectator = false;
+      this.logLine(playNextRoundLine(this.logTime(), player.name));
       this.applyCrews(placeJoiner(this.crewRoster(), client.sessionId, this.crewClock++, this.matchOn()));
     });
 
@@ -428,7 +429,7 @@ export class CrewRoom extends Room<{ state: CrewState }> {
     this.tally = newTally(this.world.ships.length);
     this.matchSeed = seed;
     this.log = new MatchLog(this.logSinkFor(logFileName(new Date(), this.roomId)), { onError: (error) => this.logErrors(error) });
-    this.logLine(matchStartLine(this.roomId, this.roster, { packsOn, seed, mode, lives, layout, layoutRandom, hazardsOn, reefs, wrecks: this.world.wrecks, storm: this.world.storm, firstHazardAt: this.world.nextHazardIn }));
+    this.logLine(matchStartLine(this.roomId, this.roster, { packsOn, seed, mode, lives, layout, layoutRandom, hazardsOn, reefs, wrecks: this.world.wrecks, storm: this.world.storm, firstHazardAt: this.world.nextHazardIn, lobby: this.matchLobby(botShips) }));
     for (const line of positionLines(this.world)) this.logLine(line);
     this.nextPositionAt = 1;
     this.latestInput.clear();
@@ -528,6 +529,21 @@ export class CrewRoom extends Room<{ state: CrewState }> {
   }
 
   /** Names in each ship's seats right now (index = ship id). */
+  /** Stage 3 slice 11: the lobby as the match starts, for the log. */
+  private matchLobby(botShips: readonly number[]): MatchLobby {
+    const bots: Role[][] = (this.world?.ships ?? []).map(() => []);
+    const spectators: string[] = [];
+    let waiting = 0;
+    this.state.players.forEach((player, sessionId) => {
+      const seat = this.seatOf(sessionId);
+      if (player.bot && seat) bots[seat.crew]?.push(seat.role);
+      else if (player.spectator) spectators.push(player.name);
+      else if (!player.bot && !seat) waiting++;
+    });
+    for (const roles of bots) roles.sort((a, b) => (a === b ? 0 : a === "pilot" ? -1 : 1));
+    return { bots, botShips, botShipsSetting: this.state.botShips, spectators, waiting };
+  }
+
   private buildRoster(): Roster {
     const roster: Roster = (this.world?.ships ?? []).map(() => ({ pilot: null, gunner: null }));
     this.state.players.forEach((player, sessionId) => {
