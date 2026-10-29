@@ -787,6 +787,11 @@ The user agreed to every suggestion.
     - room: 1 new (bots, a bot ship, the setting and a spectator in `matchStart`; Play next round logged);
     - summary: 3 new, on a hand-made Stage 3 log (the figures, older logs, the header and crew names).
   - **Runs:** type-check clean; unit 1020 passed (plus 1 skipped); one full browser run, 31 of 31 passed (peak load 24).
+- **Part 2 deferred, still owed (2026-10-29, user's choice):** the five check matches above will be run later by the user. The run sheet:
+  - Start with `sudo HOST_IP=$(hostname -I | cut -d' ' -f1) docker compose up --build -d` in a normal terminal.
+  - Note on the Stage 3 sheets in `docs/playtest.md`.
+  - Then tell Claude which matches were played. Claude reads the newest `logs/` files, runs the summary on each and checks them against the five set-ups. It fixes only what blocks a full match; the rest goes to `NOTES.md`.
+  - This joins the other deferred items: the Stage 1 combined playtest, and the Stage 2 check matches and playtest. Stage 3's definition of done (the 30-second timing in a Stage 3 playtest) stays open until then.
 
 ## Later
 
