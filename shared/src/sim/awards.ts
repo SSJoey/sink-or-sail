@@ -198,9 +198,9 @@ export function earnedAwards(tally: AwardTally, world: World): EarnedAward[] {
 
 /**
  * The awards shown: shuffled with the match's seed, then taken in that order, at most one per crew and at most
- * `maxPerMatch` (so a crew whose best award was tied away still gets another it earned).
+ * `maxPerMatch` (so a crew whose best award was tied away still gets another it earned). Bot ships get none (slice 10).
  */
-export function pickAwards(earned: readonly EarnedAward[], seed: number): EarnedAward[] {
+export function pickAwards(earned: readonly EarnedAward[], seed: number, botShips: readonly number[] = []): EarnedAward[] {
   let state = (seed ^ 0x5bd1e995) >>> 0;
   const order = earned.map((award) => {
     const roll = nextRandom(state);
@@ -210,7 +210,7 @@ export function pickAwards(earned: readonly EarnedAward[], seed: number): Earned
   const picked: EarnedAward[] = [];
   for (const { award } of order) {
     if (picked.length >= A.maxPerMatch) break;
-    if (!picked.some((p) => p.ship === award.ship)) picked.push(award);
+    if (!botShips.includes(award.ship) && !picked.some((p) => p.ship === award.ship)) picked.push(award);
   }
   return picked;
 }

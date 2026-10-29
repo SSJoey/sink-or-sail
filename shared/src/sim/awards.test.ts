@@ -132,6 +132,10 @@ describe("picking the awards shown", () => {
     expect(new Set(Array.from({ length: 30 }, (_, seed) => pickAwards(earned, seed)[0]!.award)).size).toBeGreaterThan(1);
   });
 
+  it("leaves out bot ships' awards, without changing the other crews' (Stage 3 slice 10)", () => {
+    for (let seed = 0; seed < 10; seed++) expect(pickAwards(earned, seed, [2])).toEqual(pickAwards(earned, seed).filter((a) => a.ship !== 2));
+  });
+
   it("a crew whose award was tied away still gets its next award (only awards actually earned count)", () => {
     expect(pickAwards([{ award: "packRat", ship: 1, detail: "" }], 3)).toEqual([{ award: "packRat", ship: 1, detail: "" }]);
     expect(pickAwards([], 3)).toEqual([]);

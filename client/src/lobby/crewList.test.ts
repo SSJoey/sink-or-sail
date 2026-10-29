@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { crewRows, myCrew, readyCount, type LobbyPlayer } from "./crewList.ts";
+import { botShipCount, crewRows, myCrew, readyCount, type LobbyPlayer } from "./crewList.ts";
 
 const p = (id: string, name: string, crew: number | undefined, role: string | undefined, ready = false, connected = true): LobbyPlayer => ({ id, name, crew, role, ready, connected });
 
@@ -42,6 +42,14 @@ describe("your own crew (Stage 3)", () => {
     expect(myCrew([p("ana", "Ana", 0, "pilot"), bot], "ana")).toMatchObject({ gunner: "Bot", alone: false, withBot: true });
     expect(myCrew([p("ana", "Ana", 0, "pilot"), p("ben", "Ben", 0, "gunner")], "ana")).toMatchObject({ withBot: false });
     expect(crewRows([p("ana", "Ana", 0, "pilot"), bot], "ana", "ana")[0]).toMatchObject({ names: "Ana ★ (you) & Bot", status: "Not ready", join: null });
+  });
+
+  it("shows a bot ship (slice 10) as one, always ready, and counts them", () => {
+    const ship = [{ ...p("botship:0:pilot", "Bot", 1, "pilot", true), bot: true }, { ...p("botship:0:gunner", "Bot", 1, "gunner", true), bot: true }];
+    const players = [p("ana", "Ana", 0, "pilot"), ...ship];
+    expect(crewRows(players, "ana", "ana")[1]).toMatchObject({ names: "Bot & Bot (bot ship)", status: "Ready", join: null });
+    expect(botShipCount(players)).toBe(1);
+    expect(botShipCount([p("ana", "Ana", 0, "pilot"), { ...p("bot:1", "Bot", 0, "gunner", true), bot: true }])).toBe(0);
   });
 
   it("is null for a player without a crew (joined during a match)", () => {

@@ -49,6 +49,8 @@ export interface RoomStateView extends GameStateView {
   /** Stage 3: the laptop's Wi-Fi address for the QR code, or "". */
   joinAddress: string;
   packsEnabled: boolean;
+  /** Stage 3 slice 10: the host's bot ships setting (as many as fit join the crews). */
+  botShips: number;
   /** Room settings for the next match (Stage 2). */
   mode: string;
   lives: number;

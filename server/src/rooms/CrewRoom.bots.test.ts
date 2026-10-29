@@ -199,3 +199,97 @@ describe("a bot during a match", () => {
     expect(bots(room)).toHaveLength(1);
   });
 });
+
+describe("bot ships (slice 10)", () => {
+  /** The room's bot ships' bots, as [crew, role]. */
+  const shipBots = (room: CrewRoom) => [...room.state.players.entries()].filter(([id]) => id.startsWith("botship:")).map(([, p]) => [p.crew, p.role]).sort();
+
+  it("the host sets how many (0–2, between matches); they fill the crews after the players', always ready", async () => {
+    const host = await colyseus.sdk.create(ROOM_NAME, { name: "Ana" });
+    const room = colyseus.getRoomById<CrewRoom>(host.roomId) as CrewRoom;
+    const ben = await join(host.roomId, "Ben");
+    host.send(ClientMessage.SetBotShips, { count: 2 });
+    await waitFor(() => shipBots(room).length === 4);
+    expect(shipBots(room)).toEqual([[1, "gunner"], [1, "pilot"], [2, "gunner"], [2, "pilot"]]);
+    expect([...room.state.players.values()].filter((p) => p.bot).every((p) => p.ready && p.name === "Bot")).toBe(true);
+    // Only the host; bad values are ignored.
+    ben.send(ClientMessage.SetBotShips, { count: 0 });
+    host.send(ClientMessage.SetBotShips, { count: 3 });
+    host.send(ClientMessage.SetBotShips, { count: "1" });
+    host.send(ClientMessage.SetBotShips, { count: 1 });
+    await waitFor(() => shipBots(room).length === 2);
+    expect(room.state.botShips).toBe(1);
+  });
+
+  it("give way to the players: a new crew of players takes a bot ship's place", async () => {
+    const host = await colyseus.sdk.create(ROOM_NAME, { name: "Ana" });
+    const room = colyseus.getRoomById<CrewRoom>(host.roomId) as CrewRoom;
+    await join(host.roomId, "Ben");
+    host.send(ClientMessage.SetBotShips, { count: 2 });
+    await waitFor(() => shipBots(room).length === 4);
+    const cat = await join(host.roomId, "Cat");
+    await waitFor(() => playerOf(room, cat)?.crew === 1);
+    expect(shipBots(room)).toEqual([[2, "gunner"], [2, "pilot"]]);
+    expect(room.state.botShips).toBe(2);
+    await cat.leave();
+    await waitFor(() => shipBots(room).length === 4);
+  });
+
+  it("sail in the match, which knows which ships are bot ships; Last Afloat can start with them", async () => {
+    const host = await colyseus.sdk.create(ROOM_NAME, { name: "Ana" });
+    const room = colyseus.getRoomById<CrewRoom>(host.roomId) as CrewRoom;
+    room.countdownSeconds = 0.1;
+    host.send(ClientMessage.PlayWithBot);
+    host.send(ClientMessage.SetMode, { mode: "lastAfloat" });
+    host.send(ClientMessage.SetBotShips, { count: 1 });
+    await waitFor(() => shipBots(room).length === 2 && bots(room).length === 3);
+    host.send(ClientMessage.Start);
+    await waitFor(() => room.state.phase === Phase.Running);
+    expect(room.world!.ships).toHaveLength(2);
+    expect(room.world!.botShips).toEqual([1]);
+    const start = room.world!.ships[1]!.pos;
+    await waitFor(() => Math.hypot(room.world!.ships[1]!.pos.x - start.x, room.world!.ships[1]!.pos.y - start.y) > 40, 3000);
+  });
+
+  it("a match of bots only: a host who only watches starts two bot ships", async () => {
+    const host = await colyseus.sdk.create(ROOM_NAME, { name: "Ana" });
+    const room = colyseus.getRoomById<CrewRoom>(host.roomId) as CrewRoom;
+    room.countdownSeconds = 0.1;
+    host.send(ClientMessage.Watch);
+    host.send(ClientMessage.SetBotShips, { count: 2 });
+    await waitFor(() => shipBots(room).length === 4);
+    expect(shipBots(room)).toEqual([[0, "gunner"], [0, "pilot"], [1, "gunner"], [1, "pilot"]]);
+    host.send(ClientMessage.Start);
+    await waitFor(() => room.state.phase === Phase.Running);
+    expect(room.world!.botShips).toEqual([0, 1]);
+  });
+
+  it("can't be changed during a match, and stay put while one is on", async () => {
+    const host = await colyseus.sdk.create(ROOM_NAME, { name: "Ana" });
+    const room = colyseus.getRoomById<CrewRoom>(host.roomId) as CrewRoom;
+    room.countdownSeconds = 0.1;
+    host.send(ClientMessage.SetBotShips, { count: 1 });
+    await waitFor(() => shipBots(room).length === 2);
+    host.send(ClientMessage.Start);
+    await waitFor(() => room.state.phase === Phase.Running);
+    host.send(ClientMessage.SetBotShips, { count: 2 });
+    const late = await join(host.roomId, "Late");
+    await waitFor(() => room.state.players.has(late.sessionId));
+    expect(room.state.botShips).toBe(1);
+    expect(shipBots(room)).toEqual([[1, "gunner"], [1, "pilot"]]);
+    // A waiting player can't sit in a bot ship's crew (seats are locked during a match).
+    const rejected = late.waitForMessage(ServerMessage.Rejected);
+    late.send(ClientMessage.TakeSeat, { crew: 1, role: "pilot" });
+    expect(await rejected).toEqual({ reason: RejectReason.SeatLocked });
+  });
+
+  it("a bot ship's seats are taken between matches too (a player starts a new crew instead)", async () => {
+    const host = await colyseus.sdk.create(ROOM_NAME, { name: "Ana" });
+    const room = colyseus.getRoomById<CrewRoom>(host.roomId) as CrewRoom;
+    host.send(ClientMessage.SetBotShips, { count: 1 });
+    await waitFor(() => shipBots(room).length === 2);
+    const rejected = host.waitForMessage(ServerMessage.Rejected);
+    host.send(ClientMessage.TakeSeat, { crew: 1, role: "gunner" });
+    expect(await rejected).toEqual({ reason: RejectReason.SeatTaken });
+  });
+});

@@ -9,6 +9,8 @@ export const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ";
 export const MAX_PLAYERS = 6;
 /** Stage 3: spectators (a TV, a laptop, a host who only hosts) on top of the players. */
 export const MAX_SPECTATORS = 4;
+/** Stage 3 slice 10: the host's bot ships (still at most 3 ships in all). */
+export const MAX_BOT_SHIPS = 2;
 export const NAME_MAX_LENGTH = 12;
 /** How long a dropped player's seat is held for them. */
 export const RECONNECT_WINDOW_SECONDS = 60;
@@ -46,6 +48,8 @@ export const ClientMessage = {
    *  next round; Remove bot takes it out (your crew waits for a partner again), or, waiting, changes your mind. */
   PlayWithBot: "playWithBot",
   RemoveBot: "removeBot",
+  /** Stage 3 slice 10: how many bot ships, { count: 0–2 } (host only, between matches). */
+  SetBotShips: "setBotShips",
   /** Start the match (host only). */
   Start: "start",
   /** The sender's role input; see input.ts. */

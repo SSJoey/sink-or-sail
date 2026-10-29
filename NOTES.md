@@ -706,6 +706,35 @@ Pack icons are art (Stage 4's "sea-chart art"); the user asked to bring them for
     - Two room tests that compare a whole player now include the new `bot` and `withBot` fields.
   - **Runs:** type-check clean; `npm run test:unit` passed (999 plus 1 skipped). Browser: none of 4 full runs was clean, each with 1 load failure in a test that doesn't use bots (the first smoke test three times, a phone test once). All of them pass on their own. Without the new bot test, the 27 "main" tests passed. The user chose to commit as it is (2026-10-29); it's added to the load watch item in CLAUDE.md.
 
+### 2026-10-29 — Stage 3 slice 10 plan: bot ships
+
+- **What it builds:** a host **Bot ships** setting (between matches). Bot ships are crews of two bots, always ready, shown after the players' crews ("▲ Crew 3: Bot & Bot (bot ship)"). Ships at the start: the players' crews plus bot ships, at least 2 and at most 3. Bot ships play like partner bots (same pilot, gunner and values; no new numbers). They take places in the results and can win, shown as "Crew 3 (bots)". The match start log names their seats "Bot" (the rest of the log and summary is slice 11).
+- **Question 1:** a) a **Bot ships** dropdown (0, 1, 2) next to the other host settings.
+- **Question 2:** a) the players' crews come first: a bot ship gives way to a new crew, and the setting shows how many fit ("Bot ships: 2 (1 fits)").
+- **Question 3:** a) a match can start with bots only (e.g. a host who only watches 2 bot ships on the TV).
+- **Question 4:** b) only crews with a player get awards.
+- **Question 5, ok:** with one players' crew and no bot ships, the second ship still sails empty, as now.
+- Last Afloat (from the scope): a bot crew that is out stays out, with no ghost and no haunting.
+- **Chosen while building (to confirm):**
+  - **The host's setting stays as chosen** when fewer fit. With room again (say a crew leaves), the bot ships come back.
+  - **During a match bot ships stay as they are,** and the host's dropdown is locked, like the other settings.
+  - **Shown in the lobby** as "Bot & Bot (bot ship)", always Ready, and counted in "x of y crews ready".
+  - **Others see** "Bot ships: none / 1 / 2", plus "(1 fits)" or "(none fit)" when fewer fit. The host sees that note next to the dropdown only when fewer fit.
+- **Built (2026-10-29):**
+  - **Shared:** `MAX_BOT_SHIPS` 2; message `setBotShips` { count }; the world's `botShips` (no ghost for them); `pickAwards` leaves bot ships out without changing the other crews' picks.
+  - **Server:**
+    - room setting `botShips`; `readBotShips`;
+    - `crews.ts`: `withoutBotShips` and `fillBotShips`. Bot ships' bots have ids `botship:<n>:<role>` and are left out while crews are paired, then fill the free crews after the players' crews (between matches). Their seats are taken, so a player can't sit in one.
+    - the match is told which ships are bot ships, and they get no awards.
+  - **Client:** the host's Bot ships dropdown with the status text; the crew list shows bot ships; results show "Crew 3 (bots)".
+  - **Tests:**
+    - ghosts and awards (2 new);
+    - crews (2 new); `readBotShips`;
+    - room (6 new: the setting, giving way, starting with them and in Last Afloat, bots only, locked during a match, their seats taken);
+    - client: setting text, crew list, results (3 new);
+    - browser: the host adds a bot ship, which fires.
+  - **Runs:** type-check clean; unit 1013 passed (plus 1 skipped); one full browser run, 31 of 31 passed (peak load 17).
+
 ## Later
 
 - **(2026-10-25, Stage 5) Ship types**, discussed with the user ahead of Stage 5 (not to build before then):

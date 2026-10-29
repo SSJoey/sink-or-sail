@@ -47,10 +47,10 @@ import {
 import { LOG_DIR, firstHazardAt, fixedSeed, fixedStormTimes, joinAddress, testSink } from "../config.ts";
 import { awardsLine, controlLine, matchEndLine, matchMs, matchStartLine, playerLine, positionLines, seatLine, simEventLines, type LogLine, type Roster } from "../log/events.ts";
 import { MatchLog, fileSink, logFileName, type LogSink } from "../log/matchLog.ts";
-import { canChangeSeat, canEndMatch, canPause, canResume, canSetPacks, canStart, crewHasShip, everyCrewManned, nextHost, readLayout, readOnOff, readReefs, readLives, readMode, readReady, shipCount } from "./matchFlow.ts";
+import { canChangeSeat, canEndMatch, canPause, canResume, canSetPacks, canStart, crewHasShip, everyCrewManned, nextHost, readBotShips, readLayout, readOnOff, readReefs, readLives, readMode, readReady, shipCount } from "./matchFlow.ts";
 import { generateUniqueCode } from "./roomCode.ts";
 import { isNameTaken, takeSeat, type SeatMap } from "./seats.ts";
-import { addBot, closeUpCrews, findPartner, isBotId, leaveCrew, placeJoiner, refreshWaiting, removeBot, seatWaiting, type CrewResult, type CrewRoster } from "./crews.ts";
+import { addBot, closeUpCrews, fillBotShips, findPartner, isBotId, isBotShipId, leaveCrew, placeJoiner, refreshWaiting, removeBot, seatWaiting, withoutBotShips, type CrewResult, type CrewRoster } from "./crews.ts";
 import { AwardState, CrewState, Player, ResultState } from "./state.ts";
 import { GhostControl } from "./ghostControl.ts";
 import { applyEvents, syncWorld } from "./sync.ts";
@@ -311,6 +311,15 @@ export class CrewRoom extends Room<{ state: CrewState }> {
       player.name = name;
     });
 
+    // Stage 3 slice 10: bot ships, filling the crews after the players' (as many as fit).
+    this.onMessage(ClientMessage.SetBotShips, (client, message: unknown) => {
+      if (!canSetPacks(client.sessionId, this.state.hostId, this.state.phase)) return;
+      const count = readBotShips(message);
+      if (count === null) return;
+      this.state.botShips = count;
+      this.applyCrews(this.crewRoster());
+    });
+
     this.onMessage(ClientMessage.SetLayout, (client, message: unknown) => {
       if (!canSetPacks(client.sessionId, this.state.hostId, this.state.phase)) return;
       const layout = readLayout(message);
@@ -409,7 +418,8 @@ export class CrewRoom extends Room<{ state: CrewState }> {
     // STORM_STARTS_AT / STORM_CLOSED_AT: a sooner closing storm, for the browser tests only.
     const storm = fixedStormTimes(process.env) ?? undefined;
     // HAZARDS_FIRST_AT: when the first dynamic hazard comes ("never" for none), for the browser tests only.
-    this.world = createWorld({ packs: packsOn, seed, ships, mode, lives: lives ?? undefined, layout, hazards: hazardsOn, reefs, storm, firstHazardAt: firstHazardAt(process.env) });
+    const botShips = this.botShipCrews().filter((crew) => crew < ships);
+    this.world = createWorld({ packs: packsOn, seed, ships, mode, lives: lives ?? undefined, layout, hazards: hazardsOn, reefs, storm, firstHazardAt: firstHazardAt(process.env), botShips });
     this.pendingTestSink = testSink(process.env);
     this.state.matchReefs = reefs;
     this.state.matchMode = mode;
@@ -593,24 +603,35 @@ export class CrewRoom extends Room<{ state: CrewState }> {
     return phase === Phase.Countdown || phase === Phase.Running || phase === Phase.Paused;
   }
 
+  /** The players' crews (and partner bots), without bot ships: what crew pairing works on. */
   private crewRoster(): CrewRoster {
-    return { seats: this.seatMap(), waiting: this.crewWaiting };
+    return withoutBotShips({ seats: this.seatMap(), waiting: this.crewWaiting });
+  }
+
+  /** Slice 10: the crews held by bot ships. */
+  private botShipCrews(): number[] {
+    const crews = new Set<number>();
+    this.state.players.forEach((player, id) => { if (isBotShipId(id) && player.crew !== undefined) crews.add(player.crew); });
+    return [...crews].sort((a, b) => a - b);
   }
 
   /**
    * Stage 3: applies a crew roster. Crews with one player wait for a partner; between matches crew numbers close up
-   * (so the ships are Crew 1, 2 and 3 in order). A player whose crew or role changed is no longer ready. During a
-   * match, a seat taken is logged (as before).
+   * (so the ships are Crew 1, 2 and 3 in order) and bot ships fill the crews after the players' (slice 10; during
+   * a match they stay as they are). A player whose crew or role changed is no longer ready. During a match, a seat
+   * taken is logged (as before).
    */
   private applyCrews(roster: CrewRoster): void {
-    let next = refreshWaiting(roster, this.crewClock++);
-    if (!this.matchOn()) next = closeUpCrews(next);
-    // Slice 9: bots come and go with the roster.
+    let next = refreshWaiting(withoutBotShips(roster), this.crewClock++);
+    if (!this.matchOn()) next = fillBotShips(closeUpCrews(next), this.state.botShips);
+    else next = { seats: new Map([...next.seats, ...[...this.seatMap()].filter(([id]) => isBotShipId(id))]), waiting: next.waiting };
+    // Slice 9: bots come and go with the roster (partner bots, and from slice 10 bot ships' bots).
+    const anyBot = (id: string) => isBotId(id) || isBotShipId(id);
     for (const id of next.seats.keys()) {
-      if (isBotId(id) && !this.state.players.has(id)) this.state.players.set(id, new Player({ name: "Bot", bot: true, ready: true }));
+      if (anyBot(id) && !this.state.players.has(id)) this.state.players.set(id, new Player({ name: "Bot", bot: true, ready: true }));
     }
     for (const id of [...this.state.players.keys()]) {
-      if (isBotId(id) && !next.seats.has(id)) {
+      if (anyBot(id) && !next.seats.has(id)) {
         this.state.players.delete(id);
         this.botMinds.delete(id);
       }
@@ -650,7 +671,8 @@ export class CrewRoom extends Room<{ state: CrewState }> {
   /** Stage 3: the results and awards everyone sees at the end of a match (the awards are logged too). */
   private showResults(): void {
     if (!this.world) return;
-    const awards = pickAwards(earnedAwards(closeTally(this.tally, this.world), this.world), this.matchSeed);
+    // Only crews with a player get awards (slice 10).
+    const awards = pickAwards(earnedAwards(closeTally(this.tally, this.world), this.world), this.matchSeed, this.world.botShips);
     this.state.awards.clear();
     for (const a of awards) this.state.awards.push(new AwardState(a));
     this.logLine(awardsLine(this.logTime(), awards, this.roster));

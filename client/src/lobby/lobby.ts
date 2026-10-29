@@ -17,9 +17,9 @@ import {
 import { renderResult, startGame, type GameHandle, type RoomStateView } from "../game/game.ts";
 import { joinErrorText, rejectedText } from "./messages.ts";
 import { reloadIfNewBuild } from "./newBuild.ts";
-import { crewRows, myCrew, readyCount, type LobbyPlayer } from "./crewList.ts";
+import { botShipCount, crewRows, myCrew, readyCount, type LobbyPlayer } from "./crewList.ts";
 import { waitingView } from "./waiting.ts";
-import { LAYOUT_CHOICES, LIFE_CHOICES, REEF_CHOICES, hazardsText, layoutText, livesShown, settingsText } from "./settings.ts";
+import { BOT_SHIP_CHOICES, LAYOUT_CHOICES, LIFE_CHOICES, REEF_CHOICES, botShipsText, hazardsText, layoutText, livesShown, settingsText } from "./settings.ts";
 import { clearToken, loadToken, saveToken } from "./reconnectToken.ts";
 import { codeFromSearch, joinBase, joinLink } from "./joinLink.ts";
 import { loadName, saveName } from "./rememberedName.ts";
@@ -161,6 +161,9 @@ export function startLobby(): void {
     const layout = byId<HTMLSelectElement>("layout-select");
     layout.replaceChildren(...LAYOUT_CHOICES.map((c) => new Option(c.label, c.value)));
     layout.onchange = () => room.send(ClientMessage.SetLayout, { layout: layout.value });
+    const botShips = byId<HTMLSelectElement>("bot-ships-select");
+    botShips.replaceChildren(...BOT_SHIP_CHOICES.map((n) => new Option(String(n), String(n))));
+    botShips.onchange = () => room.send(ClientMessage.SetBotShips, { count: Number(botShips.value) });
   }
 
   /** The QR code for this room (redrawn only when its link changes), or a hint when phones couldn't use one. */
@@ -276,6 +279,16 @@ export function startLobby(): void {
     const picked = phase === Phase.Waiting ? null : state.matchLayout;
     const layoutLine = layoutText(state.layout, picked);
     byId("layout-status").textContent = !isHost || (state.layout === "random" && picked) ? layoutLine : "";
+
+    // Stage 3 slice 10: bot ships: the host's dropdown; others see the setting; everyone sees when fewer fit.
+    byId("bot-ships-host").hidden = !isHost;
+    const botShips = byId<HTMLSelectElement>("bot-ships-select");
+    botShips.value = String(state.botShips);
+    botShips.disabled = matchOn;
+    const crewed: LobbyPlayer[] = [];
+    state.players.forEach((pl, id) => crewed.push({ id, name: pl.name, crew: pl.crew, role: pl.role, ready: pl.ready, connected: pl.connected, bot: pl.bot }));
+    const fits = botShipCount(crewed);
+    byId("bot-ships-status").textContent = !isHost || fits < state.botShips ? botShipsText(state.botShips, fits) : "";
     byId("match").textContent = matchOn
       ? "Match on"
       : isHost ? "" : "Waiting for the host to start";

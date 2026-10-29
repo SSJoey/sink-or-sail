@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { RejectReason, type Seat } from "@sink-or-sail/shared";
-import { addBot, closeUpCrews, crewsReady, findPartner, isBotId, leaveCrew, placeJoiner, refreshWaiting, removeBot, seatWaiting, type CrewRoster } from "./crews.ts";
+import { addBot, closeUpCrews, crewsReady, fillBotShips, findPartner, isBotId, isBotShipId, leaveCrew, placeJoiner, refreshWaiting, removeBot, seatWaiting, withoutBotShips, type CrewRoster } from "./crews.ts";
 
 /** A roster from "id: crew role" entries (crew numbered from 0; null for no crew) and when crews started waiting. */
 function roster(seats: Record<string, Seat | null>, waiting: Record<number, number> = {}): CrewRoster {
@@ -201,5 +201,25 @@ describe("partner bots (slice 9)", () => {
     const seats = roster({ a: seat(0, "pilot"), "bot:1": seat(0, "gunner") }).seats;
     expect(crewsReady(seats, new Set(["a"]))).toEqual({ ready: 1, crews: 1 });
     expect(crewsReady(seats, new Set())).toEqual({ ready: 0, crews: 1 });
+  });
+});
+
+describe("bot ships (slice 10)", () => {
+  it("fill the free crews after the players' crews, as many as fit, two bots each; always ready", () => {
+    const r = fillBotShips(roster({ ana: seat(0, "pilot"), ben: seat(0, "gunner") }), 2);
+    expect(seatsOf(r)).toEqual({ ana: seat(0, "pilot"), ben: seat(0, "gunner"),
+      "botship:0:pilot": seat(1, "pilot"), "botship:0:gunner": seat(1, "gunner"), "botship:1:pilot": seat(2, "pilot"), "botship:1:gunner": seat(2, "gunner") });
+    expect(r.waiting.size).toBe(0);
+    expect(crewsReady(r.seats, new Set(["ana", "ben"]))).toEqual({ ready: 3, crews: 3 });
+    expect(seatsOf(fillBotShips(roster({ a: seat(0, "pilot"), b: seat(1, "pilot") }), 2))).toMatchObject({ "botship:0:pilot": seat(2, "pilot") });
+    expect(seatsOf(fillBotShips(roster({ a: seat(0, "pilot"), b: seat(1, "pilot") }), 2))).not.toHaveProperty("botship:1:pilot");
+    expect(seatsOf(fillBotShips(roster({}), 2))).toMatchObject({ "botship:0:pilot": seat(0, "pilot"), "botship:1:gunner": seat(1, "gunner") });
+  });
+
+  it("are taken out before the players' crews are worked on, so players come first", () => {
+    const r = roster({ ana: seat(0, "pilot"), "botship:0:pilot": seat(1, "pilot"), "botship:0:gunner": seat(1, "gunner"), cat: null });
+    expect(seatsOf(withoutBotShips(r))).toEqual({ ana: seat(0, "pilot"), cat: null });
+    expect(isBotShipId("botship:0:pilot")).toBe(true);
+    expect(isBotShipId("bot:1")).toBe(false);
   });
 });

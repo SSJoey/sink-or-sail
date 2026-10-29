@@ -180,6 +180,8 @@ export const CrewState = schema({
   /** Room settings for the next match (host only, Stage 2): the mode and Last Afloat's lives. */
   mode: t.string().default("sinkCount"),
   lives: t.uint8().default(TUNING.lastAfloat.lives),
+  /** Stage 3 slice 10: bot ships for the next match (host only); as many as fit after the players' crews. */
+  botShips: t.uint8().default(0),
   /** The mode of the current (or last) match, which the game view draws by. */
   matchMode: t.string().default("sinkCount"),
   /** Room setting for the next match: a layout id or "random" (host only, Stage 2). */

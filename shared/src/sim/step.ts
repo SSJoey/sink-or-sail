@@ -24,11 +24,11 @@ const contactKey = (a: number, b: number) => (a < b ? `${a}:${b}` : `${b}:${a}`)
 
 /**
  * A ship (already at 0 health) has sunk: in Last Afloat it costs a life, and on the last one the crew is out and
- * gets a ghost; held packs are lost; the sinking is credited to `by`. Updates `ships`, `ghosts` and `events`.
+ * gets a ghost (not a bot ship's crew); held packs are lost; the sinking is credited to `by`. Updates `ships`, `ghosts` and `events`.
  */
-function sinkShip(mode: World["mode"], ships: Ship[], ghosts: Ghost[], events: SimEvent[], targetIndex: number, by: number | null, cause: SinkCause): void {
+function sinkShip(world: World, ships: Ship[], ghosts: Ghost[], events: SimEvent[], targetIndex: number, by: number | null, cause: SinkCause): void {
   const sunk = ships[targetIndex]!;
-  if (mode === "lastAfloat") {
+  if (world.mode === "lastAfloat") {
     // Each sinking costs a life; on the last one the ship is out and never respawns.
     const livesLeft = Math.max(0, (sunk.livesLeft ?? 0) - 1);
     const out = livesLeft === 0;
@@ -36,7 +36,8 @@ function sinkShip(mode: World["mode"], ships: Ship[], ghosts: Ghost[], events: S
     events.push({ type: "sunk", ship: sunk.id, by, cause, livesLeft });
     if (out) {
       events.push({ type: "crewOut", ship: sunk.id });
-      ghosts.push(newGhost(sunk.id, sunk.pos, sunk.heading));
+      // A bot ship's crew just stays out (Stage 3 slice 10).
+      if (!world.botShips.includes(sunk.id)) ghosts.push(newGhost(sunk.id, sunk.pos, sunk.heading));
     }
   } else {
     events.push({ type: "sunk", ship: sunk.id, by, cause });
@@ -64,7 +65,7 @@ export function sinkForTest(world: World, shipId: number): { world: World; event
   const index = ships.findIndex((s) => s.id === shipId);
   if (index < 0 || ships[index]!.sunk) return { world, events };
   ships[index] = damageShip(ships[index]!, ships[index]!.health).ship;
-  sinkShip(world.mode, ships, ghosts, events, index, null, "shot");
+  sinkShip(world, ships, ghosts, events, index, null, "shot");
   return { world: { ...world, ships, ghosts }, events };
 }
 
@@ -95,7 +96,7 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
 
   // Stage 2 ghosts appear and move first; crews going out this step get theirs (appearing later) as they sink.
   const ghosts: Ghost[] = world.ghosts.length > 0 ? updateGhosts(world.ghosts, inputs, dt, events) : [];
-  const sink = (targetIndex: number, by: number | null, cause: SinkCause) => sinkShip(world.mode, ships, ghosts, events, targetIndex, by, cause);
+  const sink = (targetIndex: number, by: number | null, cause: SinkCause) => sinkShip(world, ships, ghosts, events, targetIndex, by, cause);
 
   // Stage 2: a wreck takes damage; at 0 it's destroyed (credited to `by`), and any pack it holds is released at the end of the step.
   const hitWreck = (id: number, by: number | null, weapon: WreckWeapon, damage: number, shipDamage?: number) => {

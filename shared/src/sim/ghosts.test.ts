@@ -40,6 +40,18 @@ describe("becoming a ghost (Last Afloat)", () => {
     expect(world.ghosts[0]!.appearIn).toBe(0);
   });
 
+  it("doesn't come for a bot ship (Stage 3 slice 10): it just stays out, and the match goes on", () => {
+    const w = createWorld({ mode: "lastAfloat", lives: 1, ships: 3, botShips: [2] });
+    expect(w.botShips).toEqual([2]);
+    const out = sinkForTest(w, 2);
+    expect(out.events).toContainEqual({ type: "crewOut", ship: 2 });
+    expect(out.world.ghosts).toEqual([]);
+    const { world } = run(out.world, 3);
+    expect(world.over).toBe(false);
+    expect(world.ships[2]).toMatchObject({ sunk: true, out: true });
+    expect(createWorld().botShips).toEqual([]);
+  });
+
   it("doesn't come for a sinking that only costs a life, nor in Sink Count", () => {
     const lives = createWorld({ mode: "lastAfloat", lives: 2, ships: 3 });
     expect(sinkForTest(lives, 2).world.ghosts).toEqual([]);

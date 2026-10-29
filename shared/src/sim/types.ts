@@ -213,6 +213,8 @@ export interface World {
   nextHazardIn: number | null;
   /** The hazard timer's own seeded generator state, so packs are the same with hazards on or off. */
   hazardRng: number;
+  /** Stage 3 slice 10: ships crewed by bots only; such a crew gets no ghost when it goes out. */
+  botShips: readonly number[];
   /** Stage 2 (Last Afloat): the ghosts of crews that are out. */
   ghosts: Ghost[];
   /** Stage 2 haunting (Last Afloat with hazards on, else null): each zone's meter (0–1) and seconds before it can fill again. */

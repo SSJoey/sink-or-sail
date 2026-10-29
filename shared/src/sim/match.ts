@@ -29,6 +29,8 @@ export interface WorldOptions {
   storm?: StormTimes;
   /** With hazards on: match seconds to the first dynamic hazard (default `TUNING.hazards.firstAt`); null for none. */
   firstHazardAt?: number | null;
+  /** Stage 3: ships crewed by bots only (none by default). */
+  botShips?: readonly number[];
 }
 
 export function createWorld(options: WorldOptions = {}): World {
@@ -86,6 +88,7 @@ export function createWorld(options: WorldOptions = {}): World {
     nextHazardIn: options.hazards ? (options.firstHazardAt === undefined ? TUNING.hazards.firstAt : options.firstHazardAt) : null,
     hazardRng: hazardSeed(seed),
     hazardContacts: [],
+    botShips: options.botShips ?? [],
     ghosts: [],
     haunting: mode === "lastAfloat" && options.hazards && options.firstHazardAt !== null
       ? { meters: Array(ZONES).fill(0), cooldowns: Array(ZONES).fill(0) }

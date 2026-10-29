@@ -170,6 +170,12 @@ describe("the results table (Stage 3)", () => {
     ]);
   });
 
+  it("shows a bot ship as the crew's bots (slice 10); a partner bot by name", () => {
+    const results = [{ ship: 0, place: 1, sinkings: 1, afloatSeconds: 240, livesLeft: -1, out: false }, { ship: 1, place: 2, sinkings: 0, afloatSeconds: 240, livesLeft: -1, out: false }];
+    const crews = [{ name: "Ana", crew: 0, role: "pilot" }, { name: "Bot", crew: 0, role: "gunner", bot: true }, { name: "Bot", crew: 1, role: "pilot", bot: true }, { name: "Bot", crew: 1, role: "gunner", bot: true }];
+    expect(resultRows(results, crews, false).map((r) => r[1])).toEqual(["● Crew 1 · Ana & Bot", "■ Crew 2 (bots)"]);
+  });
+
   it("adds lives left (or out) in Last Afloat", () => {
     const results = [{ ship: 0, place: 1, sinkings: 2, afloatSeconds: 300, livesLeft: 1, out: false }, { ship: 1, place: 2, sinkings: 0, afloatSeconds: 95, livesLeft: 0, out: true }];
     expect(resultRows(results, players, true).map((r) => r[4])).toEqual(["1", "out"]);

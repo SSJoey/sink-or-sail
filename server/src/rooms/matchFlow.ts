@@ -1,4 +1,4 @@
-import { GAME_MODES, Phase, RANDOM_LAYOUT, TUNING, isLayoutId, isReefAmount, type GameMode, type LayoutId, type ReefAmount } from "@sink-or-sail/shared";
+import { GAME_MODES, MAX_BOT_SHIPS, Phase, RANDOM_LAYOUT, TUNING, isLayoutId, isReefAmount, type GameMode, type LayoutId, type ReefAmount } from "@sink-or-sail/shared";
 
 /** Only the host starts a match, and only when none is on. */
 export function canStart(sessionId: string, hostId: string, phase: string): boolean {
@@ -78,6 +78,12 @@ export function readLives(message: unknown): number | null {
   const lives = onlyKey(message, "lives");
   const { minLives, maxLives } = TUNING.lastAfloat;
   return typeof lives === "number" && Number.isInteger(lives) && lives >= minLives && lives <= maxLives ? lives : null;
+}
+
+/** The bot ships setting from a SetBotShips message ({ count: 0–2 }); null if not valid. */
+export function readBotShips(message: unknown): number | null {
+  const count = onlyKey(message, "count");
+  return typeof count === "number" && Number.isInteger(count) && count >= 0 && count <= MAX_BOT_SHIPS ? count : null;
 }
 
 /** The layout setting from a SetLayout message ({ layout }): a layout id or "random"; null if not valid. */

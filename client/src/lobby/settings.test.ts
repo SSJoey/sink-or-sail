@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { TUNING } from "@sink-or-sail/shared";
-import { LAYOUT_CHOICES, LIFE_CHOICES, REEF_CHOICES, hazardsText, layoutText, livesShown, settingsText } from "./settings.ts";
+import { BOT_SHIP_CHOICES, LAYOUT_CHOICES, LIFE_CHOICES, REEF_CHOICES, botShipsText, hazardsText, layoutText, livesShown, settingsText } from "./settings.ts";
 
 describe("room-screen match settings (Stage 2)", () => {
   it("tells non-hosts the mode, and the lives with Last Afloat", () => {
@@ -43,5 +43,15 @@ describe("hazards and reefs (Stage 2 slice 3)", () => {
     expect(hazardsText(true, "all")).toBe("Hazards: on · Reefs: All");
     expect(hazardsText(true, "few")).toBe("Hazards: on · Reefs: Few");
     expect(hazardsText(false, "all")).toBe("Hazards: off");
+  });
+});
+
+describe("bot ships (Stage 3 slice 10)", () => {
+  it("offers 0, 1 or 2, and says how many fit when fewer do", () => {
+    expect(BOT_SHIP_CHOICES).toEqual([0, 1, 2]);
+    expect(botShipsText(0, 0)).toBe("Bot ships: none");
+    expect(botShipsText(1, 1)).toBe("Bot ships: 1");
+    expect(botShipsText(2, 1)).toBe("Bot ships: 2 (1 fits)");
+    expect(botShipsText(2, 0)).toBe("Bot ships: 2 (none fit)");
   });
 });

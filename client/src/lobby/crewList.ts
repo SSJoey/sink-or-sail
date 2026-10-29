@@ -54,7 +54,7 @@ export function crewRows(players: readonly LobbyPlayer[], hostId: string, myId: 
       crew,
       label: labelOf(crew),
       colour: styleOf(crew).css,
-      names: members.map((m) => nameOf(m, hostId, myId)).join(" & "),
+      names: members.map((m) => nameOf(m, hostId, myId)).join(" & ") + (isBotShip(members) ? " (bot ship)" : ""),
       status: free ? `Needs a ${free}` : members.every((m) => m.ready) ? "Ready" : "Not ready",
       join: free && crew !== mine ? free : null,
     };
@@ -82,6 +82,14 @@ export function myCrew(players: readonly LobbyPlayer[], myId: string) {
     withBot: members.some((m) => m.bot === true),
     crews: crewsOf(players).size,
   };
+}
+
+/** Slice 10: a crew of bots only is a bot ship (a partner bot always has a player with it). */
+const isBotShip = (members: readonly LobbyPlayer[]) => members.length > 0 && members.every((m) => m.bot === true);
+
+/** How many bot ships are in the crews (as many of the host's as fit). */
+export function botShipCount(players: readonly LobbyPlayer[]): number {
+  return [...crewsOf(players).values()].filter(isBotShip).length;
 }
 
 /** How many crews have every player ready, out of all the crews. */

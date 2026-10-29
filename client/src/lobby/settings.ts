@@ -1,4 +1,4 @@
-import { DEFAULT_LAYOUT, LAYOUTS, LAYOUT_IDS, RANDOM_LAYOUT, TUNING, isLayoutId } from "@sink-or-sail/shared";
+import { DEFAULT_LAYOUT, LAYOUTS, LAYOUT_IDS, MAX_BOT_SHIPS, RANDOM_LAYOUT, TUNING, isLayoutId } from "@sink-or-sail/shared";
 
 /** The host's lives dropdown: every whole number in the allowed range. */
 export const LIFE_CHOICES: readonly number[] = Array.from(
@@ -25,6 +25,15 @@ const layoutName = (id: string) => LAYOUTS[isLayoutId(id) ? id : DEFAULT_LAYOUT]
 export function layoutText(setting: string, inUse: string | null): string {
   if (setting !== RANDOM_LAYOUT) return `Layout: ${layoutName(setting)}`;
   return inUse ? `Layout: Random → ${layoutName(inUse)}` : "Layout: Random";
+}
+
+/** Stage 3 slice 10: the host's Bot ships dropdown. */
+export const BOT_SHIP_CHOICES: readonly number[] = Array.from({ length: MAX_BOT_SHIPS + 1 }, (_, i) => i);
+
+/** "Bot ships: 2", or with fewer room for them than asked, "Bot ships: 2 (1 fits)". */
+export function botShipsText(setting: number, fits: number): string {
+  if (setting === 0) return "Bot ships: none";
+  return fits >= setting ? `Bot ships: ${setting}` : `Bot ships: ${setting} (${fits === 0 ? "none fit" : `${fits} fits`})`;
 }
 
 /** The host's Reefs dropdown (used only with hazards on). */

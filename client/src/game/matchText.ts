@@ -109,23 +109,25 @@ const ordinal = (n: number) => `${n}${n % 10 === 1 && n % 100 !== 11 ? "st" : n 
 const minutes = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Math.round(seconds) % 60).padStart(2, "0")}`;
 
 /**
- * Stage 3: the results table's rows, by place: place, crew (symbol, name and players, pilot first), sinkings and
+ * Stage 3: the results table's rows, by place: place, crew (symbol, name and players, pilot first; a bot ship as "(bots)"), sinkings and
  * time afloat; Last Afloat adds lives left (or "out").
  */
 export function resultRows(
   results: readonly { ship: number; place: number; sinkings: number; afloatSeconds: number; livesLeft: number; out: boolean }[],
-  players: readonly { name: string; crew?: number; role?: string }[],
+  players: readonly { name: string; crew?: number; role?: string; bot?: boolean }[],
   lastAfloat: boolean,
 ): string[][] {
   return [...results]
     .sort((a, b) => a.place - b.place || a.ship - b.ship)
     .map((r) => {
-      const names = players
-        .filter((p) => p.crew === r.ship)
+      const crew = players.filter((p) => p.crew === r.ship);
+      const names = crew
         .sort((a, b) => (a.role === "pilot" ? -1 : b.role === "pilot" ? 1 : 0))
         .map((p) => p.name)
         .join(" & ") || "—";
-      return [ordinal(r.place), `${crewLabel(r.ship)} · ${names}`, String(r.sinkings), minutes(r.afloatSeconds), ...(lastAfloat ? [r.out ? "out" : String(r.livesLeft)] : [])];
+      // Slice 10: a bot ship shows as the crew's bots.
+      const bots = crew.length > 0 && crew.every((p) => p.bot === true);
+      return [ordinal(r.place), bots ? `${crewLabel(r.ship)} (bots)` : `${crewLabel(r.ship)} · ${names}`, String(r.sinkings), minutes(r.afloatSeconds), ...(lastAfloat ? [r.out ? "out" : String(r.livesLeft)] : [])];
     });
 }
 

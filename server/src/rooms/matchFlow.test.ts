@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { Phase, TUNING } from "@sink-or-sail/shared";
-import { canChangeSeat, canEndMatch, canPause, canResume, canSetPacks, canStart, crewHasShip, everyCrewManned, nextHost, readLayout, readOnOff, readReefs, readLives, readMode, shipCount } from "./matchFlow.ts";
+import { MAX_BOT_SHIPS, Phase, TUNING } from "@sink-or-sail/shared";
+import { canChangeSeat, canEndMatch, canPause, canResume, canSetPacks, canStart, crewHasShip, everyCrewManned, nextHost, readBotShips, readLayout, readOnOff, readReefs, readLives, readMode, shipCount } from "./matchFlow.ts";
 
 describe("canStart", () => {
   it("lets only the host start, and only when no match is on", () => {
@@ -132,6 +132,14 @@ describe("readMode and readLives (Stage 2)", () => {
     expect(readLives({ lives: 1 })).toBe(1);
     expect(readLives({ lives: 5 })).toBe(5);
     for (const bad of [null, 3, { lives: 0 }, { lives: 6 }, { lives: 2.5 }, { lives: "3" }, { lives: Number.NaN }, { lives: 2, extra: 1 }]) expect(readLives(bad)).toBeNull();
+  });
+});
+
+describe("readBotShips (Stage 3 slice 10)", () => {
+  it(`accepts only { count } with a whole number from 0 to ${MAX_BOT_SHIPS}`, () => {
+    expect(readBotShips({ count: 0 })).toBe(0);
+    expect(readBotShips({ count: 2 })).toBe(2);
+    for (const bad of [null, 1, { count: 3 }, { count: -1 }, { count: 1.5 }, { count: "1" }, { count: 1, extra: 1 }]) expect(readBotShips(bad)).toBeNull();
   });
 });
 

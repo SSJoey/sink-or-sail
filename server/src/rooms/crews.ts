@@ -17,6 +17,26 @@ const otherRole = (role: Role): Role => (role === "pilot" ? "gunner" : "pilot");
 /** Stage 3 slice 9: partner bots sit in the roster like players, under ids of their own ("bot:1"; session ids have no colon). */
 export const isBotId = (id: string) => id.startsWith("bot:");
 
+/** Stage 3 slice 10: a bot ship's two bots, `botship:<n>:<role>` for the host's n-th bot ship (from 0). */
+export const isBotShipId = (id: string) => id.startsWith("botship:");
+
+/** The roster without bot ships: the players' crews (and partner bots), which crew pairing works on. */
+export function withoutBotShips(roster: CrewRoster): CrewRoster {
+  const seats = new Map([...roster.seats].filter(([id]) => !isBotShipId(id)));
+  return { seats, waiting: roster.waiting };
+}
+
+/** Bot ships in the free crews after the players' crews: up to `count`, as many as fit. */
+export function fillBotShips(roster: CrewRoster, count: number): CrewRoster {
+  const seats = new Map(roster.seats);
+  for (let n = 0; n < count; n++) {
+    const crew = freeCrew(seats);
+    if (crew === null) break;
+    for (const role of ["pilot", "gunner"] as const) seats.set(`botship:${n}:${role}`, { crew: crew as Crew, role });
+  }
+  return { seats, waiting: roster.waiting };
+}
+
 /** Each crew's players (by session id), for crews with anyone in them. */
 function members(seats: SeatMap): Map<number, string[]> {
   const crews = new Map<number, string[]>();
@@ -203,5 +223,5 @@ export function closeUpCrews(roster: CrewRoster): CrewRoster {
 /** How many crews have every player ready (a bot always is), out of the crews with anyone in them. */
 export function crewsReady(seats: SeatMap, ready: ReadonlySet<string>): { ready: number; crews: number } {
   const crews = [...members(seats).values()];
-  return { ready: crews.filter((ids) => ids.every((id) => isBotId(id) || ready.has(id))).length, crews: crews.length };
+  return { ready: crews.filter((ids) => ids.every((id) => isBotId(id) || isBotShipId(id) || ready.has(id))).length, crews: crews.length };
 }

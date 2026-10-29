@@ -32,3 +32,18 @@ test("partner bots: a solo pilot plays with a bot gunner, which fires at the oth
   await sailWithKeys(host, NEAR_CREW_2, crew2Hit);
   await expect.poll(crew2Hit, { timeout: 15_000 }).toBe(true);
 });
+
+// Stage 3 slice 10: the host adds a bot ship; it fills the next crew, and in the match it closes in and fires.
+// Crew 1 has only a pilot (no gunner), so every shot on the sea is the bot ship's.
+test("bot ships: the host adds one; it sails at Crew 1 and fires", async ({ page }) => {
+  test.setTimeout(90_000);
+  await join(page, "Ana");
+  await page.uncheck("#packs-toggle"); // the bot ship heads straight for Crew 1, not for packs
+  await page.selectOption("#bot-ships-select", "1");
+  await expect(page.locator('#crew-list li[data-crew="1"]')).toContainText("Bot & Bot (bot ship)");
+  await expect(page.locator('#crew-list li[data-crew="1"]')).toContainText("Ready");
+  await expect(page.locator("#ready-count")).toHaveText("1 of 2 crews ready");
+  await page.click("#start");
+  await expect(page.locator("#game")).toHaveAttribute("data-ships", "2", { timeout: 15_000 });
+  await expect.poll(async () => Number(await page.locator("#game").getAttribute("data-shots")), { timeout: 40_000, intervals: [200] }).toBeGreaterThan(0);
+});
