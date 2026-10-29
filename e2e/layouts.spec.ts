@@ -16,6 +16,9 @@ test("layouts: the host picks Slalom and every page draws it; Random then picks 
   await host.click("#start");
   await expect(host.locator("#banner")).toHaveText("Layout: Slalom");
   for (const p of [host, other]) await expect(p.locator("#game")).toHaveAttribute("data-layout", "slalom");
+  // Stage 4: every page drew the sea chart for Slalom (layout, then wave squiggles, palms and reef marks).
+  for (const p of [host, other]) await expect(p.locator("#game")).toHaveAttribute("data-chart", /^slalom:[1-9]\d*:\d+:\d+$/);
+  expect(await host.locator("#game").getAttribute("data-chart")).toBe(await other.locator("#game").getAttribute("data-chart"));
 
   host.once("dialog", (dialog) => void dialog.accept());
   await host.click("#hud-exit");

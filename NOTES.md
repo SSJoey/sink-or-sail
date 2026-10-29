@@ -897,6 +897,53 @@ Drafted from `docs/design.md`, the roadmap and the "Later" notes. Question: **is
   - A temporary browser check (deleted) confirmed that the real audio code runs in Chrome without page errors.
   - **Runs:** type-check clean; unit 1045 passed (plus 1 skipped); one full browser run, 33 of 33 passed (peak load 25).
 
+### 2026-10-29 — Stage 4 slice 3 plan: sea-chart look (sea, islands, reefs, wrecks)
+
+- **From the look-options canvas** ("1 · Tabletop sea chart", read 2026-10-29):
+  - **Sea:** pale chart blue `#BFD9E3`, with faint ink grid lines every 200 sea units, wave squiggles in open water and a faint compass rose.
+  - **Ink:** dark brown `#3B2F22`, slightly hand-drawn.
+  - **Islands:** sand `#DCC79B` with an ink outline, a dotted shallow line outside the coast, and palm marks on the bigger ones.
+  - **Reefs:** the chart's rock symbol (ink dots and ✕ marks) on a lighter water tint.
+  - **Wrecks:** today's pieces in tan `#CDB98E` with ink outlines and a broken mast; the pack glint stays, in ink and cream.
+  - **Frame and edge:** a soft vignette at the edge.
+  - **Drawing:** decoration is placed in a fixed way per layout, the same on every device. The parts that never change are drawn once per match on their own layer.
+- **Question 1:** a) in this slice, today's white and light-blue marks (shots, pack outlines, signal glows, the EMP ring) also switch to ink or dark colours so they show on pale water. Only the colour changes; slice 4 does their real look.
+- **Question 2:** c) no hatched border; just the thin ruled ink line at the sea's edge.
+- **Question 3:** a) no labels on the chart.
+- **Question 4:** a) one faint compass rose in the bottom-right corner, under the ships.
+- **Question 5:** a) the background around the sea becomes the chart's darker blue `#1F4A63` now.
+- **Go-ahead:** "yes" (2026-10-29).
+- **Built (2026-10-29):**
+  - **`client/src/game/chartLook.ts`:**
+    - the palette (`CHART`);
+    - pure placement: `waveSpots` (on a grid symmetric about the middle, in open water), `palmSpots` (1 per 9000 square units, at most 3, 14 from the coast), `reefMarks` (on a 20-unit grid, about one in three a cross, at least one per reef);
+    - outlines: `offsetPolygon` (the shallows) and `inkOutline` (the coast in 14-unit steps, each nudged up to 1.5);
+    - `gridLines` and `chartMarks`.
+    - Every jitter reads the distance from the middle, not the side, so mirrored layouts get mirrored decoration.
+    - The numbers are in `tuning.ts` `client.chart`.
+  - **`GameScene`:**
+    - a chart layer of its own, drawn when the layout or reefs change (once per match), under everything else;
+    - wrecks in tan with ink outlines, a broken mast, and an ink-backed cream glint;
+    - marks that were white or light blue on the old dark sea are now ink or dark: shots, the aim guide, signal rings and glows, wakes, ghost flags, kraken bubbles and the closing storm's final circle;
+    - the unarmed mine is ink-grey; the EMP ring, sparks and shield are blue `#1D5FA8`.
+  - **`game.ts`:**
+    - the background is `#1F4A63`;
+    - `data-chart` gives layout:waves:palms:reef marks, for the browser tests.
+  - **Chosen while building (to confirm):**
+    - the wave squiggle is two small humps;
+    - the compass rose sits at (1490, 790), radius 34, at 40% ink;
+    - reefs are a lighter tint with a faint dotted edge;
+    - the soft dark edge is 16 thin strips fading inward over 64 units;
+    - the shield and EMP blue is `#1D5FA8`.
+  - **Checked by eye:** throwaway screenshots (deleted) of One Island, Twin Isles, The Ring and Archipelago.
+  - **Tests:**
+    - chart look (19): every layout's waves in open water; the same every time; mirrored on mirrored layouts; palms inside, away from the coast and mirrored; reef marks inside with both kinds, more on bigger reefs and mirrored; the outward offset; the ink outline within its wobble; the grid; the counts;
+    - browser: the layouts test checks both pages drew the same Slalom chart.
+  - **Runs:**
+    - Type-check clean; unit 1064 passed (plus 1 skipped).
+    - Full browser run 27 (peak load 27) failed only the smoke test's missed 3-2-1, the known flake under Later, so "three ships" and "ghosts" didn't run. Those two and the smoke test then passed on their own.
+    - The user chose to commit as it is.
+
 ## Later
 
 - **(2026-10-29, Stage 5) Sound by distance:** with up to 10 ships and a camera that follows your ship, other ships' sounds get quieter the further away they are, and nearly silent off screen. Stage 4 slice 2's volume rule is the place to add it. It works alongside the cap of 8 sounds at once.

@@ -195,6 +195,14 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
       const state = room.state as RoomStateView;
       return reefsFor(isLayoutId(state.matchLayout) ? state.matchLayout : DEFAULT_LAYOUT, isReefAmount(state.matchReefs) ? state.matchReefs : "none");
     },
+    chartKey: () => {
+      const state = room.state as RoomStateView;
+      return `${state.matchLayout}:${state.matchReefs}`;
+    },
+    chartDrawn: (marks) => {
+      // Read by the browser smoke tests: the layout drawn and how many waves, palms and reef marks it has.
+      canvasHost.dataset.chart = `${(room.state as RoomStateView).matchLayout}:${marks.waves}:${marks.palms}:${marks.reefMarks}`;
+    },
     seat,
     touch,
     setInput: (next) => {
@@ -278,7 +286,8 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
   const game = new Phaser.Game({
     type: Phaser.AUTO,
     parent: canvasHost,
-    backgroundColor: "#1d4f91",
+    // Stage 4: the chart's deep blue around the sea (the sea itself is drawn by the scene).
+    backgroundColor: "#1f4a63",
     // Touch is handled by our own touch layer. Phaser's touch input listens on the whole window,
     // so a thumb on the aiming stick would also count as a pressed mouse button (and fire).
     input: { touch: false },
@@ -321,6 +330,7 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
       unblockGestures();
       screen.removeEventListener("pointerdown", onFirstTouch, true);
       delete canvasHost.dataset.ships;
+      delete canvasHost.dataset.chart;
       delete canvasHost.dataset.ownX;
       delete canvasHost.dataset.ownY;
       delete canvasHost.dataset.packs;

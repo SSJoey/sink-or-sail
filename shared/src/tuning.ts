@@ -329,6 +329,28 @@ export const TUNING = {
       maxGap: 1.5,
     },
     /**
+     * Stage 4 slice 3: the sea-chart look (sea units). Grid lines every `gridStep`; wave squiggles on a grid
+     * `waveSpacing` apart (moved up to `waveJitter`), kept `waveClearance` from islands, reefs, wrecks, the edge and
+     * the compass rose; palms on islands of at least `palmArea` per palm (at most `maxPalms`), `palmMargin` from
+     * the coast; reef marks `reefMarkSpacing` apart (moved up to `reefJitter`); the dotted shallows `shallowOffset`
+     * outside the coast; ink lines wobble up to `wobble` every `inkStep`; the compass rose in the bottom-right corner.
+     */
+    chart: {
+      gridStep: 200,
+      waveSpacing: 150,
+      waveJitter: 30,
+      waveClearance: 45,
+      palmArea: 9000,
+      maxPalms: 3,
+      palmMargin: 14,
+      reefMarkSpacing: 20,
+      reefJitter: 5,
+      shallowOffset: 10,
+      wobble: 1.5,
+      inkStep: 14,
+      compass: { x: 1490, y: 790, radius: 34 },
+    },
+    /**
      * Stage 4 slice 2: the sound effects, made by the browser. Each is one or more parts played together:
      * a tone (sine, triangle, square or sawtooth at `hz`, sliding to `toHz`) or filtered noise (`hz` is the filter,
      * sliding to `toHz`), `seconds` long, starting `delay` seconds in, at `gain` (default 1) of the effects' volume.
