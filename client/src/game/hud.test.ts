@@ -23,8 +23,8 @@ describe("packSlotLabel (Stage 3 pack icons: the top bar's spoken and hover text
 
 describe("scoreHtml", () => {
   it("shows each crew's symbol and sinkings in its colour, for 2 or 3 crews", () => {
-    expect(scoreHtml([2, 1])).toBe('<span style="color:#F5A623">● 2</span> – <span style="color:#E8559A">■ 1</span>');
-    expect(scoreHtml([0, 3, 1])).toBe('<span style="color:#F5A623">● 0</span> – <span style="color:#E8559A">■ 3</span> – <span style="color:#2BB3C0">▲ 1</span>');
+    expect(scoreHtml([2, 1])).toBe('<span style="color:#C9782A">● 2</span> – <span style="color:#B0407A">■ 1</span>');
+    expect(scoreHtml([0, 3, 1])).toBe('<span style="color:#C9782A">● 0</span> – <span style="color:#B0407A">■ 3</span> – <span style="color:#2A7F78">▲ 1</span>');
   });
 });
 
@@ -40,10 +40,10 @@ describe("empText", () => {
 describe("livesHtml (Stage 2, Last Afloat)", () => {
   it("shows each crew's symbol and a heart per life left, or out, in its colour", () => {
     expect(livesHtml([{ livesLeft: 2, out: false }, { livesLeft: 1, out: false }])).toBe(
-      '<span style="color:#F5A623">● ♥♥</span> – <span style="color:#E8559A">■ ♥</span>',
+      '<span style="color:#C9782A">● ♥♥</span> – <span style="color:#B0407A">■ ♥</span>',
     );
     expect(livesHtml([{ livesLeft: 5, out: false }, { livesLeft: 0, out: true }, { livesLeft: 1, out: false }])).toBe(
-      '<span style="color:#F5A623">● ♥♥♥♥♥</span> – <span style="color:#E8559A">■ out</span> – <span style="color:#2BB3C0">▲ ♥</span>',
+      '<span style="color:#C9782A">● ♥♥♥♥♥</span> – <span style="color:#B0407A">■ out</span> – <span style="color:#2A7F78">▲ ♥</span>',
     );
   });
 });

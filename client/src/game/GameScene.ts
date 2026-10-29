@@ -4,7 +4,7 @@ import { CHART, gridLines, inkOutline, offsetPolygon, palmSpots, reefMarks, wave
 import { CREW_STYLES } from "./crews.ts";
 import { ShipEffects, type ShipEffect } from "./effects.ts";
 import { EmpRings } from "./empRing.ts";
-import { aimGuide, dashes, hullPoints, turretEnd } from "./hull.ts";
+import { aimGuide, dashes, deckLines, hullPoints, shotTrail, turretEnd } from "./hull.ts";
 import { hazardAlpha, hiddenByStorms, krakenTentacles, whirlpoolArms } from "./hazardLook.ts";
 import { lifebarColour, lifebarFill } from "./lifebar.ts";
 import { PACK_ICONS } from "./packIcons.ts";
@@ -43,12 +43,14 @@ const INK = CHART.ink;
 const INK_DARK = CHART.inkDark;
 const ISLAND_SAND = CHART.sand;
 const REEF_EDGE = CHART.ink;
-const HULL_EDGE = 0x1b1b1b;
+const HULL_EDGE = CHART.inkDark;
 const SHIELD = CHART.shield;
-const PACK_FILL = 0x0b2545;
+const PACK_FILL = CHART.cream;
 const WRECK_WOOD = CHART.wood;
 const WRECK_EDGE = CHART.ink;
 const MINE_UNARMED = 0x6b5a45;
+/** Stage 4 slice 4: an armed mine's blinking ring (the chart's red). */
+const MINE_ARMED = 0xb23a2e;
 const STORM_CLOUD = 0x2b2f3a;
 const STORM_EDGE = 0x9aa3b5;
 const STORM_FLASH = 0xff4d4d;
@@ -165,6 +167,8 @@ export class GameScene extends Phaser.Scene {
       const flash = effect?.flashing ? 0xffffff : stormFlashes[crew] ? STORM_FLASH : null;
       // Stage 3 lifebar: not over another crew's ship hidden in a moving storm (it would give the ship away).
       const bar = crew === ownCrew || !hiddenByStorms(ship, frame.hazards);
+      // Stage 4: a dashed ink ring round your own ship, so you find it at a glance.
+      if (!ship.sunk && crew === ownCrew) this.dashedCircle(ship.x, ship.y, TUNING.client.ownShipRing, 1.6, INK, 0.8);
       if (!ship.sunk) this.drawShip(ship, crew, flash, 1, bar);
       else if (effect?.sinkAlpha) this.drawShip(ship, crew, null, effect.sinkAlpha, bar);
     };
@@ -180,8 +184,15 @@ export class GameScene extends Phaser.Scene {
     // Stage 2 moving storms cover everything above, with islands, reefs and wrecks showing faintly through.
     // Shots stay visible on top (like tracers), and so do your own ship and its aiming guide.
     this.drawMovingStorms(frame);
-    g.fillStyle(INK_DARK, 1);
-    for (const shot of frame.shots.values()) g.fillCircle(shot.x, shot.y, 4);
+    // Stage 4: ink dots, each with two smaller, fainter dots trailing it.
+    for (const shot of frame.shots.values()) {
+      for (const dot of shotTrail(shot)) {
+        g.fillStyle(INK_DARK, dot.alpha);
+        g.fillCircle(dot.pos.x, dot.pos.y, dot.radius);
+      }
+      g.fillStyle(INK_DARK, 1);
+      g.fillCircle(shot.x, shot.y, TUNING.client.shotRadius);
+    }
     if (ownCrew !== null) {
       const own = frame.ships[ownCrew];
       if (own && !own.sunk) this.drawAimGuide(own);
@@ -207,17 +218,18 @@ export class GameScene extends Phaser.Scene {
     const pulse = (Math.sin(performance.now() / 150) + 1) / 2;
     for (const [id, pack] of packs) {
       if (pack.signalled) {
-        g.lineStyle(3, INK, 0.35 + 0.5 * pulse);
-        g.strokeCircle(pack.x, pack.y, r + 4 + 8 * pulse);
+        this.dashedCircle(pack.x, pack.y, r + 4 + 8 * pulse, 2.5, INK, 0.35 + 0.5 * pulse);
         continue;
       }
       const visible = packBlinkVisible(pack.lifeLeft);
       // Icons are drawn above everything, so one under a moving storm is hidden here.
       this.packIcons.get(id)?.setVisible(visible && !hiddenByStorms(pack, hazards));
       if (!visible) continue;
-      g.fillStyle(PACK_FILL, 0.9);
-      g.lineStyle(2, 0xffffff, 1);
+      // Stage 4: cream shapes with ink outlines and ink icons, in a faint dashed ring (the mock-up's pack).
       const { x, y } = pack;
+      this.dashedCircle(x, y, r + 9, 1.4, INK, 0.5);
+      g.fillStyle(PACK_FILL, 1);
+      g.lineStyle(2, INK, 1);
       if (pack.type === "mine") {
         g.fillCircle(x, y, r);
         g.strokeCircle(x, y, r);
@@ -225,14 +237,14 @@ export class GameScene extends Phaser.Scene {
         g.fillRoundedRect(x - r, y - r * 0.55, 2 * r, 1.1 * r, r * 0.55);
         g.strokeRoundedRect(x - r, y - r * 0.55, 2 * r, 1.1 * r, r * 0.55);
       } else if (pack.type === "emp") {
-        this.polygon([{ x, y: y - r }, { x: x + r, y }, { x, y: y + r }, { x: x - r, y }], PACK_FILL, 0xffffff, 0.9);
+        this.polygon([{ x, y: y - r }, { x: x + r, y }, { x, y: y + r }, { x: x - r, y }], PACK_FILL, INK, 1);
       } else {
         g.fillRect(x - r * 0.85, y - r * 0.85, 1.7 * r, 1.7 * r);
         g.strokeRect(x - r * 0.85, y - r * 0.85, 1.7 * r, 1.7 * r);
       }
       if (!this.packIcons.has(id) && this.textures.exists(`pack-${pack.type}`)) {
         const size = r * 1.6;
-        this.packIcons.set(id, this.add.image(x, y, `pack-${pack.type}`).setDisplaySize(size, size));
+        this.packIcons.set(id, this.add.image(x, y, `pack-${pack.type}`).setDisplaySize(size, size).setTint(INK_DARK));
       }
     }
     // Remove icons for packs that are gone or only glowing.
@@ -284,28 +296,32 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
-  /** Mines, visible to everyone: hollow grey with spikes until armed, then solid red with a blinking ring. */
+  /**
+   * Mines, visible to everyone (Stage 4: the chart's ink mine with four spikes): an open ink-grey ring until armed,
+   * then solid ink with a blinking red ring.
+   */
   private drawMines(mines: Map<string, MineView>): void {
     const g = this.g;
     const r = TUNING.mine.radius;
     const blink = Math.floor(performance.now() / 250) % 2 === 0;
     for (const mine of mines.values()) {
       const { x, y } = mine;
+      const colour = mine.armed ? INK_DARK : MINE_UNARMED;
       if (mine.armed) {
-        g.fillStyle(0xd7263d, 1);
-        g.fillCircle(x, y, r * 0.8);
+        g.fillStyle(INK_DARK, 1);
+        g.fillCircle(x, y, r * 0.6);
         if (blink) {
-          g.lineStyle(2, 0xff8a8a, 1);
+          g.lineStyle(2.5, MINE_ARMED, 1);
           g.strokeCircle(x, y, r);
         }
       } else {
-        g.lineStyle(2, MINE_UNARMED, 1);
-        g.strokeCircle(x, y, r * 0.8);
+        g.lineStyle(2, colour, 1);
+        g.strokeCircle(x, y, r * 0.6);
       }
-      g.lineStyle(2, mine.armed ? 0xd7263d : MINE_UNARMED, 1);
-      for (let i = 0; i < 8; i++) {
-        const a = (i * Math.PI) / 4;
-        g.lineBetween(x + Math.cos(a) * r * 0.8, y + Math.sin(a) * r * 0.8, x + Math.cos(a) * r * 1.15, y + Math.sin(a) * r * 1.15);
+      g.lineStyle(2, colour, 1);
+      for (let i = 0; i < 4; i++) {
+        const a = (i * Math.PI) / 2;
+        g.lineBetween(x + Math.cos(a) * r * 0.6, y + Math.sin(a) * r * 0.6, x + Math.cos(a) * r * 0.95, y + Math.sin(a) * r * 0.95);
       }
     }
   }
@@ -319,13 +335,14 @@ export class GameScene extends Phaser.Scene {
     for (const s of [-3, 3]) {
       g.lineBetween(x - dir.x * 11 + side.x * s, y - dir.y * 11 + side.y * s, x - dir.x * 26 + side.x * s * 1.6, y - dir.y * 26 + side.y * s * 1.6);
     }
-    g.lineStyle(8, 0x1b1b1b, 1);
+    g.lineStyle(8, INK_DARK, 1);
     g.lineBetween(x - dir.x * 7, y - dir.y * 7, x + dir.x * 7, y + dir.y * 7);
-    g.fillStyle(0x1b1b1b, 1);
+    g.fillStyle(INK_DARK, 1);
     g.fillCircle(x - dir.x * 7, y - dir.y * 7, 4);
     g.fillCircle(x + dir.x * 7, y + dir.y * 7, 4);
-    g.lineStyle(1, INK, 0.9);
-    g.strokeCircle(x + dir.x * 7, y + dir.y * 7, 4);
+    // Stage 4: a cream nose.
+    g.fillStyle(CHART.cream, 1);
+    g.fillCircle(x + dir.x * 9, y + dir.y * 9, 2);
   }
 
   private drawSparks(ship: ShipView, alpha: number): void {
@@ -376,19 +393,33 @@ export class GameScene extends Phaser.Scene {
 
     // EMP'd: grey hull with flickering blue sparks.
     const disabled = ship.disabled > 0;
-    this.polygon(hullPoints(ship, ship.heading), flash ?? (disabled ? 0x8a8a8a : style.colour), HULL_EDGE, alpha);
+    this.polygon(hullPoints(ship, ship.heading), flash ?? (disabled ? 0x8a8a8a : style.colour), HULL_EDGE, alpha, 2.5);
     if (disabled) this.drawSparks(ship, alpha);
 
-    // Crew flag near the stern: ● for crew 1, ■ for crew 2, ▲ for crew 3.
-    const flag = { x: ship.x - Math.cos(ship.heading) * 14, y: ship.y - Math.sin(ship.heading) * 14 };
-    g.fillStyle(0xffffff, alpha);
-    if (crew === 0) g.fillCircle(flag.x, flag.y, 5);
-    else if (crew === 1) g.fillRect(flag.x - 5, flag.y - 5, 10, 10);
-    else g.fillTriangle(flag.x, flag.y - 6, flag.x + 6, flag.y + 5, flag.x - 6, flag.y + 5);
+    // Stage 4: cream deck planks (the mock-up's).
+    g.lineStyle(1.8, CHART.cream, alpha);
+    for (const line of deckLines(ship, ship.heading)) {
+      g.beginPath();
+      g.moveTo(line[0]!.x, line[0]!.y);
+      for (const p of line.slice(1)) g.lineTo(p.x, p.y);
+      g.strokePath();
+    }
 
+    // Crew flag on the deck near the stern, in cream: ● for crew 1, ■ for crew 2, ▲ for crew 3.
+    const flag = { x: ship.x - Math.cos(ship.heading) * 13, y: ship.y - Math.sin(ship.heading) * 13 };
+    g.fillStyle(CHART.cream, alpha);
+    if (crew === 0) g.fillCircle(flag.x, flag.y, 4.5);
+    else if (crew === 1) g.fillRect(flag.x - 4.5, flag.y - 4.5, 9, 9);
+    else g.fillTriangle(flag.x, flag.y - 5.5, flag.x + 5.5, flag.y + 4.5, flag.x - 5.5, flag.y + 4.5);
+
+    // Stage 4: an ink turret with a cream rim (the barrel too).
     const end = turretEnd(ship, ship.turret);
-    g.lineStyle(6, HULL_EDGE, alpha);
+    g.lineStyle(8, CHART.cream, alpha);
     g.lineBetween(ship.x, ship.y, end.x, end.y);
+    g.lineStyle(5, HULL_EDGE, alpha);
+    g.lineBetween(ship.x, ship.y, end.x, end.y);
+    g.fillStyle(CHART.cream, alpha);
+    g.fillCircle(ship.x, ship.y, 8.5);
     g.fillStyle(HULL_EDGE, alpha);
     g.fillCircle(ship.x, ship.y, 7);
 
@@ -780,6 +811,20 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  /** A dashed circle (Graphics has no dashed lines): `dash` arcs of about 6 units with gaps of 5. */
+  private dashedCircle(x: number, y: number, radius: number, width: number, colour: number, alpha: number): void {
+    const g = this.g;
+    const count = Math.max(8, Math.round((2 * Math.PI * radius) / 11));
+    g.lineStyle(width, colour, alpha);
+    for (let i = 0; i < count; i++) {
+      const a = (i / count) * Math.PI * 2;
+      const b = a + ((6 / 11) * Math.PI * 2) / count;
+      g.beginPath();
+      g.arc(x, y, radius, a, b);
+      g.strokePath();
+    }
+  }
+
   private fillPolygon(g: Phaser.GameObjects.Graphics, points: readonly Vec[], fill: number, alpha: number): void {
     g.fillStyle(fill, alpha);
     g.beginPath();
@@ -789,10 +834,10 @@ export class GameScene extends Phaser.Scene {
     g.fillPath();
   }
 
-  private polygon(points: readonly Vec[], fill: number, edge: number, alpha = 1): void {
+  private polygon(points: readonly Vec[], fill: number, edge: number, alpha = 1, width = 2): void {
     const g = this.g;
     g.fillStyle(fill, alpha);
-    g.lineStyle(2, edge, alpha);
+    g.lineStyle(width, edge, alpha);
     g.beginPath();
     g.moveTo(points[0]!.x, points[0]!.y);
     for (const p of points.slice(1)) g.lineTo(p.x, p.y);

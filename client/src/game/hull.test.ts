@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { TUNING } from "@sink-or-sail/shared";
-import { AIM_CONE_HALF_ANGLE, aimGuide, dashes, hullPoints, turretEnd } from "./hull.ts";
+import { TUNING as T, pointInPolygon } from "@sink-or-sail/shared";
+import { AIM_CONE_HALF_ANGLE, aimGuide, dashes, deckLines, hullPoints, shotTrail, turretEnd } from "./hull.ts";
 
 const dist = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(a.x - b.x, a.y - b.y);
 
@@ -59,5 +60,36 @@ describe("dashes", () => {
   it("cuts the last dash short at the end of the line", () => {
     const segs = dashes({ x: 0, y: 0 }, { x: 25, y: 0 }, 10, 10);
     expect(segs.at(-1)).toEqual([{ x: 20, y: 0 }, { x: 25, y: 0 }]);
+  });
+});
+
+describe("Stage 4 slice 4: the sea-chart hull", () => {
+  it("is the mock-up's rounded hull: smooth (many points), mirror-symmetric, bow at the front", () => {
+    const pts = hullPoints({ x: 0, y: 0 }, 0);
+    expect(pts.length).toBeGreaterThan(20);
+    expect(pts[0]).toEqual({ x: 28, y: 0 });
+    for (const p of pts) expect(pts.some((q) => Math.abs(q.x - p.x) < 1e-9 && Math.abs(q.y + p.y) < 1e-9)).toBe(true);
+    expect(Math.max(...pts.map((p) => p.x))).toBe(28);
+  });
+
+  it("keeps its deck planks inside the hull", () => {
+    const pos = { x: 300, y: 200 };
+    const hull = hullPoints(pos, 0.7);
+    const lines = deckLines(pos, 0.7);
+    expect(lines).toHaveLength(3);
+    for (const line of lines) for (const p of line) expect(pointInPolygon(p, hull)).toBe(true);
+  });
+});
+
+describe("shotTrail", () => {
+  it("puts two smaller, fainter dots behind the shot, along the way it flies", () => {
+    const trail = shotTrail({ x: 100, y: 100, angle: 0 });
+    expect(trail).toHaveLength(2);
+    expect(trail[0]!.pos.x).toBeLessThan(100);
+    expect(trail[1]!.pos.x).toBeLessThan(trail[0]!.pos.x);
+    for (const t of trail) expect(t.pos.y).toBeCloseTo(100);
+    expect(trail[1]!.radius).toBeLessThan(trail[0]!.radius);
+    expect(trail[1]!.alpha).toBeLessThan(trail[0]!.alpha);
+    expect(trail[0]!.radius).toBeLessThan(T.client.shotRadius);
   });
 });

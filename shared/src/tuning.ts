@@ -328,6 +328,9 @@ export const TUNING = {
       /** A clock that jumps by more than this (a reconnect, a late update) plays none of the beeps it skipped. */
       maxGap: 1.5,
     },
+    /** Stage 4 slice 4: a shot's ink dot on the sea (its trail's dots are smaller); the dashed ring round your own ship. */
+    shotRadius: 3.5,
+    ownShipRing: 35,
     /**
      * Stage 4 slice 3: the sea-chart look (sea units). Grid lines every `gridStep`; wave squiggles on a grid
      * `waveSpacing` apart (moved up to `waveJitter`), kept `waveClearance` from islands, reefs, wrecks, the edge and

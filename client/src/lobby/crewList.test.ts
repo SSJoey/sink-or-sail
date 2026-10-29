@@ -33,7 +33,7 @@ describe("the crews in the room (Stage 3)", () => {
 describe("your own crew (Stage 3)", () => {
   it("shows who holds each role, whether you are alone, and its colour", () => {
     const players = [p("ana", "Ana", 1, "gunner"), p("ben", "Ben", 1, "pilot"), p("sam", "Sam", 0, "pilot")];
-    expect(myCrew(players, "ana")).toEqual({ crew: 1, label: "■ Crew 2", colour: "#E8559A", role: "gunner", pilot: "Ben", gunner: "Ana (you)", alone: false, withBot: false, crews: 2 });
+    expect(myCrew(players, "ana")).toEqual({ crew: 1, label: "■ Crew 2", colour: "#B0407A", role: "gunner", pilot: "Ben", gunner: "Ana (you)", alone: false, withBot: false, crews: 2 });
     expect(myCrew(players, "sam")).toMatchObject({ crew: 0, pilot: "Sam (you)", gunner: null, alone: true });
   });
 

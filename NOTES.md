@@ -944,6 +944,45 @@ Drafted from `docs/design.md`, the roadmap and the "Later" notes. Question: **is
     - Full browser run 27 (peak load 27) failed only the smoke test's missed 3-2-1, the known flake under Later, so "three ships" and "ghosts" didn't run. Those two and the smoke test then passed on their own.
     - The user chose to commit as it is.
 
+### 2026-10-29 — Stage 4 slice 4 plan: sea-chart look (ships, turrets, ghosts, packs, shots, mines, torpedoes)
+
+- **From the mock-up:**
+  - **Ships:** the rounded hull with a pointed bow, at today's size (bow 28, stern 22, about 25 wide), in the crew colour with a 2.5 ink outline. It has cream deck planks, the crew symbol in cream on the deck, and an ink turret with a cream rim. Hit flash, fade, blink, EMP look, shield and boost wake are unchanged.
+  - **Ghosts:** the new hull as a faint dashed outline in the crew colour, with the symbol.
+  - **Shots:** ink dots. **Mines:** the ink mine with four spikes, open before arming and solid with a blinking red ring once armed.
+  - **Torpedoes:** an ink capsule with a cream nose and an ink wake.
+  - **Pack signals:** a pulsing dashed ink ring.
+- **Answers (user: "agree to all suggestions"):**
+  1. a) chart-toned versions of today's crew colours everywhere: orange `#C9782A`, magenta `#B0407A`, teal `#2A7F78`.
+  2. a) a dashed ink ring round your own ship.
+  3. a) packs keep a shape per type, in cream with ink outlines and ink icons, plus a faint dashed ring. The top bar and Pack button keep white icons until slice 7.
+  4. a) two fading dots trail behind each shot.
+- **Go-ahead:** "yes" (2026-10-29).
+- **Built (2026-10-29):**
+  - **`hull.ts`:**
+    - `HULL` is the mock-up's curves, sampled to 26 points and scaled so the bow is at 28. It is mirror-symmetric and inside the collision circle.
+    - `deckLines`: three cream planks.
+    - `shotTrail`: two dots 7 and 14 behind the shot, at 0.75 and 0.5 of its size and alpha 0.55 and 0.3.
+  - **`crews.ts`:** colours `#C9782A`, `#B0407A`, `#2A7F78`.
+  - **`GameScene`:**
+    - **Ships:** a 2.5 ink outline, cream planks, a cream crew symbol on the deck near the stern, and an ink turret and barrel with cream rims.
+    - **Own ship:** a dashed ink ring (radius 35, so it clears the lifebar).
+    - **Packs:** cream shapes with ink outlines, ink-tinted icons and a dashed ring (radius + 9). The signal is a pulsing dashed ink ring.
+    - **Shots:** ink dots (radius 3.5) with their trail.
+    - **Mines:** an ink-grey ring with four spikes until armed, then solid ink with a blinking chart-red `#B23A2E` ring.
+    - **Torpedoes:** an ink capsule with a cream nose.
+  - **Ghosts:** they use the new hull automatically, unchanged otherwise (dashed, crew colour, 0.85).
+  - **`tuning.ts`:** `client.shotRadius` 3.5 and `client.ownShipRing` 35.
+  - **Tests changed for the new colours:** the expected crew colours in `crews.test.ts`, `hud.test.ts` and `crewList.test.ts` now hold the agreed new values. The checks themselves are unchanged.
+  - **Noticed, not changed (for slice 7):** the deeper crew colours are darker on the dark top bar (the magenta "■ Crew 2" text is harder to read there). Slice 7 restyles the top bar.
+  - **Checked by eye:** throwaway screenshots (deleted) of a gunner firing at a bot ship, a mine pack on the sea, and a dropped armed mine.
+  - **Tests:** hull (2 new: smooth, symmetric, bow first; planks inside); shot trail (1).
+  - **Runs:**
+    - Type-check clean; unit 1067 passed (plus 1 skipped).
+    - Full browser run 28 (peak load 29) had 2 failures: the known smoke-test miss of the 3-2-1, and the whirlpool test (its ship didn't reach the eye within 60 s, a steering failure under load).
+    - Both then passed alone (whirlpool in 26 s), and so did "three ships" and "ghosts".
+    - The user chose to commit as it is.
+
 ## Later
 
 - **(2026-10-29, Stage 5) Sound by distance:** with up to 10 ships and a camera that follows your ship, other ships' sounds get quieter the further away they are, and nearly silent off screen. Stage 4 slice 2's volume rule is the place to add it. It works alongside the cap of 8 sounds at once.
