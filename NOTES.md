@@ -856,7 +856,50 @@ Drafted from `docs/design.md`, the roadmap and the "Later" notes. Question: **is
     - This is the slice 9 failure. It also failed in 2 of the 3 runs before this slice, it passes on its own, and this slice doesn't touch it.
     - The user chose to commit as it is and **investigate later** (Later, "Smoke test misses the 3-2-1").
 
+### 2026-10-29 — Stage 4 slice 2 plan: sound effects (questions open)
+
+- **Plan drafted:**
+  - Browser-made sound effects for the sea's events, with the same 🔊 / 🔇 switch.
+  - Own-ship sounds louder, others at half volume.
+  - No ambience or panning.
+  - Questions 1–6 (the sound list, cues from the server, volume, spectators, busy moments, results fanfare) wait for the user's answers.
+- **More than 2 ships (user's question):** with 3 ships the plan holds up. Up to 10 ships (Stage 5) would bury your own sounds.
+  - **Yes:** an overall cap of **8 sounds playing at once** is built in this slice. When it is full, the quietest sound is dropped first, so your own ship's sounds get through.
+  - **Yes:** the volume rule is one small function, so Stage 5 can add distance there.
+  - **Later (Stage 5):** distance and off-screen fading.
+- **Answers (user: "agree to all suggestions"):**
+  1. **The sound list as proposed:**
+     - Everyone hears: gun pop, hit thud, shield clink, sinking rumble and splash, mine plop, boom (mine blast, torpedo hit), torpedo swoosh, EMP zap, wreck crack, hazard warning hum, kraken growl, ram knock.
+     - Own crew only: boost whoosh, empty-bar buzz, respawn chime, pack pickup chime, health chord, reef scrape.
+     - No ambience, no panning. The values go in `tuning.ts`.
+  2. a) the server sends each tick's sound cues (event kind and ship) as a small message.
+  3. a) other ships' sounds play at half volume wherever they are on the sea; your own ship's at full volume.
+  4. a) spectators hear every "everyone" sound at half volume, and none of the "own only" ones.
+  5. a) at most one sound of each kind every 60 ms (as well as the cap of 8 at once).
+  6. a) no results fanfare; the slice 1 horn is enough.
+- **Built (2026-10-29):**
+  - **Server:**
+    - `server/src/rooms/cues.ts` (`soundCues`) turns a step's simulation events into cues `{ k, s }`: the kind and the ships each sound belongs to.
+    - A mine blast belongs to the ships it hit, or to its owner when it hit none. A ram belongs to both ships, a wreck to the ship credited, an EMP to the firing ship and the ships caught, and a hazard's signal to none.
+    - A health pack's pickup sounds as the health chord only.
+    - `CrewRoom` broadcasts each tick's cues (`ServerMessage.Cues`) when there are any, only while the match runs.
+  - **Shared:** `CUE_KINDS`, `OWN_CREW_CUES` and `SoundCue` in `rooms.ts`. `tuning.ts` gains `client.sfx`: volume 0.25, others 0.5, 60 ms, 8 at once, and each sound's parts.
+  - **Client:**
+    - `sfx.ts`: `cueVolume`, `soundSeconds` and `SfxMixer`, which applies the per-kind gap and the cap, stopping the quietest sound playing when a louder one comes.
+    - `sound.ts` `playSfx` makes each part as a tone or filtered noise, with a short fade in and a decay to silence.
+    - The lobby forwards cues to the game view, so pages not showing it ignore them. `game.ts` plays them and lists them in `data-sfx`.
+  - **Chosen while building (to confirm):** the effects' parts as listed in `tuning.ts`.
+  - **Tests:**
+    - server cues (5): every kind with its ships, blasts, rams, wrecks, hazards, health pickup, events with no sound;
+    - room (1): cues reach the clients while the match runs, none while paused;
+    - client (6): volume for own, others and spectators; the per-kind gap; the cap; silent sounds;
+    - browser (1): the gunner fires and the page plays "shot".
+  - A temporary browser check (deleted) confirmed that the real audio code runs in Chrome without page errors.
+  - **Runs:** type-check clean; unit 1045 passed (plus 1 skipped); one full browser run, 33 of 33 passed (peak load 25).
+
 ## Later
+
+- **(2026-10-29, Stage 5) Sound by distance:** with up to 10 ships and a camera that follows your ship, other ships' sounds get quieter the further away they are, and nearly silent off screen. Stage 4 slice 2's volume rule is the place to add it. It works alongside the cap of 8 sounds at once.
 
 - **(2026-10-29, to investigate) Smoke test misses the 3-2-1:**
   - "loads, joins a room and shows a ship" fails under load in about 4 of the last 7 full browser runs (Stage 3 slices 9–11, Stage 4 slice 1).

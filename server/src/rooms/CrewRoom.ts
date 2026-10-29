@@ -45,6 +45,7 @@ import {
   type World,
 } from "@sink-or-sail/shared";
 import { LOG_DIR, firstHazardAt, fixedSeed, fixedStormTimes, joinAddress, testSink } from "../config.ts";
+import { soundCues } from "./cues.ts";
 import { awardsLine, controlLine, matchEndLine, matchMs, matchStartLine, playNextRoundLine, playerLine, positionLines, seatLine, simEventLines, type LogLine, type MatchLobby, type Roster } from "../log/events.ts";
 import { MatchLog, fileSink, logFileName, type LogSink } from "../log/matchLog.ts";
 import { canChangeSeat, canEndMatch, canPause, canResume, canSetPacks, canStart, crewHasShip, everyCrewManned, nextHost, readBotShips, readLayout, readOnOff, readReefs, readLives, readMode, readReady, shipCount } from "./matchFlow.ts";
@@ -488,6 +489,9 @@ export class CrewRoom extends Room<{ state: CrewState }> {
     }
     syncWorld(this.state, this.world);
     applyEvents(this.state, result.events);
+    // Stage 4 slice 2: the step's sound cues, to everyone in the room.
+    const cues = soundCues(result.events);
+    if (cues.length) this.broadcast(ServerMessage.Cues, cues);
     this.tally = updateTally(this.tally, this.world, result.events, dt);
 
     for (const line of simEventLines(this.logTime(), result.events, this.roster)) this.logLine(line);

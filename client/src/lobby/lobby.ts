@@ -13,6 +13,7 @@ import {
   normaliseName,
   type RejectedMessage,
   type Role,
+  type SoundCue,
 } from "@sink-or-sail/shared";
 import { renderResult, startGame, type GameHandle, type RoomStateView } from "../game/game.ts";
 import { joinErrorText, rejectedText } from "./messages.ts";
@@ -90,6 +91,8 @@ export function startLobby(): void {
 
     room.onStateChange((state: StateView) => renderRoom(room, state));
     room.onMessage(ServerMessage.Rejected, (message: RejectedMessage) => showError(rejectedText(message)));
+    // Stage 4 slice 2: sound cues play in the game view (a page not showing it, e.g. the waiting screen, ignores them).
+    room.onMessage(ServerMessage.Cues, (cues: SoundCue[]) => game?.cues(cues));
     room.onDrop(() => { byId("status").textContent = "Connection lost — reconnecting…"; });
     room.onReconnect(() => {
       saveToken(storage, room.reconnectionToken);

@@ -92,7 +92,20 @@ export type Phase = (typeof Phase)[keyof typeof Phase];
 /** Messages the room sends to a single client. */
 export const ServerMessage = {
   Rejected: "rejected",
+  /** Stage 4 slice 2: each tick's sound cues (a SoundCue list), to every client while the match runs. */
+  Cues: "cues",
 } as const;
+
+/** Stage 4 slice 2: the sound effects. */
+export const CUE_KINDS = [
+  "shot", "hit", "blocked", "boost", "empty", "sunk", "respawn", "pickup", "health",
+  "mine", "boom", "torpedo", "emp", "wreck", "reef", "hazard", "kraken", "bump",
+] as const;
+export type CueKind = (typeof CUE_KINDS)[number];
+/** Heard only by the crew whose ship it is (everyone else's: by all, quieter unless it's their own ship). */
+export const OWN_CREW_CUES: readonly CueKind[] = ["boost", "empty", "respawn", "pickup", "health", "reef"];
+/** A sound cue: its kind and the ships it belongs to (none for a hazard's signal). Short keys: sent every tick. */
+export type SoundCue = { k: CueKind; s: number[] };
 
 export const RejectReason = {
   SeatTaken: "seatTaken",

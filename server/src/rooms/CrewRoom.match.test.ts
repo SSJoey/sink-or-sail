@@ -870,3 +870,26 @@ describe("EMP (Stage 1)", () => {
     expect(room.state.ships[0]!.empsFired).toBe(1);
   });
 });
+
+describe("sound cues (Stage 4 slice 2)", () => {
+  it("sends each tick's cues to every client while the match runs; none while paused", async () => {
+    const { room, pilot, gunner } = await oneCrew();
+    room.countdownSeconds = 0.1;
+    const cues: { k: string; s: number[] }[][] = [];
+    pilot.onMessage(ServerMessage.Cues, (message: { k: string; s: number[] }[]) => cues.push(message));
+    gunner.onMessage(ServerMessage.Cues, () => {});
+    pilot.send(ClientMessage.Start);
+    await waitFor(() => room.state.phase === Phase.Running);
+    gunner.send(ClientMessage.Input, gun(1, 0, true));
+    await waitFor(() => cues.flat().some((c) => c.k === "shot"), 3000);
+    expect(cues.flat().find((c) => c.k === "shot")).toEqual({ k: "shot", s: [0] });
+    expect(cues.every((tick) => tick.length > 0)).toBe(true);
+
+    gunner.send(ClientMessage.Pause);
+    await waitFor(() => room.state.phase === Phase.Paused);
+    await sleep(100);
+    const before = cues.length;
+    await sleep(500);
+    expect(cues.length).toBe(before);
+  });
+});

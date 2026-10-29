@@ -328,5 +328,38 @@ export const TUNING = {
       /** A clock that jumps by more than this (a reconnect, a late update) plays none of the beeps it skipped. */
       maxGap: 1.5,
     },
+    /**
+     * Stage 4 slice 2: the sound effects, made by the browser. Each is one or more parts played together:
+     * a tone (sine, triangle, square or sawtooth at `hz`, sliding to `toHz`) or filtered noise (`hz` is the filter,
+     * sliding to `toHz`), `seconds` long, starting `delay` seconds in, at `gain` (default 1) of the effects' volume.
+     * Other ships' sounds play at `othersVolume` of your own's; at most one sound of each kind every
+     * `sameKindGapMs`, and at most `maxPlaying` at once (the quietest gives way to a louder one).
+     */
+    sfx: {
+      volume: 0.25,
+      othersVolume: 0.5,
+      sameKindGapMs: 60,
+      maxPlaying: 8,
+      sounds: {
+        shot: [{ wave: "noise", hz: 2500, toHz: 600, seconds: 0.08, gain: 0.8 }],
+        hit: [{ wave: "sine", hz: 140, toHz: 60, seconds: 0.18 }, { wave: "noise", hz: 800, toHz: 200, seconds: 0.1, gain: 0.5 }],
+        blocked: [{ wave: "triangle", hz: 1800, seconds: 0.08 }, { wave: "triangle", hz: 2400, seconds: 0.1, delay: 0.03, gain: 0.6 }],
+        boost: [{ wave: "noise", hz: 400, toHz: 2400, seconds: 0.35, gain: 0.6 }],
+        empty: [{ wave: "square", hz: 110, seconds: 0.3, gain: 0.4 }],
+        sunk: [{ wave: "sawtooth", hz: 160, toHz: 40, seconds: 1, gain: 0.5 }, { wave: "noise", hz: 1200, toHz: 150, seconds: 0.8, delay: 0.1, gain: 0.7 }],
+        respawn: [{ wave: "sine", hz: 520, seconds: 0.12 }, { wave: "sine", hz: 780, seconds: 0.18, delay: 0.1 }],
+        pickup: [{ wave: "sine", hz: 990, seconds: 0.08 }, { wave: "sine", hz: 1480, seconds: 0.12, delay: 0.08 }],
+        health: [{ wave: "sine", hz: 523, seconds: 0.4, gain: 0.5 }, { wave: "sine", hz: 659, seconds: 0.4, gain: 0.5 }, { wave: "sine", hz: 784, seconds: 0.4, gain: 0.5 }],
+        mine: [{ wave: "sine", hz: 300, toHz: 120, seconds: 0.12 }],
+        boom: [{ wave: "noise", hz: 1500, toHz: 80, seconds: 0.7 }, { wave: "sine", hz: 90, toHz: 40, seconds: 0.5, gain: 0.8 }],
+        torpedo: [{ wave: "noise", hz: 300, toHz: 900, seconds: 0.4, gain: 0.7 }],
+        emp: [{ wave: "sawtooth", hz: 1200, toHz: 200, seconds: 0.35, gain: 0.5 }],
+        wreck: [{ wave: "noise", hz: 3000, toHz: 500, seconds: 0.15 }, { wave: "square", hz: 200, toHz: 80, seconds: 0.12, gain: 0.4 }],
+        reef: [{ wave: "noise", hz: 1800, seconds: 0.2, gain: 0.5 }],
+        hazard: [{ wave: "sine", hz: 110, seconds: 0.8, gain: 0.6 }, { wave: "sine", hz: 165, seconds: 0.8, gain: 0.4 }],
+        kraken: [{ wave: "sawtooth", hz: 70, toHz: 50, seconds: 0.7, gain: 0.7 }],
+        bump: [{ wave: "sine", hz: 180, toHz: 90, seconds: 0.12 }, { wave: "noise", hz: 600, seconds: 0.06, gain: 0.5 }],
+      },
+    },
   },
 } as const;

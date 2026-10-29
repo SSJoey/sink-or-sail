@@ -1,12 +1,13 @@
 import * as Phaser from "phaser";
 import type { Room } from "@colyseus/sdk";
-import { ClientMessage, DEFAULT_LAYOUT, LAYOUTS, PACK_LABELS, Phase, TUNING, inStorm, isLayoutId, isReefAmount, reefsFor, rolePack, type PackType, type Role } from "@sink-or-sail/shared";
+import { ClientMessage, DEFAULT_LAYOUT, LAYOUTS, PACK_LABELS, Phase, TUNING, inStorm, isLayoutId, isReefAmount, reefsFor, rolePack, type CueKind, type PackType, type Role, type SoundCue } from "@sink-or-sail/shared";
 import { CREW_STYLES } from "./crews.ts";
 import { GameScene } from "./GameScene.ts";
 import type { ShipEffect } from "./effects.ts";
 import { empText, formatClock, livesHtml, packSlotLabel, scoreHtml } from "./hud.ts";
 import { BeepClock, type BeepKind } from "./beeps.ts";
 import { sound } from "./sound.ts";
+import { SfxMixer, cueVolume, soundSeconds } from "./sfx.ts";
 import { loadSoundOn, saveSoundOn, soundButtonText } from "./soundSetting.ts";
 import { PACK_ICONS } from "./packIcons.ts";
 import { startInputSender } from "./inputSender.ts";
@@ -80,12 +81,16 @@ export interface RoomStateView extends GameStateView {
 
 export interface GameHandle {
   stop(): void;
+  /** Stage 4 slice 2: a tick's sound cues from the server. */
+  cues(cues: readonly SoundCue[]): void;
 }
 
 const byId = (id: string) => document.getElementById(id)!;
 
 /** Stage 4: every beep this page has played (all matches), read by the browser smoke tests (they can't hear). */
 const played: BeepKind[] = [];
+/** Stage 4 slice 2: the sound effects this page played, for the browser tests too. */
+const playedSfx: CueKind[] = [];
 
 /**
  * Shows the game view from the countdown to the scoreboard: draws the sea, sends this player's input,
@@ -156,6 +161,8 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
     soundButton.textContent = soundButtonText(soundOn);
   };
   const beepClock = new BeepClock();
+  const mixer = new SfxMixer();
+  const stoppers = new Map<number, () => void>();
 
   // Phone controls: shown on touch-first devices, or as soon as anyone touches the screen.
   const touch = new TouchControls(TUNING.client.stickRadius, TUNING.client.stickDeadZone);
@@ -287,6 +294,25 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
   });
 
   return {
+    cues(cues) {
+      if (!soundOn) return;
+      const myCrew = seat()?.crew ?? null;
+      for (const cue of cues) {
+        const volume = cueVolume(cue, myCrew);
+        const seconds = soundSeconds(cue.k);
+        const now = performance.now();
+        const admitted = mixer.admit(cue.k, volume, seconds, now);
+        if (!admitted.play) continue;
+        for (const id of admitted.stop) {
+          stoppers.get(id)?.();
+          stoppers.delete(id);
+        }
+        stoppers.set(admitted.id, sound.playSfx(cue.k, volume));
+        setTimeout(() => stoppers.delete(admitted.id), seconds * 1000 + 100);
+        playedSfx.push(cue.k);
+        canvasHost.dataset.sfx = playedSfx.slice(-50).join(",");
+      }
+    },
     stop() {
       stopSending();
       room.onStateChange.remove(onState);
