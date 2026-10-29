@@ -13,6 +13,9 @@ export function lifebarColour(fill: number): "green" | "amber" | "red" {
   return fill <= C.lifebarAmberAtOrBelow ? "amber" : "green";
 }
 
+/** Stage 4 slice 6: ink ticks on the bar where its colour changes (a quarter and a half). */
+export const LIFEBAR_TICKS: readonly number[] = [C.lifebarRedBelow, C.lifebarAmberAtOrBelow];
+
 /** A ship afloat shows its lifebar, unless it is hidden in a moving storm from this viewer (another crew's ship). */
 export function lifebarShown(ship: { x: number; y: number; sunk: boolean }, crew: number, ownCrew: number | null, hazards: ReadonlyMap<string, HazardView>): boolean {
   if (ship.sunk) return false;

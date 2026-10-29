@@ -6,7 +6,8 @@ import { ShipEffects, type ShipEffect } from "./effects.ts";
 import { EmpRings } from "./empRing.ts";
 import { aimGuide, dashes, deckLines, hullPoints, shotTrail, turretEnd } from "./hull.ts";
 import { hazardAlpha, hiddenByStorms, krakenTentacles, stormHatch, whirlpoolArms } from "./hazardLook.ts";
-import { lifebarColour, lifebarFill } from "./lifebar.ts";
+import { LIFEBAR_TICKS, lifebarColour, lifebarFill } from "./lifebar.ts";
+import { flameSpots, hullCracks, isDamaged, smokePuffs } from "./damageLook.ts";
 import { PACK_ICONS } from "./packIcons.ts";
 import type { Frame, GhostView, HazardView, MineView, PackView, ShipView, WreckView } from "./interpolation.ts";
 import { blinkVisible, packBlinkVisible } from "./matchText.ts";
@@ -55,7 +56,11 @@ const MINE_ARMED = 0xb23a2e;
 const STORM_CLOUD = CHART.storm;
 const STORM_EDGE = INK_DARK;
 const STORM_FLASH = 0xff4d4d;
-const LIFEBAR_COLOURS = { green: 0x7ee081, amber: 0xffb347, red: 0xff4d4d } as const;
+// Stage 4 slice 6: the lifebar's fill in chart tones (same rules as Stage 3).
+const LIFEBAR_COLOURS = { green: 0x3e7b3a, amber: 0xd9a02b, red: 0xb23a2e } as const;
+const FLAME_OUTER = 0xb23a2e;
+const FLAME_INNER = 0xf2c14e;
+const SMOKE = 0x5a5048;
 const MOVING_STORM_CLOUD = CHART.storm;
 const MOVING_STORM_SWIRL = CHART.cream;
 const WHIRLPOOL_WATER = CHART.deep;
@@ -428,20 +433,54 @@ export class GameScene extends Phaser.Scene {
       g.lineStyle(3, SHIELD, 0.9);
       g.strokeCircle(ship.x, ship.y, TUNING.ship.radius + 8);
     }
+    // Stage 4 slice 6: below a quarter of full health, cracks, flames and smoke (not on a ship hidden in a storm).
+    if (lifebar && isDamaged(ship)) this.drawDamage(ship, alpha);
     if (lifebar) this.drawLifebar(ship, alpha);
   }
 
-  /** Stage 3: a level bar above the ship, filled by its health (green, amber, red) over a dark backing. */
+  /** Visible damage: ink cracks on the deck, two flickering flames, and smoke drifting back from the stern. */
+  private drawDamage(ship: ShipView, alpha: number): void {
+    const g = this.g;
+    const now = performance.now();
+    g.lineStyle(1.6, INK_DARK, alpha);
+    for (const line of hullCracks(ship, ship.heading)) {
+      g.beginPath();
+      g.moveTo(line[0]!.x, line[0]!.y);
+      for (const p of line.slice(1)) g.lineTo(p.x, p.y);
+      g.strokePath();
+    }
+    flameSpots(ship, ship.heading).forEach((p, i) => {
+      const flicker = 1 + 0.25 * Math.sin(now / 70 + i * 2);
+      // Red with a thin ink rim and a yellow heart, so they show on every crew's hull.
+      g.fillStyle(INK_DARK, alpha);
+      g.fillCircle(p.x, p.y, 6 * flicker);
+      g.fillStyle(FLAME_OUTER, alpha);
+      g.fillCircle(p.x, p.y, 5 * flicker);
+      g.fillStyle(FLAME_INNER, alpha);
+      g.fillCircle(p.x, p.y, 2.5 * flicker);
+    });
+    for (const puff of smokePuffs(ship, now)) {
+      g.fillStyle(SMOKE, puff.alpha * alpha);
+      g.fillCircle(puff.x, puff.y, puff.radius);
+    }
+  }
+
+  /** Stage 3: a level bar above the ship, filled by its health (green, amber, red); Stage 4: in the chart's style. */
   private drawLifebar(ship: ShipView, alpha: number): void {
     const g = this.g;
     const C = TUNING.client;
     const fill = lifebarFill(ship.health);
     const x = ship.x - C.lifebarWidth / 2;
     const y = ship.y - C.lifebarOffset - C.lifebarHeight / 2;
-    g.fillStyle(0x0b1a33, 0.75 * alpha);
-    g.fillRect(x - 1, y - 1, C.lifebarWidth + 2, C.lifebarHeight + 2);
+    // Stage 4 slice 6: a cream bar with a thin ink outline, and ink ticks where the colour changes.
+    g.fillStyle(CHART.cream, alpha);
+    g.fillRect(x, y, C.lifebarWidth, C.lifebarHeight);
     g.fillStyle(LIFEBAR_COLOURS[lifebarColour(fill)], alpha);
     g.fillRect(x, y, C.lifebarWidth * fill, C.lifebarHeight);
+    g.lineStyle(1, INK_DARK, alpha);
+    for (const tick of LIFEBAR_TICKS) g.lineBetween(x + C.lifebarWidth * tick, y, x + C.lifebarWidth * tick, y + C.lifebarHeight);
+    g.lineStyle(1.2, INK_DARK, alpha);
+    g.strokeRect(x - 0.5, y - 0.5, C.lifebarWidth + 1, C.lifebarHeight + 1);
   }
 
   /**

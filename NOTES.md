@@ -1035,10 +1035,39 @@ Drafted from `docs/design.md`, the roadmap and the "Later" notes. Question: **is
   - The user chose to commit.
 - **Later:** keeping Phaser running between matches, so the pack icons aren't reloaded each match, would make the sea appear sooner too (see Later).
 
+### 2026-10-29 — Stage 4 slice 6 plan: styled lifebar and visible damage
+
+- **Answers (user: "go with your suggestions", also the go-ahead):**
+  1. a) the lifebar becomes a cream bar with a thin ink outline. The fill keeps the Stage 3 rules in chart tones: green `#3E7B3A`, amber `#D9A02B` and red `#B23A2E`. It has two ink ticks at 25% and 50%, and the same size and place as before.
+  2. a) below 25% of full health a ship shows visible damage: ink cracks on the deck, two small flickering flames, and drifting ink-grey smoke. It goes when the ship heals to 25% or more, or respawns. Other crews don't see it on a ship hidden in a moving storm.
+  3. a) the smoke drifts back from the stern, so a moving ship trails it.
+- **Built (2026-10-29):**
+  - **`lifebar.ts`:** `LIFEBAR_TICKS` at the colour changes (0.25, 0.5).
+  - **`damageLook.ts`:**
+    - `isDamaged`: afloat and below `client.damage.below` (0.25) of full health;
+    - `hullCracks` and `flameSpots`: in the hull's frame, turning with it;
+    - `smokePuffs`: 6 puffs, one every 0.3 s, drifting back from the stern at 30 with a little sway, growing from 5 to 15 and fading from 0.45.
+  - **`GameScene`:**
+    - **Lifebar:** a cream bar, a chart-toned fill, ink ticks and a thin ink outline.
+    - **Damage:** ink cracks; flames in chart red with an ink rim and a yellow heart (made bolder after a screenshot showed them lost on Crew 1's orange hull); smoke `#5A5048`.
+    - Damage follows the lifebar's storm rule (not on another crew's ship hidden in a moving storm).
+  - **`game.ts`:** `data-damaged` lists the ships this player sees damaged.
+  - **Checked by eye:** throwaway screenshots (deleted) of a damaged ship sailing in the closing storm.
+  - **Tests:**
+    - damage look (4): the threshold; cracks and flames on the deck, turning; the smoke stream drifting back, growing and fading; the other way for the other heading;
+    - lifebar ticks (1);
+    - browser: the closing-storm test now also waits until both crews see the ship left in the storm as damaged (its time limit is 90 s).
+  - **Runs:**
+    - Type-check clean; unit 1074 passed (plus 1 skipped).
+    - Full browser run 33 (peak load 21) had 1 failure: the phone gunner test's Fire button not showing within 5 s. That is probably the same delay as the countdown (the phone controls appear once the scene draws); it was also seen in slice 9.
+    - It passed alone, as did the three later groups.
+    - The user chose to commit as it is (2026-10-30).
+
 ## Later
 
 - **(2026-10-29, Stage 5) Sound by distance:** with up to 10 ships and a camera that follows your ship, other ships' sounds get quieter the further away they are, and nearly silent off screen. Stage 4 slice 2's volume rule is the place to add it. It works alongside the cap of 8 sounds at once.
 
+- **(2026-10-30) Phone controls wait for the scene too:** under load a phone test's Fire button showed after more than 5 s (Stage 4 slice 6's full run, and slice 9). The controls probably appear only once the scene draws, like the countdown before its fix. A fix like the countdown's, or keeping the scene between matches (next item), would help.
 - **(2026-10-29) Keep the game scene between matches:** today each match makes a new Phaser game and reloads the pack icons, so the sea appears late on a slow device (about 2.8 s with Chrome 20× slower). Keeping one game running between matches would cut that. The countdown no longer waits for it (fixed 2026-10-29).
 - **(2026-10-29, investigated and fixed the same day; see "Countdown on slow devices") Smoke test misses the 3-2-1:**
   - "loads, joins a room and shows a ship" fails under load in about 4 of the last 7 full browser runs (Stage 3 slices 9–11, Stage 4 slice 1).

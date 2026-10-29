@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { TUNING } from "@sink-or-sail/shared";
-import { lifebarColour, lifebarFill, lifebarShown } from "./lifebar.ts";
+import { LIFEBAR_TICKS, lifebarColour, lifebarFill, lifebarShown } from "./lifebar.ts";
 import type { HazardView } from "./interpolation.ts";
 
 const FULL = TUNING.ship.maxHealth;
@@ -25,5 +25,11 @@ describe("the lifebar (Stage 3)", () => {
     expect(lifebarShown({ x: 400, y: 300, sunk: false }, 1, 0, storm)).toBe(false);
     expect(lifebarShown({ x: 400, y: 300, sunk: false }, 0, 0, storm)).toBe(true);
     expect(lifebarShown({ x: 400, y: 300, sunk: false }, 1, null, storm)).toBe(false);
+  });
+});
+
+describe("the styled lifebar (Stage 4 slice 6)", () => {
+  it("has ticks where the colour changes: a quarter and a half", () => {
+    expect(LIFEBAR_TICKS).toEqual([0.25, 0.5]);
   });
 });

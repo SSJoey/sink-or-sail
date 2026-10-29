@@ -328,6 +328,20 @@ export const TUNING = {
       /** A clock that jumps by more than this (a reconnect, a late update) plays none of the beeps it skipped. */
       maxGap: 1.5,
     },
+    /**
+     * Stage 4 slice 6: visible damage on a ship below `below` of full health: cracks, flames and smoke. A puff of
+     * smoke starts every `smokeEvery` seconds (so `smokePuffs` are in the air at once), drifts back from the stern at
+     * `smokeSpeed`, grows from `smokeStart` to `smokeEnd` across and fades from `smokeAlpha`.
+     */
+    damage: {
+      below: 0.25,
+      smokePuffs: 6,
+      smokeEvery: 0.3,
+      smokeSpeed: 30,
+      smokeStart: 5,
+      smokeEnd: 15,
+      smokeAlpha: 0.45,
+    },
     /** Stage 4 slice 4: a shot's ink dot on the sea (its trail's dots are smaller); the dashed ring round your own ship. */
     shotRadius: 3.5,
     ownShipRing: 35,

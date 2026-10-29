@@ -6,7 +6,7 @@ import { join, seatAs } from "./helpers.ts";
 const BASE = "http://localhost:2578";
 
 test("closing storm: Last Afloat with hazards on; a ship left at its start ends up in the storm and loses health", async ({ browser }) => {
-  test.setTimeout(60_000);
+  test.setTimeout(90_000);
   const page = async () => (await browser.newContext({ baseURL: BASE })).newPage();
   const host = await page();
   await join(host, "Host");
@@ -27,4 +27,7 @@ test("closing storm: Last Afloat with hazards on; a ship left at its start ends 
   await expect(status).toHaveText("In the storm!", { timeout: 15_000 });
   await expect(status).toHaveClass(/in-storm/);
   await expect.poll(async () => Number(await host.locator("#game").getAttribute("data-own-health")), { timeout: 10_000 }).toBeLessThan(100);
+  // Stage 4: left in the storm (5% of full health a second), the ship drops below a quarter of full health and
+  // shows its damage (cracks, flames, smoke) to both crews.
+  for (const p of [host, other]) await expect(p.locator("#game")).toHaveAttribute("data-damaged", /(^|,)0(,|$)/, { timeout: 30_000 });
 });

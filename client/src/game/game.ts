@@ -6,6 +6,7 @@ import { GameScene } from "./GameScene.ts";
 import type { ShipEffect } from "./effects.ts";
 import { empText, formatClock, livesHtml, packSlotLabel, scoreHtml } from "./hud.ts";
 import { BeepClock, type BeepKind } from "./beeps.ts";
+import { isDamaged } from "./damageLook.ts";
 import { sound } from "./sound.ts";
 import { SfxMixer, cueVolume, soundSeconds } from "./sfx.ts";
 import { loadSoundOn, saveSoundOn, soundButtonText } from "./soundSetting.ts";
@@ -278,6 +279,10 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
         .map((s, id) => (lifebarShown(s, id, mine?.crew ?? null, frame!.hazards) ? `${id}:${lifebarFill(s.health).toFixed(2)}:${lifebarColour(lifebarFill(s.health))}` : ""))
         .filter(Boolean)
         .join(";");
+      // Stage 4: the ships this player sees damaged (below a quarter of full health), for the browser smoke tests.
+      canvasHost.dataset.damaged = (frame?.ships ?? [])
+        .flatMap((s, id) => (isDamaged(s) && lifebarShown(s, id, mine?.crew ?? null, frame!.hazards) ? [id] : []))
+        .join(",");
       // Ghosts as "ship:x,y;…", for the browser smoke tests.
       canvasHost.dataset.ghosts = [...(frame?.ghosts ?? new Map())].map(([id, g]) => `${id}:${Math.round(g.x)},${Math.round(g.y)}`).join(";");
       // Ships a kraken holds, for the browser smoke tests.
@@ -355,6 +360,7 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
       delete canvasHost.dataset.held;
       delete canvasHost.dataset.ghosts;
       delete canvasHost.dataset.lifebars;
+      delete canvasHost.dataset.damaged;
       delete canvasHost.dataset.disabled;
       delete canvasHost.dataset.shots;
       rotate.hidden = true;
