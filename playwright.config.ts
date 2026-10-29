@@ -32,9 +32,11 @@ export default defineConfig({
   // rest: run next to another test they slowed the machine enough for the smoke test to miss the 3-2-1 countdown
   // (Stage 2 slice 9a, 2026-10-27). A group only runs when the one before it passed.
   projects: [
-    { name: "main", testIgnore: [/threeShips\.spec\.ts/, /ghosts\.spec\.ts/] },
+    { name: "main", testIgnore: [/threeShips\.spec\.ts/, /ghosts\.spec\.ts/, /slowDevice\.spec\.ts/] },
     { name: "three ships", testMatch: /threeShips\.spec\.ts/, dependencies: ["main"] },
     { name: "ghosts", testMatch: /ghosts\.spec\.ts/, dependencies: ["three ships"] },
+    // Stage 4: a page with Chrome slowed down on purpose, on its own so the machine is otherwise quiet.
+    { name: "slow device", testMatch: /slowDevice\.spec\.ts/, dependencies: ["ghosts"] },
   ],
   webServer: [
     {

@@ -1015,11 +1015,32 @@ Drafted from `docs/design.md`, the roadmap and the "Later" notes. Question: **is
     - Both passed alone, as did "three ships" and "ghosts".
     - The user chose to **commit, then investigate** the slow game view before slice 6.
 
+### 2026-10-29 — Countdown on slow devices (the smoke test's missed 3-2-1, investigated)
+
+- **Cause:**
+  - The 3-2-1, the layout banner and the countdown beeps were updated only from the game scene's per-frame callback.
+  - The scene draws its first frame only after Phaser starts and loads the pack icons.
+  - Measured from Start: normally the first frame came at 0.2 s; with Chrome 6× slower at 0.8 s; 20× slower at **2.8 s**, almost at Go!.
+  - A busy test machine, or a slow phone, missed the countdown, the banner and the beeps.
+- **Fix (user: "yes"):**
+  - The countdown text, the layout banner and the countdown beeps run on their own loop in `game.ts`, 20 times a second from the room state, starting as soon as the game view opens.
+  - The sinking banner, the sink vibration and the results stay on the scene's frames.
+- **Test:** a new browser smoke test slows Chrome 20× and checks that the countdown shows 3 or 2, the layout banner shows, and at least two count beeps play. Without the fix it failed 4 times in 4 (it saw "Go!"); with it, it passed 4 times in 4.
+- **While testing:**
+  - **The loop's timer:** a first version ran on a 20-per-second timer. In full runs Chrome let it lag by over a second, so the sound test heard "count,go". It now runs on animation frames (`requestAnimationFrame`), like drawing, but not Phaser's.
+  - **The new test's group:** it slows Chrome 20× on top of a busy machine, which was too much in a full run (it caught "1"). It moved to `e2e/slowDevice.spec.ts`, in a fourth browser-test group, "slow device", that runs after "ghosts". It passed 3 of 3 there.
+- **Runs:**
+  - Type-check clean; unit 1069 passed (plus 1 skipped).
+  - Full run 32: the smoke, layouts and slow-device tests all passed. Two steering tests failed under extreme load (peak 52, twice the usual run time; the user's Brave browser was busy): the kraken and the whirlpool.
+  - The user chose to commit.
+- **Later:** keeping Phaser running between matches, so the pack icons aren't reloaded each match, would make the sea appear sooner too (see Later).
+
 ## Later
 
 - **(2026-10-29, Stage 5) Sound by distance:** with up to 10 ships and a camera that follows your ship, other ships' sounds get quieter the further away they are, and nearly silent off screen. Stage 4 slice 2's volume rule is the place to add it. It works alongside the cap of 8 sounds at once.
 
-- **(2026-10-29, to investigate) Smoke test misses the 3-2-1:**
+- **(2026-10-29) Keep the game scene between matches:** today each match makes a new Phaser game and reloads the pack icons, so the sea appears late on a slow device (about 2.8 s with Chrome 20× slower). Keeping one game running between matches would cut that. The countdown no longer waits for it (fixed 2026-10-29).
+- **(2026-10-29, investigated and fixed the same day; see "Countdown on slow devices") Smoke test misses the 3-2-1:**
   - "loads, joins a room and shows a ship" fails under load in about 4 of the last 7 full browser runs (Stage 3 slices 9–11, Stage 4 slice 1).
   - The game view appears more than 3 s after Start, so `#countdown` is already "Go!".
   - Slice 9's runs saw the view in 0.4 s with the countdown text updating late.

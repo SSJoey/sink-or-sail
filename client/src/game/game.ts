@@ -161,6 +161,23 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
     soundButton.textContent = soundButtonText(soundOn);
   };
   const beepClock = new BeepClock();
+  // The 3-2-1, the layout banner and the countdown beeps run on a loop of their own from the room state, so they don't
+  // wait for the sea to load (on a slow device the scene's first frame can come near the end of the countdown).
+  // On animation frames, like drawing (the browser keeps those going on a busy machine, where a timer can lag
+  // by over a second), but not Phaser's, which start only once the scene has loaded.
+  let countdownLoop = 0;
+  const countdownTick = () => {
+    countdownLoop = requestAnimationFrame(countdownTick);
+    const state = room.state as RoomStateView;
+    showCountdown(state, { countdown, banner });
+    for (const kind of beepClock.update(state)) {
+      if (!soundOn) continue;
+      sound.play(kind);
+      played.push(kind);
+      canvasHost.dataset.beeps = played.join(",");
+    }
+  };
+  countdownLoop = requestAnimationFrame(countdownTick);
   const mixer = new SfxMixer();
   const stoppers = new Map<number, () => void>();
 
@@ -212,13 +229,7 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
     drawn: (frame, effects) => {
       const mine = seat();
       const state = room.state as RoomStateView;
-      showMatchOverlays(state, frame, effects, mine?.crew ?? null, { countdown, banner, scoreboard });
-      for (const kind of beepClock.update(state)) {
-        if (!soundOn) continue;
-        sound.play(kind);
-        played.push(kind);
-        canvasHost.dataset.beeps = played.join(",");
-      }
+      showMatchOverlays(state, frame, effects, mine?.crew ?? null, { banner, scoreboard });
       // A host who only watches can still pause (Stage 3 slice 8).
       showPauseControls(state, mine !== null || state.hostId === room.sessionId, state.hostId === room.sessionId, paused);
       // Stage 3 results: Play again for the host; everyone back to the lobby after a while.
@@ -324,6 +335,7 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
     },
     stop() {
       stopSending();
+      cancelAnimationFrame(countdownLoop);
       room.onStateChange.remove(onState);
       game.destroy(true);
       touchLayer.destroy();
@@ -433,27 +445,31 @@ function showPauseControls(state: RoomStateView, seated: boolean, isHost: boolea
   byId("paused-host").hidden = !isHost;
 }
 
+/** The 3-2-1 (and "Go!"), and during it the banner naming the layout (with Random, the one it picked). */
+function showCountdown(state: RoomStateView, els: { countdown: HTMLElement; banner: HTMLElement }): void {
+  const duration = state.matchMode === "lastAfloat" ? TUNING.lastAfloat.duration : TUNING.match.duration;
+  const label = countdownLabel(state.phase, state.countdown, state.timeLeft, duration);
+  els.countdown.hidden = label === null;
+  if (label !== null && els.countdown.textContent !== label) els.countdown.textContent = label;
+  if (state.phase !== Phase.Countdown) return;
+  els.banner.hidden = false;
+  const text = layoutText(state.layout, state.matchLayout);
+  if (els.banner.textContent !== text) els.banner.textContent = text;
+}
+
+/** The sinking banner (the countdown's banner is showCountdown's), the sink vibration and the results. */
 function showMatchOverlays(
   state: RoomStateView,
   frame: Frame | null,
   effects: ShipEffect[],
   ownCrew: number | null,
-  els: { countdown: HTMLElement; banner: HTMLElement; scoreboard: HTMLElement },
+  els: { banner: HTMLElement; scoreboard: HTMLElement },
 ): void {
-  const duration = state.matchMode === "lastAfloat" ? TUNING.lastAfloat.duration : TUNING.match.duration;
-  const label = countdownLabel(state.phase, state.countdown, state.timeLeft, duration);
-  els.countdown.hidden = label === null;
-  if (label !== null && els.countdown.textContent !== label) els.countdown.textContent = label;
-
   const own = ownCrew !== null ? frame?.ships[ownCrew] : undefined;
-  // During the 3-2-1, the banner names the layout (with Random, the one it picked).
   const countingDown = state.phase === Phase.Countdown;
-  const showBanner = countingDown || (own?.sunk === true && state.phase === Phase.Running);
-  els.banner.hidden = !showBanner;
-  if (countingDown) {
-    const text = layoutText(state.layout, state.matchLayout);
-    if (els.banner.textContent !== text) els.banner.textContent = text;
-  } else if (showBanner && own) {
+  const showBanner = own?.sunk === true && state.phase === Phase.Running;
+  if (!countingDown) els.banner.hidden = !showBanner;
+  if (!countingDown && showBanner && own) {
     // A crew that is out (Last Afloat) keeps its banner until the match ends.
     const text = own.out ? outBanner(own.sunkBy, own.sunkCause) : `${sinkBanner(own.sunkBy, own.sunkCause)} · ${respawnText(own.respawnIn)}`;
     if (els.banner.textContent !== text) els.banner.textContent = text;
