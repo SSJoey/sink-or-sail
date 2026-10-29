@@ -5,7 +5,7 @@ import { CREW_STYLES } from "./crews.ts";
 import { ShipEffects, type ShipEffect } from "./effects.ts";
 import { EmpRings } from "./empRing.ts";
 import { aimGuide, dashes, deckLines, hullPoints, shotTrail, turretEnd } from "./hull.ts";
-import { hazardAlpha, hiddenByStorms, krakenTentacles, whirlpoolArms } from "./hazardLook.ts";
+import { hazardAlpha, hiddenByStorms, krakenTentacles, stormHatch, whirlpoolArms } from "./hazardLook.ts";
 import { lifebarColour, lifebarFill } from "./lifebar.ts";
 import { PACK_ICONS } from "./packIcons.ts";
 import type { Frame, GhostView, HazardView, MineView, PackView, ShipView, WreckView } from "./interpolation.ts";
@@ -51,17 +51,18 @@ const WRECK_EDGE = CHART.ink;
 const MINE_UNARMED = 0x6b5a45;
 /** Stage 4 slice 4: an armed mine's blinking ring (the chart's red). */
 const MINE_ARMED = 0xb23a2e;
-const STORM_CLOUD = 0x2b2f3a;
-const STORM_EDGE = 0x9aa3b5;
+// Stage 4 slice 5: the hazards in the chart's inks.
+const STORM_CLOUD = CHART.storm;
+const STORM_EDGE = INK_DARK;
 const STORM_FLASH = 0xff4d4d;
 const LIFEBAR_COLOURS = { green: 0x7ee081, amber: 0xffb347, red: 0xff4d4d } as const;
-const MOVING_STORM_CLOUD = 0x3b4150;
-const MOVING_STORM_SWIRL = 0xc9d1e0;
-const WHIRLPOOL_WATER = 0x123d70;
-const WHIRLPOOL_FOAM = 0xcfeaff;
-const WHIRLPOOL_EYE = 0x08182f;
-const KRAKEN_SKIN = 0x6b2f7a;
-const KRAKEN_EDGE = 0x2a0f33;
+const MOVING_STORM_CLOUD = CHART.storm;
+const MOVING_STORM_SWIRL = CHART.cream;
+const WHIRLPOOL_WATER = CHART.deep;
+const WHIRLPOOL_FOAM = INK;
+const WHIRLPOOL_EYE = INK_DARK;
+const KRAKEN_SKIN = CHART.kraken;
+const KRAKEN_EDGE = INK_DARK;
 
 export class GameScene extends Phaser.Scene {
   /** Stage 4: the sea, islands and reefs, drawn once per match (they never change during one). */
@@ -465,8 +466,11 @@ export class GameScene extends Phaser.Scene {
       g.fillTriangle(inA.x, inA.y, outA.x, outA.y, outB.x, outB.y);
       g.fillTriangle(inA.x, inA.y, outB.x, outB.y, inB.x, inB.y);
     }
+    // Stage 4: diagonal ink hatching over the storm, like an old chart's shaded border.
+    g.lineStyle(1.5, INK_DARK, 0.4);
+    for (const [a, b] of stormHatch(radius)) g.lineBetween(a.x, a.y, b.x, b.y);
     const t = performance.now() / 400;
-    g.lineStyle(3, STORM_EDGE, 0.8);
+    g.lineStyle(2.5, STORM_EDGE, 0.8);
     g.beginPath();
     for (let i = 0; i <= 72; i++) {
       const a = (i / 72) * Math.PI * 2;
@@ -514,14 +518,17 @@ export class GameScene extends Phaser.Scene {
       const alpha = hazardAlpha(h);
       if (alpha <= 0) continue;
       clouds.push({ x: h.x, y: h.y, alpha });
-      g.fillStyle(MOVING_STORM_CLOUD, 0.96 * alpha);
-      g.fillCircle(h.x, h.y, R);
-      // A billowing edge: puffs around the rim that swell and shrink.
-      for (let i = 0; i < 14; i++) {
+      // A billowing edge: puffs around the rim that swell and shrink, each inked (Stage 4: a scalloped ink edge).
+      const puffs = Array.from({ length: 14 }, (_, i) => {
         const a = (i / 14) * Math.PI * 2 + t * 0.25;
         const r = R - 8 + 6 * Math.sin(t * 1.3 + i * 1.7);
-        g.fillCircle(h.x + r * Math.cos(a), h.y + r * Math.sin(a), 20 + 4 * Math.sin(t * 2 + i));
-      }
+        return { x: h.x + r * Math.cos(a), y: h.y + r * Math.sin(a), r: 20 + 4 * Math.sin(t * 2 + i) };
+      });
+      g.fillStyle(INK_DARK, 0.96 * alpha);
+      for (const p of puffs) g.fillCircle(p.x, p.y, p.r + 2.5);
+      g.fillStyle(MOVING_STORM_CLOUD, 0.96 * alpha);
+      g.fillCircle(h.x, h.y, R);
+      for (const p of puffs) g.fillCircle(p.x, p.y, p.r);
       g.lineStyle(2, MOVING_STORM_SWIRL, 0.35 * alpha);
       for (let k = 0; k < 3; k++) {
         const start = t * 0.9 + k * 2.1;
@@ -581,11 +588,11 @@ export class GameScene extends Phaser.Scene {
       }
       const alpha = hazardAlpha(h);
       if (alpha <= 0) continue;
-      g.fillStyle(WHIRLPOOL_WATER, 0.45 * alpha);
+      g.fillStyle(WHIRLPOOL_WATER, 0.25 * alpha);
       g.fillCircle(h.x, h.y, W.reach);
-      g.lineStyle(2, WHIRLPOOL_FOAM, 0.25 * alpha);
+      g.lineStyle(1.5, WHIRLPOOL_FOAM, 0.35 * alpha);
       g.strokeCircle(h.x, h.y, W.reach);
-      g.lineStyle(4, WHIRLPOOL_FOAM, 0.6 * alpha);
+      g.lineStyle(3, WHIRLPOOL_FOAM, 0.75 * alpha);
       for (const arm of whirlpoolArms(h, t)) {
         g.beginPath();
         g.moveTo(arm[0]!.x, arm[0]!.y);
@@ -627,23 +634,27 @@ export class GameScene extends Phaser.Scene {
       if (alpha <= 0) continue;
       const flashing = this.krakenFlashes.update(`k${id}`, h.health, now);
       const held = h.holding >= 0 ? frame.ships[h.holding] ?? null : null;
-      g.lineStyle(7, flashing ? 0xffffff : KRAKEN_SKIN, alpha);
-      for (const arm of krakenTentacles(h, t, held && !held.sunk ? held : null)) {
-        g.beginPath();
-        g.moveTo(arm[0]!.x, arm[0]!.y);
-        for (const p of arm.slice(1)) g.lineTo(p.x, p.y);
-        g.strokePath();
+      // Stage 4: an old-map sea monster: each tentacle inked, then washed in its colour.
+      const arms = krakenTentacles(h, t, held && !held.sunk ? held : null);
+      for (const [width, colour] of [[10, KRAKEN_EDGE], [6, flashing ? CHART.cream : KRAKEN_SKIN]] as const) {
+        g.lineStyle(width, colour, alpha);
+        for (const arm of arms) {
+          g.beginPath();
+          g.moveTo(arm[0]!.x, arm[0]!.y);
+          for (const p of arm.slice(1)) g.lineTo(p.x, p.y);
+          g.strokePath();
+        }
       }
-      g.fillStyle(flashing ? 0xffffff : KRAKEN_SKIN, alpha);
+      g.fillStyle(flashing ? CHART.cream : KRAKEN_SKIN, alpha);
       g.lineStyle(3, KRAKEN_EDGE, alpha);
       g.fillCircle(h.x, h.y, K.bodyRadius);
       g.strokeCircle(h.x, h.y, K.bodyRadius);
       const ahead = { x: Math.cos(h.heading), y: Math.sin(h.heading) };
       for (const side of [-1, 1]) {
         const eye = { x: h.x + ahead.x * 14 - ahead.y * 11 * side, y: h.y + ahead.y * 14 + ahead.x * 11 * side };
-        g.fillStyle(0xfff3b0, alpha);
+        g.fillStyle(CHART.cream, alpha);
         g.fillCircle(eye.x, eye.y, 7);
-        g.fillStyle(0x111111, alpha);
+        g.fillStyle(INK_DARK, alpha);
         g.fillCircle(eye.x + ahead.x * 3, eye.y + ahead.y * 3, 3);
       }
     }
@@ -681,9 +692,10 @@ export class GameScene extends Phaser.Scene {
     zones.forEach((meter, zone) => {
       if (meter <= 0) return;
       const r = zoneRect(zone);
-      g.fillStyle(0x0b1530, 0.35 * meter);
+      // Stage 4: smudged, darkening ink (a brown-black wash and drifting ink smudges).
+      g.fillStyle(CHART.storm, 0.3 * meter);
       g.fillRect(r.x0, r.y0, r.x1 - r.x0, r.y1 - r.y0);
-      g.fillStyle(0xdfe6f2, 0.14 * meter);
+      g.fillStyle(CHART.storm, 0.12 * meter);
       for (let i = 0; i < 7; i++) {
         const px = r.x0 + (((i * 0.37 + t * 0.02 * (1 + (i % 3))) % 1) + 1) % 1 * (r.x1 - r.x0);
         const py = r.y0 + ((i * 0.61) % 1) * (r.y1 - r.y0) + Math.sin(t * 0.5 + i) * 12;
@@ -692,7 +704,6 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
-  /** A reef: lighter, shallow water with a dotted edge, so it doesn't read as an island. */
   /**
    * Stage 4 slice 3: the chart layer. Pale chart-blue sea with a faint ink grid, wave squiggles and a compass rose;
    * reefs as a lighter tint with the chart's rock marks (dots and crosses); islands in sand with a hand-inked coast,

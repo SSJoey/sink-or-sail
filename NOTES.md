@@ -983,6 +983,38 @@ Drafted from `docs/design.md`, the roadmap and the "Later" notes. Question: **is
     - Both then passed alone (whirlpool in 26 s), and so did "three ships" and "ghosts".
     - The user chose to commit as it is.
 
+### 2026-10-29 — Stage 4 slice 5 plan: sea-chart look (storms, whirlpool, kraken, haunted zones)
+
+- **Plan:** only the look changes; the hazards act as before.
+  - **Closing storm:** a dark ink wash outside the safe circle, a hand-inked jagged edge, and the dashed final circle.
+  - **Moving storm:** a dark cloud with a scalloped ink edge and cream swirls, still almost opaque.
+  - **Whirlpool:** a darker-water tint, ink spiral arms and an ink eye.
+  - **Kraken:** an old-map sea monster: ink-outlined tentacles and body with a coloured wash, cream eyes, a cream flash when shot.
+  - **Haunted zones:** a darkening brown-black ink wash with drifting ink smudges.
+  - **Unchanged:** ghosts, and the hazards' signals (already ink).
+- **Answers (user: "go with your suggestions", also the go-ahead):**
+  1. a) kraken in ink with a muted sea-green wash `#5E7D6A`.
+  2. a) the closing storm adds diagonal ink hatching.
+  3. a) the moving storm is dark ink-brown with cream swirls.
+- **Built (2026-10-29):**
+  - **`hazardLook.ts` `stormHatch`:** diagonal lines 24 apart (`client.chart.stormHatch`) across the sea, cut to the pieces outside the safe circle.
+  - **`chartLook.ts`:** `CHART.storm` `#2B2118` and `CHART.kraken` `#5E7D6A`.
+  - **`GameScene`:**
+    - **Closing storm:** a brown-black wash (0.55) plus the hatching at 0.4, and an ink jagged edge.
+    - **Moving storm:** a brown-black cloud with ink-backed puffs (a scalloped ink edge) and cream swirls.
+    - **Whirlpool:** a deep-blue tint (0.25), an ink rim, ink spiral arms and an ink eye.
+    - **Kraken:** tentacles inked then washed sea-green, the body to match, cream eyes with ink pupils, and a cream flash.
+    - **Haunting:** a brown-black wash (0.3 × meter) and smudges (0.12 × meter).
+    - A stray comment from slice 3 is removed.
+  - **Noticed, not changed (for slice 7):** the white "Storm closing" status line over the pale sea relies on its text shadow.
+  - **Checked by eye:** throwaway screenshots (deleted) of the closing storm, an active moving storm, an active whirlpool and the kraken. Haunting wasn't screenshotted, because it takes a long 3-ship Last Afloat setup.
+  - **Tests:** `stormHatch` (2): only outside the circle and inside the sea; more as the circle closes, none while it covers the sea.
+  - **Runs:**
+    - Type-check clean; unit 1069 passed (plus 1 skipped).
+    - Full browser run 29 (peak load 24) had 2 failures with the known cause, the game view coming up after the 3-2-1: the smoke test, and the layouts test (its "Layout: Slalom" banner shows only during the countdown).
+    - Both passed alone, as did "three ships" and "ghosts".
+    - The user chose to **commit, then investigate** the slow game view before slice 6.
+
 ## Later
 
 - **(2026-10-29, Stage 5) Sound by distance:** with up to 10 ships and a camera that follows your ship, other ships' sounds get quieter the further away they are, and nearly silent off screen. Stage 4 slice 2's volume rule is the place to add it. It works alongside the cap of 8 sounds at once.

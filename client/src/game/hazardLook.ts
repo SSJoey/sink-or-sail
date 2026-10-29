@@ -1,4 +1,4 @@
-import { TUNING, type Vec } from "@sink-or-sail/shared";
+import { SEA_CENTRE, TUNING, type Vec } from "@sink-or-sail/shared";
 import type { HazardView, ShipView } from "./interpolation.ts";
 
 const M = TUNING.movingStorm;
@@ -72,4 +72,37 @@ export function krakenTentacles(h: HazardView, time: number, held: Vec | null): 
       return { x: start.x + (end.x - start.x) * f + (side.x / len) * wave, y: start.y + (end.y - start.y) * f + (side.y / len) * wave };
     });
   });
+}
+
+/**
+ * Stage 4 slice 5: the closing storm's diagonal ink hatching, like an old chart's shaded border: lines `spacing`
+ * apart across the sea, cut to the pieces outside the safe circle.
+ */
+export function stormHatch(radius: number, spacing: number = TUNING.client.chart.stormHatch): [Vec, Vec][] {
+  const { width: W, height: H } = TUNING.sea;
+  const { x: cx, y: cy } = SEA_CENTRE;
+  const pieces: [Vec, Vec][] = [];
+  // Lines x + y = c, each clipped to the sea.
+  for (let c = spacing / 2; c < W + H; c += spacing) {
+    const a = { x: Math.max(0, c - H), y: c - Math.max(0, c - H) };
+    const b = { x: Math.min(W, c), y: c - Math.min(W, c) };
+    const d = { x: b.x - a.x, y: b.y - a.y };
+    // Where the line enters and leaves the circle: |a + t·d − centre|² = r².
+    const f = { x: a.x - cx, y: a.y - cy };
+    const A = d.x * d.x + d.y * d.y;
+    const B = 2 * (f.x * d.x + f.y * d.y);
+    const C = f.x * f.x + f.y * f.y - radius * radius;
+    const disc = B * B - 4 * A * C;
+    const at = (t: number): Vec => ({ x: a.x + d.x * t, y: a.y + d.y * t });
+    if (A === 0) continue;
+    if (disc <= 0) {
+      pieces.push([a, b]);
+      continue;
+    }
+    const t1 = (-B - Math.sqrt(disc)) / (2 * A);
+    const t2 = (-B + Math.sqrt(disc)) / (2 * A);
+    if (t1 > 0) pieces.push([a, at(Math.min(1, t1))]);
+    if (t2 < 1) pieces.push([at(Math.max(0, t2)), b]);
+  }
+  return pieces;
 }

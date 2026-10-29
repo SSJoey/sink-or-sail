@@ -15,6 +15,9 @@ export const CHART = {
   /** Things that used to be light blue on the dark sea: the EMP ring and sparks, and the shield. */
   emp: 0x1d5fa8,
   shield: 0x1d5fa8,
+  /** Stage 4 slice 5: storm clouds and haunting's ink (the mock-up's brown-black fog); the kraken's sea-green wash. */
+  storm: 0x2b2118,
+  kraken: 0x5e7d6a,
 } as const;
 
 const C = () => TUNING.client.chart;

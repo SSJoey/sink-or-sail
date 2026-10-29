@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { TUNING } from "@sink-or-sail/shared";
-import { hazardAlpha, heldShips, hiddenByStorms, hiddenShips, krakenTentacles, whirlpoolArms } from "./hazardLook.ts";
+import { SEA_CENTRE, TUNING, type Vec } from "@sink-or-sail/shared";
+import { hazardAlpha, heldShips, hiddenByStorms, hiddenShips, krakenTentacles, stormHatch, whirlpoolArms } from "./hazardLook.ts";
 import type { HazardView, ShipView } from "./interpolation.ts";
 
 const R = TUNING.movingStorm.radius;
@@ -89,5 +89,30 @@ describe("a kraken's look", () => {
   it("lists the ships held by an active kraken (for the browser tests)", () => {
     const hazards = new Map([["0", kraken({ holding: 1 })], ["1", kraken({ holding: 0, phase: "fading" })]]);
     expect(heldShips(hazards)).toEqual([1]);
+  });
+});
+
+describe("stormHatch (Stage 4 slice 5)", () => {
+  const { width, height } = TUNING.sea;
+  const length = (pieces: [Vec, Vec][]) => pieces.reduce((sum, [a, b]) => sum + Math.hypot(b.x - a.x, b.y - a.y), 0);
+
+  it("hatches only the storm: every piece outside the safe circle and inside the sea", () => {
+    const radius = 400;
+    const pieces = stormHatch(radius);
+    expect(pieces.length).toBeGreaterThan(10);
+    for (const [a, b] of pieces) {
+      for (const p of [a, b, { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }]) {
+        expect(Math.hypot(p.x - SEA_CENTRE.x, p.y - SEA_CENTRE.y)).toBeGreaterThanOrEqual(radius - 1e-6);
+        expect(p.x).toBeGreaterThanOrEqual(-1e-6);
+        expect(p.x).toBeLessThanOrEqual(width + 1e-6);
+        expect(p.y).toBeGreaterThanOrEqual(-1e-6);
+        expect(p.y).toBeLessThanOrEqual(height + 1e-6);
+      }
+    }
+  });
+
+  it("covers more of the sea as the circle closes, and nothing while it still covers the whole sea", () => {
+    expect(length(stormHatch(300))).toBeGreaterThan(length(stormHatch(600)));
+    expect(stormHatch(TUNING.closingStorm.startRadius)).toEqual([]);
   });
 });

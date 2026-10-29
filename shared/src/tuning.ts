@@ -352,6 +352,8 @@ export const TUNING = {
       wobble: 1.5,
       inkStep: 14,
       compass: { x: 1490, y: 790, radius: 34 },
+      /** Stage 4 slice 5: the closing storm's diagonal hatching, lines this far apart. */
+      stormHatch: 24,
     },
     /**
      * Stage 4 slice 2: the sound effects, made by the browser. Each is one or more parts played together:
