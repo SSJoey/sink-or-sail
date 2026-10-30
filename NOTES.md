@@ -1498,9 +1498,24 @@ Drafted from `docs/design.md`, the roadmap and "Later". Scope:
   - Full browser run 44 (peak load 43) failed only the lifebar test (0.82 instead of 0.95), its third full run in a row. It passed alone; the 4 later-group tests passed on their own.
   - The user chose to commit, then fix the lifebar test next as a small separate change.
 
+### 2026-10-30 — The lifebar browser test, fixed
+
+- **Found:** the test's logs showed two causes, both from the steering helper reading ship positions late under load:
+  - steering straight for the reef holds W and D together (45°), a line from the start that runs into the wreck at (450, 125); its bump also hurts (0.93);
+  - the ship crossed the reef and was steered back in before the drop was read, a second hit (0.90).
+  - Re-routing removed the wreck bumps, but the helper (which wanders near small targets when readings lag) can't stop a ship on the reef reliably.
+- **User's choice:**
+  - the test first sails east along the start line, past the wreck, then steers for the reef until the other page sees a drop;
+  - it checks that the lifebar dropped by whole reef hits (5% each, at least one), is green, the other ship's is untouched, and both pages show exactly the same;
+  - it no longer checks for exactly one hit.
+- **Runs:**
+  - three passes alone, and a pass in full run 47 (peak load 37);
+  - that run's other failures (a missed 3-2-1, the mine-pack ship taking the torpedo pack first, a phone button late) passed alone, with the user's browser busy;
+  - committed (user's choice).
+
 ## Later
 
-- **(2026-10-30, watch) The lifebar browser test under load:** it failed in the last two full runs (slice 4's run 42, slice 5's run 43). The ship took extra reef scrapes before the lifebar was read. A fix to plan: stop steering at the reef's first scrape and wait for the reading, so the test still checks exactly 0.95.
+- **(2026-10-30, fixed the same day; see "The lifebar browser test, fixed") The lifebar browser test under load:** it failed in the last two full runs (slice 4's run 42, slice 5's run 43). The ship took extra reef scrapes before the lifebar was read. A fix to plan: stop steering at the reef's first scrape and wait for the reading, so the test still checks exactly 0.95.
 
 - **(2026-10-30, asked for by the user during Stage 5 slice 3; now Stage 5 slice 4) Four additions:**
   1. In the lobby, an outline of the chosen ship type.
