@@ -1,6 +1,6 @@
 import * as Phaser from "phaser";
-import { SEA_CENTRE, TUNING, circleOverlapsPolygon, packButtonLit, rolePack, statsOf, wreckHull, zoneRect, type Polygon, type Role, type Vec, type WreckSpot } from "@sink-or-sail/shared";
-import { CHART, gridLines, inkOutline, offsetPolygon, palmSpots, reefMarks, waveSpots } from "./chartLook.ts";
+import { TUNING, circleOverlapsPolygon, packButtonLit, rolePack, seaCentre, seaScale, statsOf, wreckHull, zoneRect, type Polygon, type Role, type Sea, type Vec, type WreckSpot } from "@sink-or-sail/shared";
+import { CHART, compassSpot, gridLines, inkOutline, offsetPolygon, palmSpots, reefMarks, waveSpots } from "./chartLook.ts";
 import { CREW_STYLES } from "./crews.ts";
 import { ShipEffects, type ShipEffect } from "./effects.ts";
 import { EmpRings } from "./empRing.ts";
@@ -20,6 +20,8 @@ import { cameraCentre, cameraFocus, glide, viewSize } from "./camera.ts";
 /** What the scene needs from the game: the frame to draw, the local seat, and where to report state. */
 export interface SceneLink {
   frame(): Frame | null;
+  /** Stage 5: the match's sea (today's 1600 × 900, or bigger with more ships). */
+  sea(): Sea;
   /** The match's islands (Stage 2 layouts) and reefs (none with hazards off). */
   islands(): readonly Polygon[];
   reefs(): readonly Polygon[];
@@ -172,15 +174,16 @@ export class GameScene extends Phaser.Scene {
    * gliding toward it. On a one-screen sea, and for a player without a seat, it shows the whole sea as before.
    */
   private moveCamera(frame: Frame | null, ownCrew: number | null): SeaRect {
-    const sea = TUNING.sea;
+    const sea = this.link.sea();
     const own = ownCrew !== null ? frame?.ships[ownCrew] : undefined;
     const view = ownCrew === null ? { width: sea.width, height: sea.height } : viewSize(sea, { scale: this.link.viewScale, longGun: own?.type === "longGun" });
     const focus = frame ? cameraFocus(frame.ships, frame.ghosts, ownCrew) : null;
-    const target = cameraCentre(focus ?? this.cameraAt ?? SEA_CENTRE, view, sea);
+    const target = cameraCentre(focus ?? this.cameraAt ?? seaCentre(sea), view, sea);
     // The first frame of a match starts on the ship; after that it glides (to a respawn spot too).
     this.cameraAt = this.cameraAt === null || !focus ? target : glide(this.cameraAt, target, TUNING.client.camera.glide);
     const camera = this.cameras.main;
-    camera.setZoom(sea.width / view.width, sea.height / view.height);
+    // The game's canvas is today's sea in size; a view of more sea (a spectator's whole big sea) is zoomed out.
+    camera.setZoom(TUNING.sea.width / view.width, TUNING.sea.height / view.height);
     camera.centerOn(this.cameraAt.x, this.cameraAt.y);
     return { x: this.cameraAt.x - view.width / 2, y: this.cameraAt.y - view.height / 2, ...view };
   }
@@ -555,10 +558,13 @@ export class GameScene extends Phaser.Scene {
    */
   private drawStorm(radius: number): void {
     const g = this.g;
-    const { x, y } = SEA_CENTRE;
+    const sea = this.link.sea();
+    const { x, y } = seaCentre(sea);
     const S = TUNING.closingStorm;
+    // Stage 5: the circles grow with the sea.
+    const endRadius = S.endRadius * seaScale(sea);
     // A filled ring from the circle out past every corner, in segments that don't overlap (so the shade is even).
-    const outer = S.startRadius + 40;
+    const outer = S.startRadius * seaScale(sea) + 40;
     const segments = 72;
     g.fillStyle(STORM_CLOUD, 0.55);
     for (let i = 0; i < segments; i++) {
@@ -573,7 +579,7 @@ export class GameScene extends Phaser.Scene {
     }
     // Stage 4: diagonal ink hatching over the storm, like an old chart's shaded border.
     g.lineStyle(1.5, INK_DARK, 0.4);
-    for (const [a, b] of stormHatch(radius)) g.lineBetween(a.x, a.y, b.x, b.y);
+    for (const [a, b] of stormHatch(radius, undefined, sea)) g.lineBetween(a.x, a.y, b.x, b.y);
     const t = performance.now() / 400;
     g.lineStyle(2.5, STORM_EDGE, 0.8);
     g.beginPath();
@@ -588,7 +594,7 @@ export class GameScene extends Phaser.Scene {
     for (let i = 0; i < 90; i += 2) {
       const a = (i / 90) * Math.PI * 2;
       const b = ((i + 1) / 90) * Math.PI * 2;
-      g.lineBetween(x + S.endRadius * Math.cos(a), y + S.endRadius * Math.sin(a), x + S.endRadius * Math.cos(b), y + S.endRadius * Math.sin(b));
+      g.lineBetween(x + endRadius * Math.cos(a), y + endRadius * Math.sin(a), x + endRadius * Math.cos(b), y + endRadius * Math.sin(b));
     }
   }
 
@@ -796,7 +802,7 @@ export class GameScene extends Phaser.Scene {
     const t = performance.now() / 1000;
     zones.forEach((meter, zone) => {
       if (meter <= 0) return;
-      const r = zoneRect(zone);
+      const r = zoneRect(zone, this.link.sea());
       // Stage 4: smudged, darkening ink (a brown-black wash and drifting ink smudges).
       g.fillStyle(CHART.storm, 0.3 * meter);
       g.fillRect(r.x0, r.y0, r.x1 - r.x0, r.y1 - r.y0);
@@ -816,7 +822,8 @@ export class GameScene extends Phaser.Scene {
    */
   private drawChart(): void {
     const g = this.chart;
-    const { width, height } = TUNING.sea;
+    const sea = this.link.sea();
+    const { width, height } = sea;
     const islands = this.link.islands();
     const reefs = this.link.reefs();
     this.chartKey = this.link.chartKey();
@@ -824,9 +831,9 @@ export class GameScene extends Phaser.Scene {
     g.fillStyle(CHART.sea, 1);
     g.fillRect(0, 0, width, height);
     g.lineStyle(1, INK, 0.13);
-    for (const [a, b] of gridLines()) g.lineBetween(a.x, a.y, b.x, b.y);
+    for (const [a, b] of gridLines(sea)) g.lineBetween(a.x, a.y, b.x, b.y);
 
-    const waves = waveSpots(islands, reefs, this.link.wrecks());
+    const waves = waveSpots(islands, reefs, this.link.wrecks(), sea);
     g.lineStyle(1.4, INK, 0.35);
     for (const w of waves) {
       // Two little humps, like the mock-up's "q6 -5 12 0 t12 0".
@@ -898,7 +905,7 @@ export class GameScene extends Phaser.Scene {
 
   /** A faint compass rose: two rings, a filled north–south needle and an open east–west one. */
   private compassRose(g: Phaser.GameObjects.Graphics): void {
-    const { x, y, radius: r } = TUNING.client.chart.compass;
+    const { x, y, radius: r } = compassSpot(this.link.sea());
     g.lineStyle(1.3, INK, 0.4);
     g.strokeCircle(x, y, r * 0.76);
     g.strokeCircle(x, y, r * 0.53);

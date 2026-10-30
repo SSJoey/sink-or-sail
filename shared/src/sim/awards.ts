@@ -94,12 +94,12 @@ export function updateTally(tally: AwardTally, world: World, events: readonly Si
     }
   }
   if (dt > 0) {
-    const radius = world.storm && world.time > world.storm.startsAt ? stormRadius(world.storm, world.time) : null;
+    const radius = world.storm && world.time > world.storm.startsAt ? stormRadius(world.storm, world.time, world.sea) : null;
     world.ships.forEach((ship, i) => {
       if (ship.sunk) return;
       if (length(ship.vel) < A.stationarySpeed) add(t.stationary, i, dt);
       const inMoving = world.hazards.some((h) => h.kind === "movingStorm" && h.phase === "active" && inMovingStorm(ship.pos, h));
-      if (inMoving || (radius !== null && inStorm(ship.pos, radius))) add(t.storm, i, dt);
+      if (inMoving || (radius !== null && inStorm(ship.pos, radius, world.sea))) add(t.storm, i, dt);
       if (world.hazards.some((h) => h.kind === "whirlpool" && h.phase === "active" && distance(ship.pos, h.pos) <= TUNING.whirlpool.reach)) add(t.whirlpool, i, dt);
     });
   }

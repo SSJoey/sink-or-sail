@@ -1,6 +1,6 @@
 import * as Phaser from "phaser";
 import type { Room } from "@colyseus/sdk";
-import { ClientMessage, DEFAULT_LAYOUT, LAYOUTS, PACK_LABELS, Phase, SHIP_TYPE_NAMES, TUNING, inStorm, statsOf, isLayoutId, isReefAmount, packButtonLit, reefsFor, rolePack, type CueKind, type PackType, type Role, type SoundCue } from "@sink-or-sail/shared";
+import { ClientMessage, DEFAULT_LAYOUT, PACK_LABELS, Phase, SHIP_TYPE_NAMES, TUNING, inStorm, statsOf, isLayoutId, isReefAmount, packButtonLit, rolePack, seaReefs, spreadLayout, type CueKind, type PackType, type Role, type Sea, type SoundCue } from "@sink-or-sail/shared";
 import { CREW_STYLES } from "./crews.ts";
 import { GameScene, type SceneLink } from "./GameScene.ts";
 import { isBigSea, viewSetting } from "./camera.ts";
@@ -80,6 +80,9 @@ export interface RoomStateView extends GameStateView {
   stormStartsAt: number;
   stormClosedAt: number;
   stormRadius: number;
+  /** Stage 5: the current (or last) match's sea. */
+  seaWidth: number;
+  seaHeight: number;
   phase: string;
   pausedBy: string;
   countdown: number;
@@ -94,6 +97,9 @@ export interface GameHandle {
 }
 
 const byId = (id: string) => document.getElementById(id)!;
+
+/** Stage 5: the match's sea from the room state (today's sea until a match says otherwise). */
+const seaOf = (state: RoomStateView): Sea => ({ width: state.seaWidth || TUNING.sea.width, height: state.seaHeight || TUNING.sea.height });
 
 /** Stage 4: every beep this page has played (all matches), read by the browser smoke tests (they can't hear). */
 const played: BeepKind[] = [];
@@ -270,26 +276,28 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
   const link: SceneLink = {
     // Browser tests only: ?view=0.5 shows half as much sea, so the camera follows and the minimap shows.
     viewScale: viewSetting(location.search),
+    sea: () => seaOf(room.state as RoomStateView),
     frame: (): Frame | null => buffer.sample(performance.now() - TUNING.client.interpolationDelayMs),
+    // Stage 5: the layout on the match's sea (spread out on a bigger one).
     islands: () => {
-      const id = (room.state as RoomStateView).matchLayout;
-      return LAYOUTS[isLayoutId(id) ? id : DEFAULT_LAYOUT].islands;
+      const state = room.state as RoomStateView;
+      return spreadLayout(isLayoutId(state.matchLayout) ? state.matchLayout : DEFAULT_LAYOUT, seaOf(state)).islands;
     },
     stormRadius: () => {
       const state = room.state as RoomStateView;
       return state.matchStorm ? state.stormRadius : null;
     },
     wrecks: () => {
-      const id = (room.state as RoomStateView).matchLayout;
-      return LAYOUTS[isLayoutId(id) ? id : DEFAULT_LAYOUT].wrecks;
+      const state = room.state as RoomStateView;
+      return spreadLayout(isLayoutId(state.matchLayout) ? state.matchLayout : DEFAULT_LAYOUT, seaOf(state)).wrecks;
     },
     reefs: () => {
       const state = room.state as RoomStateView;
-      return reefsFor(isLayoutId(state.matchLayout) ? state.matchLayout : DEFAULT_LAYOUT, isReefAmount(state.matchReefs) ? state.matchReefs : "none");
+      return seaReefs(isLayoutId(state.matchLayout) ? state.matchLayout : DEFAULT_LAYOUT, seaOf(state), isReefAmount(state.matchReefs) ? state.matchReefs : "none");
     },
     chartKey: () => {
       const state = room.state as RoomStateView;
-      return `${state.matchLayout}:${state.matchReefs}`;
+      return `${state.matchLayout}:${state.matchReefs}:${state.seaWidth}x${state.seaHeight}`;
     },
     chartDrawn: (marks) => {
       // Read by the browser smoke tests: the layout drawn and how many waves, palms and reef marks it has.
@@ -307,12 +315,13 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
       const state = room.state as RoomStateView;
       // Stage 5 slice 3: the part of the sea in view, and the minimap while the sea is bigger than the view.
       canvasHost.dataset.view = [view.x, view.y, view.width, view.height].map(Math.round).join(",");
-      const big = isBigSea(TUNING.sea, view);
+      const sea = seaOf(state);
+      const big = isBigSea(sea, view);
       minimap.hidden = !big;
       if (big) {
         const dots = frame ? minimapDots(frame.ships, frame.hazards, mine?.crew ?? null) : [];
         drawMinimap(minimap, TUNING.client.minimap, {
-          sea: TUNING.sea,
+          sea,
           islands: link.islands(),
           reefs: link.reefs(),
           stormRadius: link.stormRadius(),
@@ -670,7 +679,7 @@ function showStormStatus(state: RoomStateView, own: { x: number; y: number; sunk
   el.hidden = !on;
   if (!on) return;
   const elapsed = TUNING.lastAfloat.duration - state.timeLeft;
-  const outside = own !== null && !own.sunk && inStorm(own, state.stormRadius);
+  const outside = own !== null && !own.sunk && inStorm(own, state.stormRadius, seaOf(state));
   const text = stormText(elapsed, { startsAt: state.stormStartsAt, closedAt: state.stormClosedAt }, outside);
   if (el.textContent !== text) el.textContent = text;
   el.classList.toggle("in-storm", outside);

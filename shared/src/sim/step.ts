@@ -1,7 +1,6 @@
 import { TUNING } from "../tuning.ts";
 import { bumpDamage, canBeDamaged, damageShip, traceShot } from "./combat.ts";
 import { updateEnergy } from "./energy.ts";
-import { SPAWN_POINTS } from "./map.ts";
 import { blastMine, canDropAt, dropSpot, isArmed, updateMines } from "./mines.ts";
 import { pickUpPacks, updatePacks, updateWreckPacks } from "./packs.ts";
 import { launchTorpedo, outsideSea, torpedoDamage } from "./torpedoes.ts";
@@ -96,7 +95,7 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
   const solids = () => (wrecks.length === 0 ? world.islands : [...world.islands, ...wrecks.map((w) => w.hull)]);
 
   // Stage 2 ghosts appear and move first; crews going out this step get theirs (appearing later) as they sink.
-  const ghosts: Ghost[] = world.ghosts.length > 0 ? updateGhosts(world.ghosts, inputs, dt, events) : [];
+  const ghosts: Ghost[] = world.ghosts.length > 0 ? updateGhosts(world.ghosts, inputs, dt, events, world.sea) : [];
   const sink = (targetIndex: number, by: number | null, cause: SinkCause) => sinkShip(world, ships, ghosts, events, targetIndex, by, cause);
 
   // Stage 2: a wreck takes damage; at 0 it's destroyed (credited to `by`), and any pack it holds is released at the end of the step.
@@ -130,9 +129,9 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
         continue;
       }
       const enemies = ships.filter((s) => s.id !== ship.id && !s.sunk).map((s) => s.pos);
-      const spot = chooseSpawn(SPAWN_POINTS, enemies);
+      const spot = chooseSpawn(world.respawns, enemies);
       // Stage 2: while the storm closes, a ship comes back inside the circle.
-      ship = respawnShip(ship, world.storm ? respawnInside(spot, stormRadius(world.storm, world.time), solids(), statsOf(ship).radius) : spot);
+      ship = respawnShip(ship, world.storm ? respawnInside(spot, stormRadius(world.storm, world.time, world.sea), solids(), statsOf(ship).radius, world.sea) : spot, world.sea);
       events.push({ type: "respawned", ship: ship.id, pos: ship.pos });
       ships[i] = ship;
       continue;
@@ -182,7 +181,7 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
     // Stage 1: the pilot's Pack button drops a loaded mine behind the stern (if that spot is clear).
     if (world.packsOn && !disabled && input.pilot.pack && ship.pilotPack === "mine") {
       const pos = dropSpot(ship);
-      if (canDropAt(pos, solids())) {
+      if (canDropAt(pos, solids(), world.sea)) {
         const mine: Mine = { id: nextMineId++, owner: ship.id, pos, age: 0 };
         droppedMines.push(mine);
         ship = { ...ship, pilotPack: null };
@@ -296,7 +295,7 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
   // The islands, wrecks and the sea edge win over ship pushes, so nothing ends up inside them.
   const blocking = solids();
   for (let i = 0; i < ships.length; i++) {
-    if (!ships[i]!.sunk) ships[i] = keepInSea(pushOutOfIslands(ships[i]!, blocking));
+    if (!ships[i]!.sunk) ships[i] = keepInSea(pushOutOfIslands(ships[i]!, blocking), world.sea);
   }
 
   // Stage 2 reefs: a ship whose centre enters one takes a hit (not while protected); on one, it's slowed next step.
@@ -323,10 +322,10 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
     if (world.time < startsAt - EPSILON && to >= startsAt - EPSILON) events.push({ type: "stormStarted" });
     if (world.time < closedAt - EPSILON && to >= closedAt - EPSILON) events.push({ type: "stormClosed" });
     if (stormTicks(world.storm, world.time, to) > 0) {
-      const radius = stormRadius(world.storm, to);
+      const radius = stormRadius(world.storm, to, world.sea);
       for (let i = 0; i < ships.length; i++) {
         const ship = ships[i]!;
-        if (ship.sunk || ship.protection > 0 || !inStorm(ship.pos, radius)) continue;
+        if (ship.sunk || ship.protection > 0 || !inStorm(ship.pos, radius, world.sea)) continue;
         const damage = TUNING.ship.maxHealth * TUNING.closingStorm.damage;
         const hurt = damageShip(ship, damage);
         ships[i] = hurt.ship;
@@ -449,7 +448,7 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
       blast(mine, torpedo.owner, "torpedo");
       continue;
     }
-    if (trace.kind === "island" || outsideSea(to)) {
+    if (trace.kind === "island" || outsideSea(to, world.sea)) {
       events.push({ type: "torpedoEnded", torpedo: torpedo.id, owner: torpedo.owner, reason: trace.kind === "island" ? "island" : "edge" });
       continue;
     }

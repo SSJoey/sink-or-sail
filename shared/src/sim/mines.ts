@@ -1,3 +1,4 @@
+import { DEFAULT_SEA, type Sea } from "./sea.ts";
 import { TUNING } from "../tuning.ts";
 import { circleOverlapsPolygon, type Polygon } from "./geometry.ts";
 import { statsOf } from "./shipTypes.ts";
@@ -13,9 +14,9 @@ export function dropSpot(ship: Ship): Vec {
 }
 
 /** A mine can't be dropped into an island or off the sea. */
-export function canDropAt(pos: Vec, islands: readonly Polygon[]): boolean {
+export function canDropAt(pos: Vec, islands: readonly Polygon[], sea: Sea = DEFAULT_SEA): boolean {
   const r = TUNING.mine.radius;
-  const { width, height } = TUNING.sea;
+  const { width, height } = sea;
   const inSea = pos.x >= r && pos.x <= width - r && pos.y >= r && pos.y <= height - r;
   return inSea && islands.every((island) => circleOverlapsPolygon(pos, r, island) === null);
 }

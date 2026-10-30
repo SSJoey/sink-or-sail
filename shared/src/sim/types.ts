@@ -1,3 +1,4 @@
+import type { Sea } from "./sea.ts";
 import type { Polygon } from "./geometry.ts";
 import type { LayoutId } from "./layouts.ts";
 import type { ShipType } from "./shipTypes.ts";
@@ -201,7 +202,11 @@ export interface World {
   over: boolean;
   /** Stage 2: set for the whole match. */
   mode: GameMode;
-  /** Stage 2: the match's island layout and its islands (One Island by default). */
+  /** Stage 5: the match's sea, sized by its number of ships (today's 1600 × 900 for 2–4). */
+  sea: Sea;
+  /** Stage 5: where sunk ships can come back (today's four corners on today's sea). */
+  respawns: readonly Vec[];
+  /** Stage 2: the match's island layout and its islands (One Island by default; Stage 5: spread out on a bigger sea). */
   layout: LayoutId;
   islands: readonly Polygon[];
   /** Stage 2: hazards on for the whole match; `reefs` are the match's reefs (none with hazards off). */

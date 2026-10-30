@@ -192,6 +192,9 @@ export const CrewState = schema({
   matchMode: t.string().default("sinkCount"),
   /** Room setting for the next match: a layout id or "random" (host only, Stage 2). */
   layout: t.string().default("oneIsland"),
+  /** Stage 5: the current (or last) match's sea, sized by its number of ships. */
+  seaWidth: t.uint16().default(1600),
+  seaHeight: t.uint16().default(900),
   /** The layout of the current (or last) match, which clients draw. */
   matchLayout: t.string().default("oneIsland"),
   /** Room settings for the next match (host only, Stage 2): hazards on/off and the amount of reefs. */

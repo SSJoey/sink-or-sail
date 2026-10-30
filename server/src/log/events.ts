@@ -1,4 +1,4 @@
-import { DEFAULT_LAYOUT, TUNING, type EarnedAward, type GameMode, type LayoutId, type ReefAmount, type Role, type Seat, type ShipType, type SimEvent, type StormTimes, type World, type Wreck } from "@sink-or-sail/shared";
+import { DEFAULT_LAYOUT, TUNING, type EarnedAward, type GameMode, type LayoutId, type ReefAmount, type Role, type Sea, type Seat, type ShipType, type SimEvent, type StormTimes, type World, type Wreck } from "@sink-or-sail/shared";
 
 /** Who crews each ship (index = ship id); null for an empty seat. */
 export type Roster = { pilot: string | null; gunner: string | null }[];
@@ -115,8 +115,9 @@ export function matchStartLine(room: string, roster: Roster, match: {
   firstHazardAt?: number | null;
   /** Stage 3: who in each crew is a bot, the bot ships, the host's Bot ships setting, the spectators, how many wait. */
   lobby?: MatchLobby;
-  /** Stage 5: each crew's ship type (by ship id). */
+  /** Stage 5: each crew's ship type (by ship id), and the match's sea. */
   types?: readonly ShipType[];
+  sea?: Sea;
 }): LogLine {
   const lobby = match.lobby;
   return {
@@ -136,6 +137,7 @@ export function matchStartLine(room: string, roster: Roster, match: {
     lives: match.lives,
     layout: match.layout ?? DEFAULT_LAYOUT,
     layoutRandom: match.layoutRandom ?? false,
+    ...(match.sea && { sea: { width: match.sea.width, height: match.sea.height } }),
     hazardsOn: match.hazardsOn ?? false,
     reefs: match.reefs ?? "none",
     wrecks: (match.wrecks ?? []).map((w) => ({ wreck: w.id, x: r1(w.pos.x), y: r1(w.pos.y), pack: w.pack })),

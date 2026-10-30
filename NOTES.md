@@ -1395,7 +1395,64 @@ Drafted from `docs/design.md`, the roadmap and "Later". Scope:
   - The 3 later-group tests passed on their own. The sound test passed alone. The lifebar test failed once more alone at load around 30, then passed twice at load 9.
   - The user chose to commit as it is.
 
+### 2026-10-30 — Stage 5 slice 5 plan: map size by number of ships
+
+- **Plan:**
+  - each match carries its sea size: 2–4 ships 1600 × 900 (today, exactly), 5–7 ships 3200 × 1800, 8–10 ships 4000 × 2250;
+  - every rule reads it: edges, spawn spots, mines, torpedoes, ghosts, hazards, zones, the closing storm, bots;
+  - layouts spread out by the sea's scale (islands, reefs, wrecks keep their size);
+  - starts evenly round a ring (radius 650 / 850), turned per layout until clear;
+  - two pack spots per ship (between neighbouring starts on the ring, and at half its radius in front of each start);
+  - respawn at the corner or mid-edge spot farthest from every enemy;
+  - the client's chart, camera and minimap use the match's sea size;
+  - checks for every layout, size and ship count 5–10.
+- **User's answers** (all as recommended, with the go-ahead):
+  1. a) A test-only server setting `SEA_SIZE=3200x1800` (or `4000x2250`) gives a big sea with 2–3 ships, for a browser test and trying it in Docker.
+  2. a) Packs on the map at once: one for every two ships, at least 2.
+  3. a) The closing storm's circles grow with the sea's scale (final circle 600 on 3200 × 1800, 750 on 4000 × 2250).
+  4. a) Haunting zones keep today's size, so there are more of them (8 × 4, 10 × 5); the limit on hazards at once stays as today.
+  5. a) The lobby's layout chart keeps showing the layout at today's size.
+- **Found while building** (2026-10-30): at the planned ring radius, several spread-out layouts have islands sitting on the ring (Crossroads, Ring, Archipelago, Strait), and Slalom becomes a grid of rocks. Moving the ring in or out per layout, turning it, moving the pack spots in or out (the same for every ship), and leaving out respawn spots too close to a pack spot (at least 4 kept) fixes every layout and ship count but Slalom with 7 ships. Its closest miss: pack spots 50 from a rock (60 needed) and 58 from a reef (68 needed). Working the spots out can take up to about 1 s.
+- **User's answers** (2026-10-30, as recommended):
+  1. Rings vary per layout: 650 becomes 650–800, 850 becomes 830–980, plus the turn and the pack-spot shifts. On bigger seas only, pack spots need 45 from islands and 55 from reefs and wrecks.
+  2. A script works out every layout, sea and ship count once into a checked-in table, and a test checks the table still matches the rules. Matches just look it up.
+  3. **Favicon** (the user's addition, 2026-10-30), in this slice: a small SVG favicon of the Frigate hull in the sea-chart look (orange hull, ink outline, chart-blue background). The Add to Home Screen icons will match it.
+- **Built (2026-10-30):**
+  - **`sim/sea.ts`** (new): the `Sea` type, `seaFor(ships)` (`tuning.ts` `seaSizes`), the sea's middle and scale, the test-only `SEA_SIZE` parser, and `packLimit` (`packs.shipsPerPack` 2).
+  - **`sim/seaLayout.ts`** (new):
+    - `spreadLayout` moves every island, reef and wreck out from the middle by the sea's scale, keeping its shape, size and angle (Few stays a part of All);
+    - `seaSpots` gives a match's starts, pack spots and respawn spots: today's own on today's sea; on a bigger one a ring, looked up in `sim/seaSpotTable.ts` (90 rows: 9 layouts × 2 seas × 5 counts, the counts that pick that sea plus 2 and 3 for `SEA_SIZE`), made by `shared/scripts/seaSpotTable.ts` with `searchSeaSpots` (about 4 s, once);
+    - the search moves the ring's radius (up to 300 each way), turns it, and moves the inward and between pack spots in or out, the same for every ship;
+    - respawn candidates are today's corners and the middle of each edge, spread; any too close to an island, reef or wreck, or a match's pack spots, is left out (at least 4 kept).
+  - The rings as built: 650 → 650–800 on 3200 × 1800, 850 → 850–980 on 4000 × 2250 (none needed to go smaller).
+  - **The sim reads `world.sea`** (new `World.sea` and `World.respawns`) for the edges (ships, mines, ghosts, torpedoes, hazards), the closing storm (radii × scale, round the sea's middle), haunting zones (`zoneGrid`: 4 × 2, 8 × 4, 10 × 5), hazard spots, bots, respawn (farthest from every enemy, today's rule) and headings at the start. Packs on the map: `packLimit` of the ship count. `createWorld` takes any ship count and an optional `sea`. Today's sea is unchanged: the Stage 0 recording still matches.
+  - **Server:** `SEA_SIZE` (`config.ts` `fixedSeaSize`); the room state's `seaWidth` / `seaHeight`; the match log's `matchStart` records the `sea`.
+  - **Client:** the chart (grid, waves, the compass rose kept 110 from the bottom-right corner), the storm, haunting zones, the camera, the minimap and the "in the storm" line use the match's sea; islands, reefs and wrecks come from `spreadLayout`. Players see 1600 × 900 round their ship; a spectator sees the whole sea, zoomed out to fit. The lobby's layout chart is unchanged (today's size).
+  - **Favicon:** `client/public/favicon.svg`, linked from the page.
+  - **Tests:**
+    - `seaLayout.test.ts` (116): sizes, `SEA_SIZE`, pack limits, today's layouts unchanged; on each bigger sea, for every layout:
+      - islands, reefs and wrecks keep their shape;
+      - channels at least 70;
+      - every table row's starts are evenly round a ring, with room for the biggest type, open water and clear of reefs and wrecks;
+      - pack spots 60 from the edge, 45 from islands, 55 from reefs and wrecks, over 200 from starts and respawn spots, and 100 apart;
+      - equal distance from every start to its nearest packs;
+      - at least 4 respawn spots;
+      - every type can reach every spot.
+    - `seaMatch.test.ts` (9): seas by count, starts and headings, `SEA_SIZE`-style override, edges, storm sizes, zones, respawn, 3 packs with 6 ships.
+    - Server: `SEA_SIZE` in `config.test.ts`; the synced and logged sea.
+    - Client: the chart on a bigger sea.
+    - Browser: a seventh test server (port 2583, `SEA_SIZE=3200x1800`) and `bigSea.spec.ts`: players see 1600 × 900 round their ship with the minimap and the camera following; the spectator sees the whole sea; the favicon is linked and served.
+- **Runs:**
+  - Type-check clean; 1347 unit tests pass (plus 1 skipped).
+  - Full browser run 43 (peak load 30) failed two tests:
+    - the reef test (its game view reported its layout late, as in slice 2);
+    - the lifebar test (extra reef scrapes before the read: 0.87 instead of 0.95).
+  - Both passed three times in a row alone; the 3 later-group tests passed on their own.
+  - The user chose to commit as it is, with the lifebar test added to the watch items.
+
 ## Later
+
+- **(2026-10-30, watch) The lifebar browser test under load:** it failed in the last two full runs (slice 4's run 42, slice 5's run 43). The ship took extra reef scrapes before the lifebar was read. A fix to plan: stop steering at the reef's first scrape and wait for the reading, so the test still checks exactly 0.95.
 
 - **(2026-10-30, asked for by the user during Stage 5 slice 3; now Stage 5 slice 4) Four additions:**
   1. In the lobby, an outline of the chosen ship type.

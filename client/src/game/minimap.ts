@@ -1,4 +1,4 @@
-import { SEA_CENTRE, TUNING, type Polygon, type Vec } from "@sink-or-sail/shared";
+import { TUNING, seaCentre, type Polygon, type Vec } from "@sink-or-sail/shared";
 import type { Size } from "./camera.ts";
 import { CHART } from "./chartLook.ts";
 import { CREW_STYLES } from "./crews.ts";
@@ -89,7 +89,7 @@ export function drawMinimap(
   if (m.stormRadius !== null) {
     ctx.beginPath();
     ctx.rect(0, 0, m.sea.width, m.sea.height);
-    ctx.arc(SEA_CENTRE.x, SEA_CENTRE.y, Math.max(0, m.stormRadius), 0, Math.PI * 2, true);
+    ctx.arc(seaCentre(m.sea).x, seaCentre(m.sea).y, Math.max(0, m.stormRadius), 0, Math.PI * 2, true);
     ctx.fillStyle = css(CHART.storm);
     ctx.globalAlpha = 0.45;
     ctx.fill("evenodd");

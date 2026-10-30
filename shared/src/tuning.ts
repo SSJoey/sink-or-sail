@@ -28,6 +28,16 @@ export const TUNING = {
     width: 1600,
     height: 900,
   },
+  /**
+   * Stage 5 slice 5: the sea by the number of ships in the match (approved 2026-10-30): up to `upTo` ships, this size.
+   * On the bigger seas the layouts are spread out from the middle (islands, reefs and wrecks keep their size) and the
+   * starts go evenly round a ring of `startRing` around the middle (null: the layout's own hand-placed starts).
+   */
+  seaSizes: [
+    { upTo: 4, width: 1600, height: 900, startRing: null },
+    { upTo: 7, width: 3200, height: 1800, startRing: 650 },
+    { upTo: 10, width: 4000, height: 2250, startRing: 850 },
+  ],
   /** The Frigate's hull; other types are in `shipTypes`. */
   ship: {
     radius: FRIGATE.radius,
@@ -267,8 +277,9 @@ export const TUNING = {
     duration: 420,
   },
   packs: {
-    /** Packs on the map at once, glowing (signalled) ones included. */
+    /** Packs on the map at once, glowing (signalled) ones included; Stage 5: one for every `shipsPerPack` ships, if more. */
     maxOnMap: 2,
+    shipsPerPack: 2,
     /** Seconds from the match start, or from the last pack appearing, to the next signal; also from a pickup off a full map. */
     spawnInterval: 8,
     /** Seconds a spot glows before its pack appears. */

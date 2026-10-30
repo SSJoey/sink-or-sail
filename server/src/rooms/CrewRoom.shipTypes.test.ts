@@ -146,3 +146,30 @@ describe("picking a ship type (Stage 5)", () => {
     expect(start.tuning.shipTypes.cutter.maxHealth).toBe(75);
   });
 });
+
+describe("the match's sea (Stage 5)", () => {
+  it("2 ships: today's sea, in the room state and the match log", async () => {
+    const { ana, room } = await crew();
+    const sink = memorySink();
+    room.logSinkFor = () => sink;
+    ana.send(ClientMessage.Start);
+    await waitFor(() => room.state.phase === Phase.Running);
+    expect([room.state.seaWidth, room.state.seaHeight]).toEqual([1600, 900]);
+    await waitFor(() => sink.text().includes("matchStart"));
+    const start = sink.text().trim().split("\n").map((l) => JSON.parse(l)).find((l) => l.type === "matchStart");
+    expect(start.sea).toEqual({ width: 1600, height: 900 });
+  });
+
+  it("SEA_SIZE gives the match a bigger sea (test servers only)", async () => {
+    process.env.SEA_SIZE = "3200x1800";
+    try {
+      const { ana, room } = await crew();
+      ana.send(ClientMessage.Start);
+      await waitFor(() => room.state.phase === Phase.Running);
+      expect(room.world!.sea).toEqual({ width: 3200, height: 1800 });
+      expect([room.state.seaWidth, room.state.seaHeight]).toEqual([3200, 1800]);
+    } finally {
+      delete process.env.SEA_SIZE;
+    }
+  });
+});

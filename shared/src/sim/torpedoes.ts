@@ -1,3 +1,4 @@
+import { DEFAULT_SEA, type Sea } from "./sea.ts";
 import { TUNING } from "../tuning.ts";
 import { statsOf } from "./shipTypes.ts";
 import type { Ship, Torpedo } from "./types.ts";
@@ -16,5 +17,5 @@ export function torpedoDamage(target: Ship): { damage: number; shieldHalved: boo
   return target.shielding ? { damage: full * TUNING.torpedo.shieldFactor, shieldHalved: true } : { damage: full, shieldHalved: false };
 }
 
-export const outsideSea = (p: { x: number; y: number }) =>
-  p.x < 0 || p.x > TUNING.sea.width || p.y < 0 || p.y > TUNING.sea.height;
+export const outsideSea = (p: { x: number; y: number }, sea: Sea = DEFAULT_SEA) =>
+  p.x < 0 || p.x > sea.width || p.y < 0 || p.y > sea.height;

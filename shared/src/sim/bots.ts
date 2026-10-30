@@ -1,7 +1,7 @@
 import { TUNING } from "../tuning.ts";
 import { circleOverlapsPolygon, pointInPolygon, segmentPolygonHit, type Polygon } from "./geometry.ts";
 import { inMovingStorm } from "./hazards.ts";
-import { SEA_CENTRE } from "./map.ts";
+import { seaCentre } from "./sea.ts";
 import { nextRandom } from "./random.ts";
 import { statsOf, type ShipType } from "./shipTypes.ts";
 import { stormRadius } from "./storm.ts";
@@ -165,8 +165,8 @@ function pilotGoal(world: World, ship: Ship, circle: number): { goal: Vec; boost
     if (h.kind === "kraken" && h.phase === "active" && d < B.krakenBerth) return { goal: away(h.pos), boost: true };
   }
   if (world.storm) {
-    const safe = stormRadius(world.storm, world.time + B.stormAhead) - B.stormInset;
-    if (distance(ship.pos, SEA_CENTRE) > safe) return { goal: normalise(sub(SEA_CENTRE, ship.pos)), boost: false };
+    const safe = stormRadius(world.storm, world.time + B.stormAhead, world.sea) - B.stormInset;
+    if (distance(ship.pos, seaCentre(world.sea)) > safe) return { goal: normalise(sub(seaCentre(world.sea), ship.pos)), boost: false };
   }
   const enemies = visibleEnemies(world, ship);
   const nearest = enemies[0];
@@ -178,7 +178,7 @@ function pilotGoal(world: World, ship: Ship, circle: number): { goal: Vec; boost
     .filter((p) => canUse(ship, p.type) && distance(p.pos, ship.pos) <= reach)
     .sort((a, b) => distance(a.pos, ship.pos) - distance(b.pos, ship.pos))[0];
   if (pack) return { goal: normalise(sub(pack.pos, ship.pos)), boost: false };
-  if (!nearest) return { goal: normalise(sub(SEA_CENTRE, ship.pos)), boost: false };
+  if (!nearest) return { goal: normalise(sub(seaCentre(world.sea), ship.pos)), boost: false };
   // Close in or back off to the fighting distance, circling the enemy as it gets there.
   const toward = normalise(sub(nearest.pos, ship.pos));
   const round = { x: -toward.y * circle, y: toward.x * circle };
@@ -222,7 +222,7 @@ function clearHeading(world: World, ship: Ship, goal: Vec): Vec {
   const whirlpools = world.hazards.filter((h) => h.kind === "whirlpool" && h.phase !== "fading");
   const r = statsOf(ship).radius;
   const points = (dir: Vec) => [0.2, 0.4, 0.6, 0.8, 1].map((f) => add(ship.pos, scale(dir, B.lookAhead * f)));
-  const hard = (p: Vec) => p.x < r || p.y < r || p.x > TUNING.sea.width - r || p.y > TUNING.sea.height - r
+  const hard = (p: Vec) => p.x < r || p.y < r || p.x > world.sea.width - r || p.y > world.sea.height - r
     || solids.some((s) => circleOverlapsPolygon(p, r + CLEARANCE, s) !== null);
   const soft = (p: Vec) => world.reefs.some((reef) => pointInPolygon(p, reef))
     || whirlpools.some((h) => distance(p, h.pos) < TUNING.whirlpool.reach);

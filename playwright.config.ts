@@ -11,6 +11,8 @@ export const WHIRLPOOL_PORT = 2580;
 export const KRAKEN_PORT = 2581;
 /** Sixth test server, for the ghost test: TEST_SINK sinks Crew 2 at 0:04. */
 export const GHOST_PORT = 2582;
+/** Seventh test server, for the bigger-sea test (Stage 5): SEA_SIZE gives every match a 3200 × 1800 sea. */
+export const BIG_SEA_PORT = 2583;
 
 export default defineConfig({
   testDir: "e2e",
@@ -97,6 +99,15 @@ export default defineConfig({
       reuseExistingServer: false,
       timeout: 60_000,
       env: { LOG_DIR: join(tmpdir(), "sink-or-sail-test-logs"), MATCH_SEED: "367", HAZARDS_FIRST_AT: "999", TEST_SINK: "2@4" },
+    },
+    {
+      // A seventh server for the bigger-sea test (Stage 5): SEA_SIZE gives every match a 3200 × 1800 sea, whatever
+      // its number of ships, and HAZARDS_FIRST_AT=never keeps moving storms away.
+      command: `PORT=${BIG_SEA_PORT} npm start`,
+      url: `http://localhost:${BIG_SEA_PORT}`,
+      reuseExistingServer: false,
+      timeout: 60_000,
+      env: { LOG_DIR: join(tmpdir(), "sink-or-sail-test-logs"), MATCH_SEED: "367", HAZARDS_FIRST_AT: "never", SEA_SIZE: "3200x1800" },
     },
   ],
 });

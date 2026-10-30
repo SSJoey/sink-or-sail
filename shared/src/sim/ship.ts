@@ -1,3 +1,4 @@
+import { DEFAULT_SEA, type Sea } from "./sea.ts";
 import { TUNING } from "../tuning.ts";
 import { circleOverlapsPolygon, type Polygon } from "./geometry.ts";
 import { statsOf } from "./shipTypes.ts";
@@ -31,9 +32,9 @@ export function steerShip(ship: Ship, pilot: PilotInput, boosting: boolean, dt: 
 }
 
 /** Stops a ship at the sea's edge; motion along the edge is kept. */
-export function keepInSea(ship: Ship): Ship {
+export function keepInSea(ship: Ship, sea: Sea = DEFAULT_SEA): Ship {
   const r = statsOf(ship).radius;
-  const { width, height } = TUNING.sea;
+  const { width, height } = sea;
   let { x, y } = ship.pos;
   let { x: vx, y: vy } = ship.vel;
   if (x < r) { x = r; vx = Math.max(0, vx); }

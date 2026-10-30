@@ -2,6 +2,7 @@ import { TUNING } from "../tuning.ts";
 import { circleOverlapsPolygon, type Polygon } from "./geometry.ts";
 import { nextRandom, randomIndex, weightedPick, type Random } from "./random.ts";
 import { statsOf } from "./shipTypes.ts";
+import { DEFAULT_SEA, seaScale, type Sea } from "./sea.ts";
 import type { Ghost, Hazard, HazardKind, Ship, SimEvent, World } from "./types.ts";
 import { add, angleOf, distance, fromAngle, scale, sub, type Vec } from "./vec.ts";
 
@@ -11,8 +12,17 @@ const M = TUNING.movingStorm;
 const W = TUNING.whirlpool;
 const K = TUNING.kraken;
 const HT = TUNING.haunting;
-/** How many haunting zones the sea is split into. */
-export const ZONES = HT.zonesAcross * HT.zonesDown;
+/**
+ * The haunting zones across and down a sea: today's 4 × 2; Stage 5, on a bigger sea, zones keep today's size, so
+ * there are more of them (8 × 4, 10 × 5).
+ */
+export function zoneGrid(sea: Sea = DEFAULT_SEA): { across: number; down: number } {
+  const k = seaScale(sea);
+  return { across: Math.round(HT.zonesAcross * k), down: Math.round(HT.zonesDown * k) };
+}
+/** How many haunting zones a sea is split into (today's sea: 8). */
+export const zoneCount = (sea: Sea = DEFAULT_SEA) => zoneGrid(sea).across * zoneGrid(sea).down;
+export const ZONES = zoneCount();
 const KIND_CHANCES = Object.entries(H.chances) as [HazardKind, number][];
 
 /**
@@ -35,28 +45,30 @@ const PLACE_TRIES = 12;
 /** A spot is inside a moving storm when it is within the storm's radius of its centre. */
 export const inMovingStorm = (pos: Vec, storm: Hazard) => distance(pos, storm.pos) <= M.radius + EPSILON;
 
-const outsideSea = (pos: Vec) => pos.x < 0 || pos.y < 0 || pos.x > TUNING.sea.width || pos.y > TUNING.sea.height;
+const outsideSea = (pos: Vec, sea: Sea) => pos.x < 0 || pos.y < 0 || pos.x > sea.width || pos.y > sea.height;
 
 /** Whether a hazard of `kind` may appear at `pos`: its whole reach inside the sea and clear of every ship afloat, and its body clear of `solids`. */
-function clearSpot(kind: HazardKind, pos: Vec, afloat: readonly Ship[], solids: readonly Polygon[]): boolean {
+function clearSpot(kind: HazardKind, pos: Vec, afloat: readonly Ship[], solids: readonly Polygon[], sea: Sea): boolean {
   const { radius, clearOfSolids } = SIZES[kind];
-  const inSea = pos.x >= radius && pos.y >= radius && pos.x <= TUNING.sea.width - radius && pos.y <= TUNING.sea.height - radius;
+  const inSea = pos.x >= radius && pos.y >= radius && pos.x <= sea.width - radius && pos.y <= sea.height - radius;
   if (!inSea || afloat.some((s) => distance(s.pos, pos) < radius + statsOf(s).radius + H.clearance)) return false;
   return clearOfSolids <= 0 || solids.every((solid) => circleOverlapsPolygon(pos, clearOfSolids, solid) === null);
 }
 
 /** The haunting zone a spot is in (row by row; the far edges belong to the last row and column). */
-export function zoneOf(pos: Vec): number {
-  const across = Math.min(HT.zonesAcross - 1, Math.max(0, Math.floor((pos.x / TUNING.sea.width) * HT.zonesAcross)));
-  const down = Math.min(HT.zonesDown - 1, Math.max(0, Math.floor((pos.y / TUNING.sea.height) * HT.zonesDown)));
-  return down * HT.zonesAcross + across;
+export function zoneOf(pos: Vec, sea: Sea = DEFAULT_SEA): number {
+  const grid = zoneGrid(sea);
+  const across = Math.min(grid.across - 1, Math.max(0, Math.floor((pos.x / sea.width) * grid.across)));
+  const down = Math.min(grid.down - 1, Math.max(0, Math.floor((pos.y / sea.height) * grid.down)));
+  return down * grid.across + across;
 }
 
-export function zoneRect(zone: number): { x0: number; y0: number; x1: number; y1: number } {
-  const w = TUNING.sea.width / HT.zonesAcross;
-  const h = TUNING.sea.height / HT.zonesDown;
-  const x0 = (zone % HT.zonesAcross) * w;
-  const y0 = Math.floor(zone / HT.zonesAcross) * h;
+export function zoneRect(zone: number, sea: Sea = DEFAULT_SEA): { x0: number; y0: number; x1: number; y1: number } {
+  const grid = zoneGrid(sea);
+  const w = sea.width / grid.across;
+  const h = sea.height / grid.down;
+  const x0 = (zone % grid.across) * w;
+  const y0 = Math.floor(zone / grid.across) * h;
   return { x0, y0, x1: x0 + w, y1: y0 + h };
 }
 
@@ -67,15 +79,15 @@ const ZONE_TRIES = 60;
  * Where a haunted hazard of `kind` appears: a seeded spot inside `zone` that is clear (see clearSpot). It heads for
  * the nearest ship afloat (the moving storm drifts that way). Null when no try finds a clear spot.
  */
-export function placeInZone(kind: HazardKind, zone: number, ships: readonly Ship[], state: number, solids: readonly Polygon[]): Random<{ pos: Vec; heading: number } | null> {
+export function placeInZone(kind: HazardKind, zone: number, ships: readonly Ship[], state: number, solids: readonly Polygon[], sea: Sea = DEFAULT_SEA): Random<{ pos: Vec; heading: number } | null> {
   const afloat = ships.filter((s) => !s.sunk);
-  const r = zoneRect(zone);
+  const r = zoneRect(zone, sea);
   for (let i = 0; i < ZONE_TRIES; i++) {
     const rx = nextRandom(state);
     const ry = nextRandom(rx.state);
     state = ry.state;
     const pos = { x: r.x0 + rx.value * (r.x1 - r.x0), y: r.y0 + ry.value * (r.y1 - r.y0) };
-    if (zoneOf(pos) !== zone || !clearSpot(kind, pos, afloat, solids)) continue;
+    if (zoneOf(pos, sea) !== zone || !clearSpot(kind, pos, afloat, solids, sea)) continue;
     const nearest = afloat.reduce<Ship | null>((best, s) => (!best || distance(s.pos, pos) < distance(best.pos, pos) ? s : best), null);
     return { value: { pos, heading: nearest ? angleOf(sub(nearest.pos, pos)) : 0 }, state };
   }
@@ -111,7 +123,7 @@ function nextGap(state: number): Random<number> {
  * that way).
  * Null when no ship is afloat or no try finds a clear spot.
  */
-export function placeHazard(kind: HazardKind, ships: readonly Ship[], state: number, solids: readonly Polygon[]): Random<{ pos: Vec; heading: number; ship: number } | null> {
+export function placeHazard(kind: HazardKind, ships: readonly Ship[], state: number, solids: readonly Polygon[], sea: Sea = DEFAULT_SEA): Random<{ pos: Vec; heading: number; ship: number } | null> {
   const afloat = ships.filter((s) => !s.sunk);
   if (afloat.length === 0) return { value: null, state };
   const pick = randomIndex(state, afloat.length);
@@ -122,7 +134,7 @@ export function placeHazard(kind: HazardKind, ships: readonly Ship[], state: num
     const roll = nextRandom(state);
     state = roll.state;
     const pos = add(target.pos, scale(fromAngle(roll.value * Math.PI * 2), away));
-    if (!clearSpot(kind, pos, afloat, solids)) continue;
+    if (!clearSpot(kind, pos, afloat, solids, sea)) continue;
     return { value: { pos, heading: angleOf(sub(target.pos, pos)), ship: target.id }, state };
   }
   return { value: null, state };
@@ -219,7 +231,7 @@ export function updateHazards(world: World, ships: readonly Ship[], dt: number, 
     }
     if (h.kind === "movingStorm") h = { ...h, pos: add(h.pos, scale(fromAngle(h.heading), M.speed * dt)) };
     if (h.phase === "active") {
-      const edge = outsideSea(h.pos);
+      const edge = outsideSea(h.pos, world.sea);
       if (edge || h.timeLeft <= EPSILON) {
         events.push({ type: "hazardEnded", hazard: h.id, kind: h.kind, reason: edge ? "edge" : "time" });
         h = { ...h, phase: "fading", timeLeft: SIZES[h.kind].fadeTime };
@@ -233,7 +245,7 @@ export function updateHazards(world: World, ships: readonly Ship[], dt: number, 
     nextHazardIn -= dt;
     if (nextHazardIn <= EPSILON) {
       const kind = weightedPick(hazardRng, KIND_CHANCES);
-      const placed = placeHazard(kind.value, ships, kind.state, solids);
+      const placed = placeHazard(kind.value, ships, kind.state, solids, world.sea);
       hazardRng = placed.state;
       if (placed.value) {
         const signalled = signalHazard(nextHazardId++, kind.value, placed.value.pos, placed.value.heading, hazardRng, events);
@@ -254,7 +266,7 @@ export function updateHazards(world: World, ships: readonly Ship[], dt: number, 
     const meters = [...haunting.meters];
     const cooldowns = [...haunting.cooldowns];
     const inZone: number[][] = meters.map(() => []);
-    for (const ghost of ghosts) if (ghost.appearIn <= 0) inZone[zoneOf(ghost.pos)]!.push(ghost.ship);
+    for (const ghost of ghosts) if (ghost.appearIn <= 0) inZone[zoneOf(ghost.pos, world.sea)]!.push(ghost.ship);
     for (let zone = 0; zone < meters.length; zone++) {
       if (cooldowns[zone]! > 0) {
         cooldowns[zone] = Math.max(0, cooldowns[zone]! - dt);
@@ -265,7 +277,7 @@ export function updateHazards(world: World, ships: readonly Ship[], dt: number, 
       meters[zone] = count > 0 ? Math.min(1, meters[zone]! + (count * dt) / HT.fillTime) : Math.max(0, meters[zone]! - dt / HT.drainTime);
       if (meters[zone]! < 1 - EPSILON || hazards.length >= H.maxActive + 1) continue;
       const kind = weightedPick(hazardRng, KIND_CHANCES);
-      const placed = placeInZone(kind.value, zone, ships, kind.state, solids);
+      const placed = placeInZone(kind.value, zone, ships, kind.state, solids, world.sea);
       hazardRng = placed.state;
       if (!placed.value) continue;
       const signalled = signalHazard(nextHazardId++, kind.value, placed.value.pos, placed.value.heading, hazardRng, events);

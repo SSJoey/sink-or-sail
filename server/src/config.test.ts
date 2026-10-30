@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { GAME_NAME } from "@sink-or-sail/shared";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { DEFAULT_PORT, REPO_LOG_DIR, firstHazardAt, fixedSeed, fixedStormTimes, joinAddress, logDir, resolvePort, testSink } from "./config.ts";
+import { DEFAULT_PORT, REPO_LOG_DIR, firstHazardAt, fixedSeaSize, fixedSeed, fixedStormTimes, joinAddress, logDir, resolvePort, testSink } from "./config.ts";
 
 describe("server config", () => {
   it("can import from the shared package", () => {
@@ -89,5 +89,17 @@ describe("JOIN_ADDRESS (the laptop's address for the QR code)", () => {
 
   it("is empty when unset, blank, or not an address (so a link can't be bent into something else)", () => {
     for (const value of [undefined, "", "  ", "http://x", "a b", "evil.com/path", "1.2.3.4:80"]) expect(joinAddress({ JOIN_ADDRESS: value })).toBe("");
+  });
+});
+
+describe("SEA_SIZE (browser tests and trying it out only, Stage 5)", () => {
+  it("gives every match one of the bigger seas", () => {
+    expect(fixedSeaSize({ SEA_SIZE: "3200x1800" })).toEqual({ width: 3200, height: 1800 });
+    expect(fixedSeaSize({ SEA_SIZE: "4000x2250" })).toEqual({ width: 4000, height: 2250 });
+  });
+
+  it("is null (the size for the number of ships) unless it names an agreed size", () => {
+    expect(fixedSeaSize({})).toBeNull();
+    expect(fixedSeaSize({ SEA_SIZE: "2000x1000" })).toBeNull();
   });
 });

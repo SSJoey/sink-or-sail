@@ -1,5 +1,5 @@
 import { TUNING } from "../tuning.ts";
-import { SEA_CENTRE } from "./map.ts";
+import { DEFAULT_SEA, seaCentre, type Sea } from "./sea.ts";
 import { statsOf } from "./shipTypes.ts";
 import type { Ship } from "./types.ts";
 import { angleOf, distance, sub, type Vec } from "./vec.ts";
@@ -19,8 +19,8 @@ export function chooseSpawn(points: readonly Vec[], enemies: readonly Vec[]): Ve
 }
 
 /** Brings a sunk ship back at `pos`: its type's full health and energy, protected, facing the middle of the sea. */
-export function respawnShip(ship: Ship, pos: Vec): Ship {
-  const heading = angleOf(sub(SEA_CENTRE, pos));
+export function respawnShip(ship: Ship, pos: Vec, sea: Sea = DEFAULT_SEA): Ship {
+  const heading = angleOf(sub(seaCentre(sea), pos));
   return {
     ...ship,
     pos,

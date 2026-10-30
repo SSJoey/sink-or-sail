@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { LAYOUTS, LAYOUT_IDS, SEA_CENTRE, TUNING, circleOverlapsPolygon, closestPointOnSegment, pointInPolygon, type Polygon, type Vec } from "@sink-or-sail/shared";
-import { chartMarks, gridLines, inkOutline, offsetPolygon, palmSpots, reefMarks, waveSpots } from "./chartLook.ts";
+import { chartMarks, compassSpot, gridLines, inkOutline, offsetPolygon, palmSpots, reefMarks, waveSpots } from "./chartLook.ts";
 
 const C = TUNING.client.chart;
 const mirrorX = (p: Vec) => ({ x: 2 * SEA_CENTRE.x - p.x, y: p.y });
@@ -122,5 +122,23 @@ describe("outlines and the grid", () => {
     expect(marks.waves).toBe(waveSpots(l.islands, l.reefs, l.wrecks).length);
     expect(marks.palms).toBe(l.islands.flatMap(palmSpots).length);
     expect(marks.reefMarks).toBe(l.reefs.flatMap(reefMarks).length);
+  });
+});
+
+describe("the chart on a bigger sea (Stage 5)", () => {
+  const sea = { width: 3200, height: 1800 };
+
+  it("the compass rose keeps its place from the bottom-right corner", () => {
+    expect(compassSpot()).toEqual({ ...TUNING.client.chart.compass });
+    expect(compassSpot(sea)).toEqual({ x: 3200 - 110, y: 1800 - 110, radius: TUNING.client.chart.compass.radius });
+  });
+
+  it("the grid and the waves cover the whole sea", () => {
+    const step = TUNING.client.chart.gridStep;
+    expect(gridLines(sea)).toHaveLength((3200 / step - 1) + (1800 / step - 1));
+    const waves = waveSpots([], [], [], sea);
+    expect(Math.max(...waves.map((w) => w.x))).toBeGreaterThan(3000);
+    expect(Math.max(...waves.map((w) => w.y))).toBeGreaterThan(1600);
+    expect(waves.length).toBeGreaterThan(3 * waveSpots([], [], []).length);
   });
 });

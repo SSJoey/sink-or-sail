@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Sink or Sail's favicon (Stage 5, 2026-10-30): a Frigate's hull in the sea-chart look, bow to the upper right. -->
+  <rect x="2" y="2" width="60" height="60" rx="12" fill="#bfd9e3" stroke="#3b2f22" stroke-width="3"/>
+  <path d="M10 46 q6 -4 12 0 t12 0" fill="none" stroke="#3b2f22" stroke-width="2" stroke-linecap="round" opacity="0.5"/>
+  <g transform="translate(32 30) rotate(-35) scale(1.05)">
+    <path d="M24 0 C 16 -10, -6 -11, -19 -8 Q -22 0 -19 8 C -6 11, 16 10, 24 0 Z" fill="#C9782A" stroke="#1e170f" stroke-width="2.6" stroke-linejoin="round"/>
+    <path d="M11 -5 q5 5 0 10 M-8 -6 q5 6 0 12" fill="none" stroke="#f6ecd3" stroke-width="2" stroke-linecap="round"/>
+    <circle cx="0" cy="0" r="4.5" fill="#1e170f"/>
+    <path d="M0 0 L12 0" stroke="#1e170f" stroke-width="3" stroke-linecap="round"/>
+  </g>
+</svg>

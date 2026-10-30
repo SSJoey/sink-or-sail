@@ -1,8 +1,9 @@
 import { TUNING } from "../tuning.ts";
-import { DEFAULT_LAYOUT, LAYOUTS, reefsFor, type LayoutId, type ReefAmount } from "./layouts.ts";
-import { SEA_CENTRE } from "./map.ts";
+import { DEFAULT_LAYOUT, LAYOUTS, type LayoutId, type ReefAmount } from "./layouts.ts";
 import { PACK_CHANCES } from "./packs.ts";
-import { ZONES, hazardSeed } from "./hazards.ts";
+import { hazardSeed, zoneCount } from "./hazards.ts";
+import { seaCentre, seaFor, type Sea } from "./sea.ts";
+import { seaReefs, seaSpots, spreadLayout } from "./seaLayout.ts";
 import { DEFAULT_STORM_TIMES } from "./storm.ts";
 import { placeWrecks } from "./wrecks.ts";
 import { statsOf, type ShipType } from "./shipTypes.ts";
@@ -14,8 +15,10 @@ export interface WorldOptions {
   packs?: boolean;
   /** Seed for the simulation's random generator. */
   seed?: number;
-  /** 2 ships (default, as in Stage 0) or 3, each with its own starts and pack spots. */
-  ships?: 2 | 3;
+  /** 2 ships (default, as in Stage 0) or more, each count with its own starts and pack spots. */
+  ships?: number;
+  /** Stage 5: the sea (default: the size for the number of ships; a test server can ask for a bigger one). */
+  sea?: Sea;
   /** Stage 2: Sink Count (default, as before) or Last Afloat. */
   mode?: GameMode;
   /** Last Afloat: lives per ship (default `TUNING.lastAfloat.lives`). */
@@ -39,12 +42,17 @@ export interface WorldOptions {
 export function createWorld(options: WorldOptions = {}): World {
   const packsOn = options.packs ?? false;
   const seed = (options.seed ?? 1) >>> 0;
-  const three = options.ships === 3;
+  const count = options.ships ?? 2;
   const layout = LAYOUTS[options.layout ?? DEFAULT_LAYOUT];
+  // Stage 5: the sea for the number of ships, and the layout on it (today's sea: exactly the layout's own).
+  const sea = options.sea ?? seaFor(count);
+  const spread = spreadLayout(layout.id, sea);
+  const spots = seaSpots(layout.id, sea, count);
+  const zones = zoneCount(sea);
   const mode = options.mode ?? "sinkCount";
   const livesLeft = mode === "lastAfloat" ? (options.lives ?? TUNING.lastAfloat.lives) : null;
-  const ships: Ship[] = (three ? layout.starts3 : layout.starts).map((pos, id) => {
-    const heading = angleOf(sub(SEA_CENTRE, pos));
+  const ships: Ship[] = spots.starts.map((pos, id) => {
+    const heading = angleOf(sub(seaCentre(sea), pos));
     const type = options.types?.[id] ?? "frigate";
     return {
       id,
@@ -81,11 +89,13 @@ export function createWorld(options: WorldOptions = {}): World {
     contacts: [],
     over: false,
     mode,
+    sea,
+    respawns: spots.respawns,
     layout: layout.id,
-    islands: layout.islands,
+    islands: spread.islands,
     hazardsOn: options.hazards ?? false,
-    reefs: options.hazards ? reefsFor(layout.id, options.reefs ?? "all") : [],
-    wrecks: options.hazards ? placeWrecks(layout.wrecks, packsOn, seed, PACK_CHANCES) : [],
+    reefs: options.hazards ? seaReefs(layout.id, sea, options.reefs ?? "all") : [],
+    wrecks: options.hazards ? placeWrecks(spread.wrecks, packsOn, seed, PACK_CHANCES) : [],
     wreckPacks: [],
     storm: mode === "lastAfloat" && options.hazards ? (options.storm ?? DEFAULT_STORM_TIMES) : null,
     hazards: [],
@@ -96,12 +106,12 @@ export function createWorld(options: WorldOptions = {}): World {
     botShips: options.botShips ?? [],
     ghosts: [],
     haunting: mode === "lastAfloat" && options.hazards && options.firstHazardAt !== null
-      ? { meters: Array(ZONES).fill(0), cooldowns: Array(ZONES).fill(0) }
+      ? { meters: Array(zones).fill(0), cooldowns: Array(zones).fill(0) }
       : null,
     packsOn,
     rng: seed,
     packs: [],
-    packSpots: three ? layout.packSpots3 : layout.packSpots,
+    packSpots: spots.packSpots,
     nextPackId: 0,
     nextSignalIn: packsOn ? TUNING.packs.spawnInterval : null,
     mines: [],

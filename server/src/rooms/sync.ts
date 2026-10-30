@@ -9,7 +9,7 @@ export function syncWorld(state: CrewState, world: World): void {
   if (world.storm) {
     state.stormStartsAt = world.storm.startsAt;
     state.stormClosedAt = world.storm.closedAt;
-    state.stormRadius = stormRadius(world.storm, world.time);
+    state.stormRadius = stormRadius(world.storm, world.time, world.sea);
   }
 
   while (state.ships.length < world.ships.length) state.ships.push(new ShipState());
@@ -118,9 +118,9 @@ export function syncWorld(state: CrewState, world: World): void {
       synced.x = ghost.pos.x;
       synced.y = ghost.pos.y;
       synced.heading = ghost.heading;
-      synced.zone = zoneOf(ghost.pos);
+      synced.zone = zoneOf(ghost.pos, world.sea);
     } else {
-      state.ghosts.set(id, new GhostState({ x: ghost.pos.x, y: ghost.pos.y, heading: ghost.heading, zone: zoneOf(ghost.pos) }));
+      state.ghosts.set(id, new GhostState({ x: ghost.pos.x, y: ghost.pos.y, heading: ghost.heading, zone: zoneOf(ghost.pos, world.sea) }));
     }
   }
 

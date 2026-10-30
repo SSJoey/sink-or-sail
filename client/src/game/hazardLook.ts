@@ -1,4 +1,4 @@
-import { SEA_CENTRE, TUNING, type Vec } from "@sink-or-sail/shared";
+import { DEFAULT_SEA, TUNING, seaCentre, type Sea, type Vec } from "@sink-or-sail/shared";
 import type { HazardView, ShipView } from "./interpolation.ts";
 
 const M = TUNING.movingStorm;
@@ -78,9 +78,9 @@ export function krakenTentacles(h: HazardView, time: number, held: Vec | null, h
  * Stage 4 slice 5: the closing storm's diagonal ink hatching, like an old chart's shaded border: lines `spacing`
  * apart across the sea, cut to the pieces outside the safe circle.
  */
-export function stormHatch(radius: number, spacing: number = TUNING.client.chart.stormHatch): [Vec, Vec][] {
-  const { width: W, height: H } = TUNING.sea;
-  const { x: cx, y: cy } = SEA_CENTRE;
+export function stormHatch(radius: number, spacing: number = TUNING.client.chart.stormHatch, sea: Sea = DEFAULT_SEA): [Vec, Vec][] {
+  const { width: W, height: H } = sea;
+  const { x: cx, y: cy } = seaCentre(sea);
   const pieces: [Vec, Vec][] = [];
   // Lines x + y = c, each clipped to the sea.
   for (let c = spacing / 2; c < W + H; c += spacing) {

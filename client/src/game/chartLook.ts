@@ -1,4 +1,4 @@
-import { SEA_CENTRE, TUNING, circleOverlapsPolygon, pointInPolygon, type Polygon, type Vec, type WreckSpot } from "@sink-or-sail/shared";
+import { DEFAULT_SEA, SEA_CENTRE, TUNING, circleOverlapsPolygon, pointInPolygon, seaCentre, type Polygon, type Sea, type Vec, type WreckSpot } from "@sink-or-sail/shared";
 
 /** Stage 4 slice 3: the sea-chart look's colours (from the look-options canvas, "1 · Tabletop sea chart"). */
 export const CHART = {
@@ -26,9 +26,9 @@ const C = () => TUNING.client.chart;
  * A number in [0, 1) from a point, the same for its mirror images: it reads the distance from the sea's middle
  * both ways (not the side), so mirrored layouts get mirrored decoration.
  */
-function foldedHash(p: Vec, salt: number): number {
-  let h = Math.imul(Math.round(Math.abs(p.x - SEA_CENTRE.x) * 10) ^ 0x9e3779b1, 0x85ebca6b);
-  h = Math.imul(h ^ (Math.round(Math.abs(p.y - SEA_CENTRE.y) * 10) + salt * 0x27d4eb2f), 0xc2b2ae35);
+function foldedHash(p: Vec, salt: number, centre: Vec = SEA_CENTRE): number {
+  let h = Math.imul(Math.round(Math.abs(p.x - centre.x) * 10) ^ 0x9e3779b1, 0x85ebca6b);
+  h = Math.imul(h ^ (Math.round(Math.abs(p.y - centre.y) * 10) + salt * 0x27d4eb2f), 0xc2b2ae35);
   h ^= h >>> 15;
   h = Math.imul(h, 0x2c1b3c6d);
   h ^= h >>> 12;
@@ -36,28 +36,36 @@ function foldedHash(p: Vec, salt: number): number {
 }
 
 /** Moves a point by up to `amount` each way, mirrored with the point (the side of the middle flips the move). */
-function jitter(p: Vec, amount: number): Vec {
-  const sx = Math.sign(p.x - SEA_CENTRE.x);
-  const sy = Math.sign(p.y - SEA_CENTRE.y);
-  return { x: p.x + sx * (foldedHash(p, 1) * 2 - 1) * amount, y: p.y + sy * (foldedHash(p, 2) * 2 - 1) * amount };
+function jitter(p: Vec, amount: number, centre: Vec = SEA_CENTRE): Vec {
+  const sx = Math.sign(p.x - centre.x);
+  const sy = Math.sign(p.y - centre.y);
+  return { x: p.x + sx * (foldedHash(p, 1, centre) * 2 - 1) * amount, y: p.y + sy * (foldedHash(p, 2, centre) * 2 - 1) * amount };
 }
 
 /** Points on a grid `step` apart, symmetric about the sea's middle, covering the box. */
-function symmetricGrid(min: Vec, max: Vec, step: number): Vec[] {
+function symmetricGrid(min: Vec, max: Vec, step: number, middle: Vec = SEA_CENTRE): Vec[] {
   const points: Vec[] = [];
   const from = (lo: number, centre: number) => centre - (Math.floor((centre - lo) / step - 0.5) + 0.5) * step;
-  for (let x = from(min.x, SEA_CENTRE.x); x <= max.x; x += step) {
-    for (let y = from(min.y, SEA_CENTRE.y); y <= max.y; y += step) points.push({ x, y });
+  for (let x = from(min.x, middle.x); x <= max.x; x += step) {
+    for (let y = from(min.y, middle.y); y <= max.y; y += step) points.push({ x, y });
   }
   return points;
 }
 
-/** Where the wave squiggles go: open water only, the same on every device for a layout. */
-export function waveSpots(islands: readonly Polygon[], reefs: readonly Polygon[], wrecks: readonly WreckSpot[]): Vec[] {
-  const { waveSpacing, waveJitter, waveClearance: clear, compass } = C();
-  const { width, height } = TUNING.sea;
-  return symmetricGrid({ x: 0, y: 0 }, { x: width, y: height }, waveSpacing)
-    .map((p) => jitter(p, waveJitter))
+/** Stage 5: the compass rose keeps today's place from the bottom-right corner of any sea. */
+export function compassSpot(sea: Sea = DEFAULT_SEA): { x: number; y: number; radius: number } {
+  const { compass } = C();
+  return { x: sea.width - (DEFAULT_SEA.width - compass.x), y: sea.height - (DEFAULT_SEA.height - compass.y), radius: compass.radius };
+}
+
+/** Where the wave squiggles go: open water only, the same on every device for a layout (and sea, Stage 5). */
+export function waveSpots(islands: readonly Polygon[], reefs: readonly Polygon[], wrecks: readonly WreckSpot[], sea: Sea = DEFAULT_SEA): Vec[] {
+  const { waveSpacing, waveJitter, waveClearance: clear } = C();
+  const compass = compassSpot(sea);
+  const { width, height } = sea;
+  const middle = seaCentre(sea);
+  return symmetricGrid({ x: 0, y: 0 }, { x: width, y: height }, waveSpacing, middle)
+    .map((p) => jitter(p, waveJitter, middle))
     .filter((p) =>
       p.x > clear && p.x < width - clear && p.y > clear && p.y < height - clear &&
       Math.hypot(p.x - compass.x, p.y - compass.y) > compass.radius + clear &&
@@ -173,9 +181,9 @@ export function inkOutline(points: Polygon): Vec[] {
 }
 
 /** The chart's faint grid: lines every `gridStep` across the sea. */
-export function gridLines(): [Vec, Vec][] {
+export function gridLines(sea: Sea = DEFAULT_SEA): [Vec, Vec][] {
   const { gridStep } = C();
-  const { width, height } = TUNING.sea;
+  const { width, height } = sea;
   const lines: [Vec, Vec][] = [];
   for (let x = gridStep; x < width; x += gridStep) lines.push([{ x, y: 0 }, { x, y: height }]);
   for (let y = gridStep; y < height; y += gridStep) lines.push([{ x: 0, y }, { x: width, y }]);
@@ -183,6 +191,6 @@ export function gridLines(): [Vec, Vec][] {
 }
 
 /** How many marks the chart layer draws for a layout (read by the browser tests). */
-export function chartMarks(islands: readonly Polygon[], reefs: readonly Polygon[], wrecks: readonly WreckSpot[]) {
-  return { waves: waveSpots(islands, reefs, wrecks).length, palms: islands.flatMap(palmSpots).length, reefMarks: reefs.flatMap(reefMarks).length };
+export function chartMarks(islands: readonly Polygon[], reefs: readonly Polygon[], wrecks: readonly WreckSpot[], sea: Sea = DEFAULT_SEA) {
+  return { waves: waveSpots(islands, reefs, wrecks, sea).length, palms: islands.flatMap(palmSpots).length, reefMarks: reefs.flatMap(reefMarks).length };
 }

@@ -47,7 +47,7 @@ import {
   type ShipInput,
   type World,
 } from "@sink-or-sail/shared";
-import { LOG_DIR, firstHazardAt, fixedSeed, fixedStormTimes, joinAddress, testSink } from "../config.ts";
+import { LOG_DIR, firstHazardAt, fixedSeaSize, fixedSeed, fixedStormTimes, joinAddress, testSink } from "../config.ts";
 import { soundCues } from "./cues.ts";
 import { awardsLine, controlLine, matchEndLine, matchMs, matchStartLine, playNextRoundLine, playerLine, positionLines, seatLine, simEventLines, type LogLine, type MatchLobby, type Roster } from "../log/events.ts";
 import { MatchLog, fileSink, logFileName, type LogSink } from "../log/matchLog.ts";
@@ -437,7 +437,11 @@ export class CrewRoom extends Room<{ state: CrewState }> {
     // HAZARDS_FIRST_AT: when the first dynamic hazard comes ("never" for none), for the browser tests only.
     const botShips = this.botShipCrews().filter((crew) => crew < ships);
     const types = Array.from({ length: ships }, (_, crew) => this.crewShipType(crew));
-    this.world = createWorld({ packs: packsOn, seed, ships, mode, lives: lives ?? undefined, layout, hazards: hazardsOn, reefs, storm, firstHazardAt: firstHazardAt(process.env), botShips, types });
+    // SEA_SIZE: a bigger sea whatever the number of ships, for the browser tests and trying it out only.
+    const sea = fixedSeaSize(process.env) ?? undefined;
+    this.world = createWorld({ packs: packsOn, seed, ships, mode, lives: lives ?? undefined, layout, hazards: hazardsOn, reefs, storm, firstHazardAt: firstHazardAt(process.env), botShips, types, sea });
+    this.state.seaWidth = this.world.sea.width;
+    this.state.seaHeight = this.world.sea.height;
     this.pendingTestSink = testSink(process.env);
     this.state.matchReefs = reefs;
     this.state.matchMode = mode;
@@ -446,7 +450,7 @@ export class CrewRoom extends Room<{ state: CrewState }> {
     this.tally = newTally(this.world.ships.length);
     this.matchSeed = seed;
     this.log = new MatchLog(this.logSinkFor(logFileName(new Date(), this.roomId)), { onError: (error) => this.logErrors(error) });
-    this.logLine(matchStartLine(this.roomId, this.roster, { packsOn, seed, mode, lives, layout, layoutRandom, hazardsOn, reefs, wrecks: this.world.wrecks, storm: this.world.storm, firstHazardAt: this.world.nextHazardIn, lobby: this.matchLobby(botShips), types }));
+    this.logLine(matchStartLine(this.roomId, this.roster, { packsOn, seed, mode, lives, layout, layoutRandom, hazardsOn, reefs, wrecks: this.world.wrecks, storm: this.world.storm, firstHazardAt: this.world.nextHazardIn, lobby: this.matchLobby(botShips), types, sea: this.world.sea }));
     for (const line of positionLines(this.world)) this.logLine(line);
     this.nextPositionAt = 1;
     this.latestInput.clear();

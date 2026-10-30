@@ -1,6 +1,7 @@
 import { PACK_USER } from "../packRules.ts";
 import { TUNING } from "../tuning.ts";
 import { randomIndex, weightedPick } from "./random.ts";
+import { packLimit } from "./sea.ts";
 import { statsOf } from "./shipTypes.ts";
 import type { Pack, PackType, Ship, SimEvent, World, WreckPack } from "./types.ts";
 import { distance, type Vec } from "./vec.ts";
@@ -73,7 +74,7 @@ export function pickUpPacks(world: World): { world: World; events: SimEvent[] } 
   const events: SimEvent[] = [];
   const ships = [...world.ships];
   const remaining: Pack[] = [];
-  const wasFull = world.packs.length >= TUNING.packs.maxOnMap;
+  const wasFull = world.packs.length >= packLimit(world.ships.length);
 
   for (const pack of world.packs) {
     const index = pack.signalLeft > EPSILON ? -1 : takerOf(ships, world.packSpots[pack.spot]!, pack.type);
@@ -93,7 +94,7 @@ export function pickUpPacks(world: World): { world: World; events: SimEvent[] } 
  */
 function expirePacks(world: World, dt: number, justSpawned: ReadonlySet<number>): { world: World; events: SimEvent[] } {
   const events: SimEvent[] = [];
-  const wasFull = world.packs.length >= TUNING.packs.maxOnMap;
+  const wasFull = world.packs.length >= packLimit(world.ships.length);
   const packs = world.packs.flatMap((pack) => {
     if (pack.signalLeft > EPSILON || justSpawned.has(pack.id)) return [pack];
     const lifeLeft = pack.lifeLeft - dt;
@@ -117,7 +118,7 @@ export function updatePacks(world: World, dt: number): { world: World; events: S
   let next = world;
 
   let nextSignalIn = next.nextSignalIn === null ? null : Math.max(0, next.nextSignalIn - dt);
-  if (nextSignalIn !== null && nextSignalIn <= EPSILON && next.packs.length < TUNING.packs.maxOnMap) {
+  if (nextSignalIn !== null && nextSignalIn <= EPSILON && next.packs.length < packLimit(next.ships.length)) {
     const signalled = signalPack(next);
     if (signalled) {
       next = signalled.world;
@@ -134,7 +135,7 @@ export function updatePacks(world: World, dt: number): { world: World; events: S
     return { ...pack, signalLeft: 0 };
   });
   if (events.some((e) => e.type === "packSpawned")) {
-    nextSignalIn = packs.length < TUNING.packs.maxOnMap ? TUNING.packs.spawnInterval : null;
+    nextSignalIn = packs.length < packLimit(next.ships.length) ? TUNING.packs.spawnInterval : null;
   }
 
   const justSpawned = new Set(events.flatMap((e) => (e.type === "packSpawned" ? [e.pack] : [])));

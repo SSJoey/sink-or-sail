@@ -1,7 +1,7 @@
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { StormTimes } from "@sink-or-sail/shared";
+import { parseSeaSize, type Sea, type StormTimes } from "@sink-or-sail/shared";
 
 export const DEFAULT_PORT = 2567;
 
@@ -42,6 +42,15 @@ export function fixedStormTimes(env: Record<string, string | undefined>): StormT
   const startsAt = Number(env.STORM_STARTS_AT);
   const closedAt = Number(env.STORM_CLOSED_AT);
   return Number.isFinite(startsAt) && Number.isFinite(closedAt) && startsAt >= 0 && closedAt > startsAt ? { startsAt, closedAt } : null;
+}
+
+/**
+ * SEA_SIZE ("3200x1800" or "4000x2250") gives every match that bigger sea whatever its number of ships, for the
+ * browser tests and for trying a big sea before there are enough ships (Stage 5); null (the size for the number of
+ * ships) unless it names one of the agreed sizes.
+ */
+export function fixedSeaSize(env: Record<string, string | undefined>): Sea | null {
+  return parseSeaSize(env.SEA_SIZE);
 }
 
 /**
