@@ -1365,9 +1365,24 @@ Drafted from `docs/design.md`, the roadmap and "Later". Scope:
   - Full browser run 41 (peak load 31) failed only the laptop mine-pack test (its ship ran over the torpedo pack on the way to the mine). It passed alone; the 3 later-group tests that didn't run passed on their own.
   - The user chose to commit as it is.
 
+### 2026-10-30 — Stage 5 slice 4 plan (added): ship and map outlines in the lobby, laptop controls legend, game tips
+
+- **Asked for by the user** during slice 3 (were under "Later").
+- **Plan:**
+  - the picked type's hull outline in the crew's ship block, in the crew colour;
+  - the chosen layout as a small chart (islands and reefs), with "?" for Random, for everyone;
+  - a laptop controls legend;
+  - a random tip at the start of each match;
+  - tests.
+- **User's answers** (all as recommended):
+  1. a) These four are their own slice 4, before map size. Map size becomes slice 5, and the later slices move down one.
+  2. a) The legend sits in the game view, bottom left, on laptops only. It is always shown, with a small Hide button remembered on the device. The first-match key hints stay as they are.
+  3. a) The map outline shows islands and reefs only.
+  4. a) About 20 tips, some for everyone and some for your role, shown from the 3-2-1 until 3 s after "Go!". The full list goes to the user to approve before building.
+
 ## Later
 
-- **(2026-10-30, asked for by the user during Stage 5 slice 3; not planned yet) Four additions:**
+- **(2026-10-30, asked for by the user during Stage 5 slice 3; now Stage 5 slice 4) Four additions:**
   1. In the lobby, an outline of the chosen ship type.
   2. On laptops, a legend of the controls.
   3. In the lobby, an outline of the selected island layout.
