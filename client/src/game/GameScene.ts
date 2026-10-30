@@ -15,6 +15,7 @@ import { gunnerFromMouse, pilotFromKeys } from "./laptopInput.ts";
 import { mergeGunner, mergePilot, type TouchControls } from "./touchControls.ts";
 import { ghostMessage, ghostSteer } from "./ghostInput.ts";
 import { WreckFlashes, crackLines, wreckPieces } from "./wreckLook.ts";
+import { cameraCentre, cameraFocus, glide, viewSize } from "./camera.ts";
 
 /** What the scene needs from the game: the frame to draw, the local seat, and where to report state. */
 export interface SceneLink {
@@ -35,8 +36,18 @@ export interface SceneLink {
   touch: TouchControls;
   /** Called every frame with the latest local input (null when the player has no seat). */
   setInput(input: unknown | null): void;
-  /** Called every frame after drawing, with each ship's effects (index = ship id). */
-  drawn(frame: Frame | null, effects: ShipEffect[]): void;
+  /** Called every frame after drawing, with each ship's effects (index = ship id) and the part of the sea in view. */
+  drawn(frame: Frame | null, effects: ShipEffect[], view: SeaRect): void;
+  /** Stage 5 slice 3, browser tests only: the `?view=…` fraction of the usual view (undefined for real games). */
+  viewScale?: number;
+}
+
+/** A part of the sea (sea units): its top-left corner and size. */
+export interface SeaRect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 
 // Stage 4 slice 3: the sea, islands, reefs and wrecks in the sea-chart look; marks on the pale sea in its ink.
@@ -81,19 +92,47 @@ export class GameScene extends Phaser.Scene {
   /** E went down since the last input read. Phaser handles key events once per frame, so a quick tap whose
    *  down and up land in the same frame never shows as "down"; the keydown event still fires. */
   private eTapped = false;
-  private readonly effects = new ShipEffects(TUNING.client.hitFlashMs, TUNING.client.sinkFadeMs);
-  private readonly empRings = new EmpRings();
-  private readonly wreckFlashes = new WreckFlashes(TUNING.client.hitFlashMs);
+  private effects = new ShipEffects(TUNING.client.hitFlashMs, TUNING.client.sinkFadeMs);
+  private empRings = new EmpRings();
+  private wreckFlashes = new WreckFlashes(TUNING.client.hitFlashMs);
   /** Kraken bodies flash when shot (tracked like wrecks, on their health). */
-  private readonly krakenFlashes = new WreckFlashes(TUNING.client.hitFlashMs);
+  private krakenFlashes = new WreckFlashes(TUNING.client.hitFlashMs);
   /** Closing-storm and kraken hits flash the hull red (tracked like gun hits, on the ship's count of both). */
-  private readonly stormEffects = new ShipEffects(TUNING.client.hitFlashMs, TUNING.client.sinkFadeMs);
+  private stormEffects = new ShipEffects(TUNING.client.hitFlashMs, TUNING.client.sinkFadeMs);
+  /** Stage 5 slice 3: the follow camera's centre now (null until the match's first frame: it starts there). */
+  private cameraAt: Vec | null = null;
 
-  private readonly link: SceneLink;
+  /** Stage 5 slice 3: the scene stays for the whole visit; each match's game view attaches its own link. */
+  private link!: SceneLink;
+  private attached = false;
+  private created = false;
 
-  constructor(link: SceneLink) {
+  constructor() {
     super("game");
+  }
+
+  /** A new match's game view: fresh effects, the chart and pack icons redrawn, the camera starting on the ship. */
+  attach(link: SceneLink): void {
     this.link = link;
+    this.attached = true;
+    this.effects = new ShipEffects(TUNING.client.hitFlashMs, TUNING.client.sinkFadeMs);
+    this.empRings = new EmpRings();
+    this.wreckFlashes = new WreckFlashes(TUNING.client.hitFlashMs);
+    this.krakenFlashes = new WreckFlashes(TUNING.client.hitFlashMs);
+    this.stormEffects = new ShipEffects(TUNING.client.hitFlashMs, TUNING.client.sinkFadeMs);
+    this.cameraAt = null;
+    this.chartKey = "";
+    this.eTapped = false;
+    for (const icon of this.packIcons.values()) icon.destroy();
+    this.packIcons.clear();
+    if (this.created) this.input.keyboard!.resetKeys().enableGlobalCapture();
+  }
+
+  /** The game view closed (back to the lobby): nothing drawn or read until the next match attaches. */
+  detach(): void {
+    this.attached = false;
+    // Keys pressed in the lobby (typing a name) go to the page, not the sleeping game.
+    if (this.created) this.input.keyboard!.resetKeys().disableGlobalCapture();
   }
 
   /** Stage 3: the pack icons, from the same SVG files as the page (drawn large, shown small, so they stay sharp). */
@@ -110,18 +149,40 @@ export class GameScene extends Phaser.Scene {
     this.input.on("pointermove", (pointer: Phaser.Input.Pointer) => {
       if (pointer === this.input.mousePointer) this.mouseSeen = true;
     });
+    this.created = true;
+    if (!this.attached) this.input.keyboard!.disableGlobalCapture();
   }
 
   update(): void {
+    if (!this.attached) return;
     const frame = this.link.frame();
     const seat = this.link.seat();
     const now = performance.now();
     const effects = frame ? frame.ships.map((ship, id) => this.effects.update(id, ship, now)) : [];
     const stormFlashes = frame ? frame.ships.map((ship, id) => this.stormEffects.update(id, { hits: ship.stormHits + ship.krakenHits, sunk: ship.sunk }, now).flashing) : [];
     if (frame) this.empRings.update(frame.ships, now);
+    const view = this.moveCamera(frame, seat?.crew ?? null);
     this.draw(frame, seat?.crew ?? null, effects, stormFlashes);
     this.link.setInput(this.readInput(frame, seat));
-    this.link.drawn(frame, effects);
+    this.link.drawn(frame, effects, view);
+  }
+
+  /**
+   * Stage 5 slice 3: on a sea bigger than the view, the camera follows your ship (or ghost), kept inside the sea,
+   * gliding toward it. On a one-screen sea, and for a player without a seat, it shows the whole sea as before.
+   */
+  private moveCamera(frame: Frame | null, ownCrew: number | null): SeaRect {
+    const sea = TUNING.sea;
+    const own = ownCrew !== null ? frame?.ships[ownCrew] : undefined;
+    const view = ownCrew === null ? { width: sea.width, height: sea.height } : viewSize(sea, { scale: this.link.viewScale, longGun: own?.type === "longGun" });
+    const focus = frame ? cameraFocus(frame.ships, frame.ghosts, ownCrew) : null;
+    const target = cameraCentre(focus ?? this.cameraAt ?? SEA_CENTRE, view, sea);
+    // The first frame of a match starts on the ship; after that it glides (to a respawn spot too).
+    this.cameraAt = this.cameraAt === null || !focus ? target : glide(this.cameraAt, target, TUNING.client.camera.glide);
+    const camera = this.cameras.main;
+    camera.setZoom(sea.width / view.width, sea.height / view.height);
+    camera.centerOn(this.cameraAt.x, this.cameraAt.y);
+    return { x: this.cameraAt.x - view.width / 2, y: this.cameraAt.y - view.height / 2, ...view };
   }
 
   private readInput(frame: Frame | null, seat: { crew: number; role: Role } | null): unknown | null {
@@ -146,7 +207,8 @@ export class GameScene extends Phaser.Scene {
     }
     // The mouse specifically: never a touch pointer, even if Phaser ever sees one.
     const pointer = this.input.mousePointer!;
-    const mouse = this.mouseSeen ? { x: pointer.worldX, y: pointer.worldY } : null;
+    // Stage 5 slice 3: from where the camera is now (it may have moved since the mouse did).
+    const mouse = this.mouseSeen ? this.cameras.main.getWorldPoint(pointer.x, pointer.y) : null;
     const fromMouse = gunnerFromMouse(ship ? mouse : null, ship ?? { x: 0, y: 0 }, pointer.leftButtonDown(), pointer.rightButtonDown(), ePressed);
     const input = mergeGunner(fromMouse, touch.gunnerInput());
     return { ...input, pack: lit && !!input.pack };

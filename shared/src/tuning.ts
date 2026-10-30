@@ -380,6 +380,18 @@ export const TUNING = {
     shotRadius: 3.5,
     ownShipRing: 35,
     /**
+     * Stage 5 slice 3: the follow camera. Every device sees `view` of sea (today's whole one-screen sea); on a sea
+     * bigger than that the view follows your ship, kept inside the sea, closing `glide` of the gap each frame.
+     * A Long gun's crew sees `longGunView` times as much each way (only on a sea bigger than the view).
+     */
+    camera: {
+      view: { width: 1600, height: 900 },
+      glide: 0.2,
+      longGunView: 1.12,
+    },
+    /** Stage 5 slice 3: the minimap (CSS px), top right under the top bar, while the sea is bigger than the view. */
+    minimap: { width: 150, height: 96 },
+    /**
      * Stage 4 slice 3: the sea-chart look (sea units). Grid lines every `gridStep`; wave squiggles on a grid
      * `waveSpacing` apart (moved up to `waveJitter`), kept `waveClearance` from islands, reefs, wrecks, the edge and
      * the compass rose; palms on islands of at least `palmArea` per palm (at most `maxPalms`), `palmMargin` from

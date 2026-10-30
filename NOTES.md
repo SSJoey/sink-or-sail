@@ -1339,14 +1339,47 @@ Drafted from `docs/design.md`, the roadmap and "Later". Scope:
   - Full browser run 40 (peak load 24) failed only the reef test: its game view reported the layout later than 5 s (the sea starting late). It passed alone.
   - The user chose to commit as it is.
 
+### 2026-10-30 — Stage 5 slice 3 plan: follow camera, minimap, keeping the scene, the Long gun's view
+
+- **Found while planning:** the simulation reads today's 1600 × 900 sea size in about 15 places (mines, ships, ghosts, spawn spots, torpedoes, hazards, bots), so a real bigger sea needs the world to carry its own size: slice 4's work.
+- **Plan:**
+  - a follow camera (client only) while the sea is bigger than the view: centred on your ship, stopping at the sea edges, gliding a little; it stays where you sank and glides to your respawn spot; a ghost crew's view follows its ghost; mouse aiming works from the view; 2–4 ship matches on today's sea look exactly as now;
+  - a 150 × 96 minimap while the sea is bigger than the view: islands, reefs, storms, hazards, every ship as a coloured dot (hidden where it is hidden on the sea), and an outline of what you can see;
+  - one game scene for the whole visit: each match redraws the sea for its layout, pack icons load once;
+  - the Long gun's crew sees about 12% more sea;
+  - tests: camera and minimap maths; browser tests with the test-only view setting; without it, no minimap and an unchanged view; Play again keeps the same game view.
+- **User's answers:**
+  1. a) Try the camera with a test-only page setting, `?view=0.5`, showing half as much sea around your ship on today's map. Real bigger seas come in slice 4.
+  2. a) The minimap goes top right, just under the top bar, on every device (bottom right is where the phone's Fire, Shield and Boost are). This changes the Stage 5 scope's "bottom right".
+  3. a) The Long gun's wider view only on seas bigger than the view; on a one-screen sea everyone already sees the whole sea.
+  4. a) The camera closes 20% of the gap each frame (about 0.2 s to settle); the rate goes in `tuning.ts`.
+- **Built (2026-10-30):**
+  - **`tuning.ts`:** `client.camera` (view 1600 × 900, glide 0.2, Long gun 1.12) and `client.minimap` (150 × 96).
+  - **`camera.ts`** (new): the test-only `?view=` setting, how much sea a player sees (the Long gun's wider view only on a sea bigger than the view, in whole sea units), the view's centre kept inside the sea, the glide, and what the camera follows (your ship, where it sank until it respawns; your ghost once your crew is out).
+  - **`GameScene.ts`:** the camera moves every frame (zoomed to the view, centred on the glide). A player without a seat (a spectator) sees the whole sea. Mouse aiming reads the sea point from where the camera is now. The scene now attaches each match's link (fresh effects, chart and pack icons redrawn, the camera starting on the ship) and detaches between matches.
+  - **`game.ts`:** one Phaser game for the whole visit, made with the first game view. Between matches it sleeps, its keys go back to the page (so names can be typed in the lobby), and it is woken and resized for the next match. The test-only `?sceneDelay=` applies to its first start only. `#game` reports `data-view` (the sea in view) and `data-games` (games made).
+  - **`minimap.ts`** (new) and a `#minimap` canvas, top right under the top bar, shown while the sea is bigger than the view. It shows the sea, reefs, islands, the closing storm, active hazards, a dot per ship afloat in its crew colour (yours larger with an ink ring; another crew's hidden in a moving storm left out) and an outline of the view. Hide hints moves below it.
+  - **Tests:** 12 new unit tests (camera and minimap maths). New browser test `camera.spec.ts`: with `?view=0.5` the view is 800 × 450, follows the ship within 40 and the minimap shows both crews. Without it the view is the whole sea and there's no minimap. After going back to the lobby and starting again, it's the same game (`data-games` 1). `results.spec.ts` also checks Play again keeps the same game. `join()` in the helpers takes an optional page address.
+- **Runs:**
+  - Type-check clean; 1202 unit tests pass (plus 1 skipped).
+  - Full browser run 41 (peak load 31) failed only the laptop mine-pack test (its ship ran over the torpedo pack on the way to the mine). It passed alone; the 3 later-group tests that didn't run passed on their own.
+  - The user chose to commit as it is.
+
 ## Later
+
+- **(2026-10-30, asked for by the user during Stage 5 slice 3; not planned yet) Four additions:**
+  1. In the lobby, an outline of the chosen ship type.
+  2. On laptops, a legend of the controls.
+  3. In the lobby, an outline of the selected island layout.
+  4. A random game tip when the game starts.
+  To plan with the user after slice 3 (where they go in Stage 5, and their details).
 
 - **(2026-10-30, after Stage 5's scaled layouts) Custom layouts for larger maps:** hand-made layouts made for the 3200 × 1800 and 4000 × 2250 seas, instead of today's nine spread out to fit. The user will look at them later.
 
 - **(2026-10-29, Stage 5) Sound by distance:** with up to 10 ships and a camera that follows your ship, other ships' sounds get quieter the further away they are, and nearly silent off screen. Stage 4 slice 2's volume rule is the place to add it. It works alongside the cap of 8 sounds at once.
 
 - **(2026-10-30, fixed the same day; see "The top bar and controls don't wait for the sea") Phone controls wait for the scene too:** under load a phone test's Fire button showed after more than 5 s (Stage 4 slice 6's full run, and slice 9). The controls probably appear only once the scene draws, like the countdown before its fix. A fix like the countdown's, or keeping the scene between matches (next item), would help.
-- **(2026-10-29) Keep the game scene between matches:** today each match makes a new Phaser game and reloads the pack icons, so the sea appears late on a slow device (about 2.8 s with Chrome 20× slower). Keeping one game running between matches would cut that. The countdown no longer waits for it (fixed 2026-10-29).
+- **(2026-10-29; built in Stage 5 slice 3, 2026-10-30) Keep the game scene between matches:** today each match makes a new Phaser game and reloads the pack icons, so the sea appears late on a slow device (about 2.8 s with Chrome 20× slower). Keeping one game running between matches would cut that. The countdown no longer waits for it (fixed 2026-10-29).
 - **(2026-10-29, investigated and fixed the same day; see "Countdown on slow devices") Smoke test misses the 3-2-1:**
   - "loads, joins a room and shows a ship" fails under load in about 4 of the last 7 full browser runs (Stage 3 slices 9–11, Stage 4 slice 1).
   - The game view appears more than 3 s after Start, so `#countdown` is already "Go!".

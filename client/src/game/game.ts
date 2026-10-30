@@ -2,7 +2,9 @@ import * as Phaser from "phaser";
 import type { Room } from "@colyseus/sdk";
 import { ClientMessage, DEFAULT_LAYOUT, LAYOUTS, PACK_LABELS, Phase, SHIP_TYPE_NAMES, TUNING, inStorm, statsOf, isLayoutId, isReefAmount, packButtonLit, reefsFor, rolePack, type CueKind, type PackType, type Role, type SoundCue } from "@sink-or-sail/shared";
 import { CREW_STYLES } from "./crews.ts";
-import { GameScene } from "./GameScene.ts";
+import { GameScene, type SceneLink } from "./GameScene.ts";
+import { isBigSea, viewSetting } from "./camera.ts";
+import { drawMinimap, minimapDots } from "./minimap.ts";
 import type { ShipEffect } from "./effects.ts";
 import { empText, formatClock, livesHtml, packSlotLabel, scoreHtml } from "./hud.ts";
 import { BeepClock, type BeepKind } from "./beeps.ts";
@@ -95,6 +97,47 @@ const byId = (id: string) => document.getElementById(id)!;
 const played: BeepKind[] = [];
 /** Stage 4 slice 2: the sound effects this page played, for the browser tests too. */
 const playedSfx: CueKind[] = [];
+
+/**
+ * Stage 5 slice 3: one Phaser game and scene for the whole visit, made with the first game view; each match's view
+ * attaches to it, and between matches it sleeps. `made` counts the games made (read by the browser tests).
+ */
+let kept: { game: Phaser.Game; scene: GameScene } | null = null;
+let made = 0;
+
+function keptScene(parent: HTMLElement): { game: Phaser.Game; scene: GameScene } {
+  if (kept) {
+    kept.game.loop.wake();
+    // The page may have changed size while the game view was hidden.
+    kept.game.scale.refresh();
+    return kept;
+  }
+  const scene = new GameScene();
+  const game = new Phaser.Game({
+    type: Phaser.AUTO,
+    parent,
+    // Stage 4: the chart's deep blue around the sea (the sea itself is drawn by the scene).
+    backgroundColor: "#1f4a63",
+    // Touch is handled by our own touch layer. Phaser's touch input listens on the whole window,
+    // so a thumb on the aiming stick would also count as a pressed mouse button (and fire).
+    input: { touch: false },
+    scale: {
+      mode: Phaser.Scale.FIT,
+      autoCenter: Phaser.Scale.CENTER_BOTH,
+      width: TUNING.sea.width,
+      height: TUNING.sea.height,
+    },
+    // Browser tests only: ?fps=20 draws less often, to keep a busy test machine responsive.
+    ...(frameLimit(location.search) !== undefined && { fps: { limit: frameLimit(location.search) } }),
+    // Browser tests only: ?sceneDelay=… starts the scene late, like a slow device loading the sea.
+    scene: sceneDelay(location.search) === undefined ? scene : [],
+  });
+  if (sceneDelay(location.search) !== undefined) setTimeout(() => game.scene.add("game", scene, true), sceneDelay(location.search));
+  made += 1;
+  parent.dataset.games = String(made);
+  kept = { game, scene };
+  return kept;
+}
 
 /**
  * Shows the game view from the countdown to the scoreboard: draws the sea, sends this player's input,
@@ -207,7 +250,10 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
   };
   screen.addEventListener("pointerdown", onFirstTouch, true);
 
-  const scene = new GameScene({
+  const minimap = byId("minimap") as HTMLCanvasElement;
+  const link: SceneLink = {
+    // Browser tests only: ?view=0.5 shows half as much sea, so the camera follows and the minimap shows.
+    viewScale: viewSetting(location.search),
     frame: (): Frame | null => buffer.sample(performance.now() - TUNING.client.interpolationDelayMs),
     islands: () => {
       const id = (room.state as RoomStateView).matchLayout;
@@ -239,10 +285,28 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
       input = next as { pack?: boolean } | null;
       packLatch.update(!!input?.pack);
     },
-    drawn: (frame, effects) => {
+    drawn: (frame, effects, view) => {
       // What the scene drew (the rest of the page updates on its own loop, see updatePage).
       const mine = seat();
       const state = room.state as RoomStateView;
+      // Stage 5 slice 3: the part of the sea in view, and the minimap while the sea is bigger than the view.
+      canvasHost.dataset.view = [view.x, view.y, view.width, view.height].map(Math.round).join(",");
+      const big = isBigSea(TUNING.sea, view);
+      minimap.hidden = !big;
+      if (big) {
+        const dots = frame ? minimapDots(frame.ships, frame.hazards, mine?.crew ?? null) : [];
+        drawMinimap(minimap, TUNING.client.minimap, {
+          sea: TUNING.sea,
+          islands: link.islands(),
+          reefs: link.reefs(),
+          stormRadius: link.stormRadius(),
+          hazards: frame?.hazards ?? new Map(),
+          dots,
+          view,
+        });
+        // Read by the browser smoke tests: the crews shown as dots.
+        minimap.dataset.dots = dots.map((d) => d.crew).join(",");
+      }
       if (mine && effects[mine.crew]?.justSank) navigator.vibrate?.(TUNING.client.sinkVibrateMs);
       // Read by the browser smoke tests (a canvas has no elements to inspect).
       canvasHost.dataset.ships = String(frame?.ships.filter((s) => !s.sunk).length ?? 0);
@@ -288,28 +352,10 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
       // Read by the EMP smoke test: is any ship disabled right now?
       canvasHost.dataset.disabled = (frame?.ships ?? []).map((s) => (s.disabled > 0 ? "1" : "0")).join("");
     },
-  });
-
-  const game = new Phaser.Game({
-    type: Phaser.AUTO,
-    parent: canvasHost,
-    // Stage 4: the chart's deep blue around the sea (the sea itself is drawn by the scene).
-    backgroundColor: "#1f4a63",
-    // Touch is handled by our own touch layer. Phaser's touch input listens on the whole window,
-    // so a thumb on the aiming stick would also count as a pressed mouse button (and fire).
-    input: { touch: false },
-    scale: {
-      mode: Phaser.Scale.FIT,
-      autoCenter: Phaser.Scale.CENTER_BOTH,
-      width: TUNING.sea.width,
-      height: TUNING.sea.height,
-    },
-    // Browser tests only: ?fps=20 draws less often, to keep a busy test machine responsive.
-    ...(frameLimit(location.search) !== undefined && { fps: { limit: frameLimit(location.search) } }),
-    // Browser tests only: ?sceneDelay=… starts the scene late, like a slow device loading the sea.
-    scene: sceneDelay(location.search) === undefined ? scene : [],
-  });
-  const delayedScene = sceneDelay(location.search) !== undefined ? setTimeout(() => game.scene.add("game", scene, true), sceneDelay(location.search)) : undefined;
+  };
+  // Stage 5 slice 3: the scene is kept between matches (made with the first game view).
+  const { game, scene } = keptScene(canvasHost);
+  scene.attach(link);
 
   /**
    * Everything on the page outside the sea (2026-10-30): the banner and results, pause controls, hints, the storm
@@ -375,9 +421,10 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
     stop() {
       stopSending();
       cancelAnimationFrame(countdownLoop);
-      clearTimeout(delayedScene);
       room.onStateChange.remove(onState);
-      game.destroy(true);
+      // Stage 5 slice 3: the scene sleeps until the next match's game view (no new game to load then).
+      scene.detach();
+      game.loop.sleep();
       touchLayer.destroy();
       unblockGestures();
       screen.removeEventListener("pointerdown", onFirstTouch, true);
@@ -398,6 +445,9 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
       delete canvasHost.dataset.damaged;
       delete canvasHost.dataset.disabled;
       delete canvasHost.dataset.shots;
+      delete canvasHost.dataset.view;
+      delete minimap.dataset.dots;
+      minimap.hidden = true;
       rotate.hidden = true;
       countdown.hidden = true;
       banner.hidden = true;

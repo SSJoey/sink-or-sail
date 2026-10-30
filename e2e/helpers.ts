@@ -3,9 +3,9 @@ import { expect, type Page } from "@playwright/test";
 /** The game's page for the browser tests: drawing capped at 20 frames a second (see client/src/game/frameLimit.ts). */
 export const GAME_PAGE = "/?fps=20";
 
-/** Creates a room (no code) or joins one by code. */
-export async function join(page: Page, name: string, code?: string) {
-  await page.goto(GAME_PAGE);
+/** Creates a room (no code) or joins one by code; `address` adds test-only page settings (Stage 5: `?view=…`). */
+export async function join(page: Page, name: string, code?: string, address = GAME_PAGE) {
+  await page.goto(address);
   await page.fill("#name", name);
   if (code) {
     await page.fill("#code-input", code);

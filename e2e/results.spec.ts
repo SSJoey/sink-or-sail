@@ -39,6 +39,8 @@ test("results: everyone sees the table; the host plays again; the results close 
   await host.click("#play-again");
   await expect(other.locator("#scoreboard")).toBeHidden();
   await expect(other.locator("#game")).toHaveAttribute("data-ships", "2");
+  // Stage 5 slice 3: the same game view as the first match (the scene is kept, not loaded again).
+  await expect(other.locator("#game")).toHaveAttribute("data-games", "1");
 
   // End it again and wait: everyone is back in the lobby after 20 s.
   await endNow();
