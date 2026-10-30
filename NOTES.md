@@ -1172,6 +1172,15 @@ Drafted from `docs/design.md`, the roadmap and the "Later" notes. Question: **is
   3. What felt wrong in play: **not answered yet**; the report comes first.
   4. a) The tuning report is a published page with charts, private to the user, with the link given in the chat.
 - **Then:** only the changes the user picks from the report, each in `tuning.ts` with tests. A change that alters packs-off play needs the user's approval to re-record the Stage 0 reference recording.
+- **Report published (2026-10-30):** "Sink or Sail tuning report", private to the user (https://claude.ai/artifact/Q44eAUHBbZGQG9GPSWQWom). People-only matches: 10% of shots hit (142 of 1359), 3.7 sinkings per match, up to 77 s on an empty bar. Matches with bots: 34% hit (bot gunners aim ahead of a moving ship).
+- **User's feel (2026-10-30):** "boat speed felt too slow to avoid / dodge hits". Options offered:
+  - top speed 150 → 165 with grip 3 → 4 (recommended);
+  - 165 alone;
+  - 180 with grip 4, plus torpedo 300 → 360, whirlpool eye pull 170 → 200 and ghost 160 → 190;
+  - grip 4.5 alone.
+
+  Also offered: scaling the full-damage bump speed (540) and the standing-still speed (15) with top speed, leaving the bot gunner as it is, and re-recording the Stage 0 reference.
+- **User's decision (2026-10-30):** leave every value as it is for now; the user will run more test games before deciding. Nothing in `tuning.ts` changed. When the user is back, the report can be refreshed with the new logs.
 
 ## Later
 
