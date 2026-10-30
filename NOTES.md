@@ -1158,6 +1158,21 @@ Drafted from `docs/design.md`, the roadmap and the "Later" notes. Question: **is
   - The phone tests and later groups passed alone.
   - The user chose to commit as it is.
 
+### 2026-10-30 — Stage 4 slice 9 (Add to Home Screen) moved to the end
+
+- **User's choice:** skip slice 9 for now and move it to the end of Stage 4. The new order after slice 8 is tuning (after a playtest), cloud hosting with logs online (once decided), then "Add to Home Screen".
+- **Next (user's choice, 2026-10-30): tuning from the match logs already in `logs/`, now.** This changes the 2026-10-29 answer 5a (tuning waits for a playtest). The owed playtests stay owed.
+
+### 2026-10-30 — Tuning from the logs: the plan
+
+- **What the logs hold:** 97 files. 67 were left by my own server test runs on 2026-10-29 (17:56 and 19:11; players "Pilot", "Gunner", "Third", "Ana", "Ben" and so on): Vitest started from inside `server/` skips the root config that sets `LOG_DIR`. The other 30 are real: 6 full matches with two or more people (2026-10-25 QHKJ 13-54, FGBL 14-16 and 14-21; 10-27 VVGW 22-25; 10-28 LWSZ 15-40, NPYS 15-48), solo practice against an empty ship, and 5 matches with bots. All Sink Count; no Last Afloat.
+- **User's answers ("go with your suggestions"):**
+  1. a) The 67 test leftovers are moved out of `logs/` into the session's scratch folder (not deleted).
+  2. a) Stop the leak: under Vitest (which sets `VITEST`), logs go to the temporary `sink-or-sail-test-logs` folder unless `LOG_DIR` says otherwise, wherever Vitest is started from (`server/src/config.ts` `logDir`, with 2 tests).
+  3. What felt wrong in play: **not answered yet**; the report comes first.
+  4. a) The tuning report is a published page with charts, private to the user, with the link given in the chat.
+- **Then:** only the changes the user picks from the report, each in `tuning.ts` with tests. A change that alters packs-off play needs the user's approval to re-record the Stage 0 reference recording.
+
 ## Later
 
 - **(2026-10-29, Stage 5) Sound by distance:** with up to 10 ships and a camera that follows your ship, other ships' sounds get quieter the further away they are, and nearly silent off screen. Stage 4 slice 2's volume rule is the place to add it. It works alongside the cap of 8 sounds at once.

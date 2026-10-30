@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { GAME_NAME } from "@sink-or-sail/shared";
-import { DEFAULT_PORT, firstHazardAt, fixedSeed, fixedStormTimes, joinAddress, resolvePort, testSink } from "./config.ts";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { DEFAULT_PORT, REPO_LOG_DIR, firstHazardAt, fixedSeed, fixedStormTimes, joinAddress, logDir, resolvePort, testSink } from "./config.ts";
 
 describe("server config", () => {
   it("can import from the shared package", () => {
@@ -15,6 +17,17 @@ describe("server config", () => {
 
   it("uses PORT when it is set", () => {
     expect(resolvePort({ PORT: "3000" })).toBe(3000);
+  });
+
+  it("logs to the repo's logs/ folder, or LOG_DIR when it is set", () => {
+    expect(REPO_LOG_DIR.endsWith("/logs")).toBe(true);
+    expect(logDir({})).toBe(REPO_LOG_DIR);
+    expect(logDir({ LOG_DIR: "/somewhere" })).toBe("/somewhere");
+  });
+
+  it("never logs to the repo's logs/ folder under Vitest, wherever it was started from", () => {
+    expect(logDir({ VITEST: "true" })).toBe(join(tmpdir(), "sink-or-sail-test-logs"));
+    expect(logDir({ VITEST: "true", LOG_DIR: "/somewhere" })).toBe("/somewhere");
   });
 });
 

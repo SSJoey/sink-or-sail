@@ -1,3 +1,5 @@
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { StormTimes } from "@sink-or-sail/shared";
 
@@ -6,8 +8,19 @@ export const DEFAULT_PORT = 2567;
 /** Built client files, served by the game server on the same port. */
 export const CLIENT_DIST_DIR = fileURLToPath(new URL("../../client/dist", import.meta.url));
 
-/** Match event logs: the repo's logs/ folder (in Docker, /app/logs, mounted from the laptop). Tests set LOG_DIR. */
-export const LOG_DIR = process.env.LOG_DIR ?? fileURLToPath(new URL("../../logs", import.meta.url));
+/** The repo's logs/ folder (in Docker, /app/logs, mounted from the laptop). */
+export const REPO_LOG_DIR = fileURLToPath(new URL("../../logs", import.meta.url));
+
+/**
+ * Match event logs: LOG_DIR when set, otherwise the repo's logs/ folder. Under Vitest (which sets VITEST) they
+ * go to a temporary folder instead, so tests started from any folder never write to the real logs/.
+ */
+export function logDir(env: Record<string, string | undefined>): string {
+  if (env.LOG_DIR !== undefined) return env.LOG_DIR;
+  return env.VITEST !== undefined ? join(tmpdir(), "sink-or-sail-test-logs") : REPO_LOG_DIR;
+}
+
+export const LOG_DIR = logDir(process.env);
 
 export function resolvePort(env: Record<string, string | undefined>): number {
   const port = Number(env.PORT);
