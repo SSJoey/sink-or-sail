@@ -1202,7 +1202,51 @@ Drafted from `docs/design.md`, the roadmap and the "Later" notes. Question: **is
   3. a) Icon: a sea-chart ship (cream planks, orange crew colour) on chart blue. Drawn in code as an SVG, turned into PNGs (180, 192 and 512 px) once with the installed Chrome, no new dependency.
 - **Stage 4 now has left:** only tuning, waiting on the user's test games. Stage 4 still has no definition of done (2026-10-29, question 10).
 
+### 2026-10-30 — Stage 5 planning
+
+Drafted from `docs/design.md`, the roadmap and "Later". Scope:
+- up to 10 ships (20 players) with 10 crew colours and symbols, and bot ships filling crews;
+- the map growing with the number of ships, with scaled layouts and spots, and respawn away from all enemies;
+- follow camera and minimap, and the spectator view on big maps;
+- Fleet Battle;
+- five ship types;
+- sound by distance;
+- last, Add to Home Screen, then cloud hosting with logs online and the spectator delay.
+
+**User's answers:**
+1. b) **Ship types first** (they work on today's map), then the camera.
+2. a) Map sizes: 2–4 ships 1600 × 900 (today), 5–7 ships 3200 × 1800, 8–10 ships 4000 × 2250.
+3. a) Bigger maps use today's nine layouts spread out to fit (islands keep their size, starts evenly round a ring), with automatic fairness checks (equal distance to the nearest packs, open water, every spot reachable by every ship type). **Custom layouts for larger maps: later** (see "Later").
+4. a) The minimap shows islands, reefs, storms and hazards, and every ship as a coloured dot; ships hidden on the sea (in a moving storm) are hidden there too.
+5. a) Spectator view on big maps: the whole sea, zoomed out to fit the screen.
+6. a) Fleet Battle friendly fire: fleet-mates can't damage each other with anything (shots, torpedoes and blasts pass harmlessly; bumps push but do no damage; an EMP spares fleet-mates); your own mine still hits your own ship. The user added "(friendly fire setting)": to confirm.
+7. a) Fleet Battle uses the Last Afloat lives setting (1–5) and its 7:00 time limit; at the limit the fleet with the most lives left wins, then the most health.
+8. a) Either crewmate picks the fleet number in the lobby; it locks once the crew is Ready.
+9. a) Keep the game scene between matches, brought in from "Later" (planned for slice 1 when the camera came first: to confirm where it goes now).
+10. a) Definition of done as proposed:
+    1. A 10-ship match (people plus bot ships) plays smoothly over the home Wi-Fi on phones and laptops, in all three modes.
+    2. Everything in scope works as described.
+    3. All tests pass and every decision is in `NOTES.md`.
+    4. A Stage 5 playtest with as many people as can be gathered, recorded in `docs/playtest.md`.
+- **Confirmed (user, "go with your suggestions"):**
+  1. a) **Friendly fire setting:** a host-only **Friendly fire on / off** switch, shown only with Fleet Battle, **default off**. Off works as in answer 6a; on, fleet-mates take damage from everything, as between enemies.
+  2. a) **Slice order:**
+     1. Ship types: rules, hull shapes and the pilot's pick in the lobby.
+     2. Ship types: summary per type and layout checks for the biggest type.
+     3. Follow camera and minimap (test-only bigger sea), keeping the game scene between matches, and the Long gun's wider view.
+     4. Map size by number of ships, with scaled layouts and spots, and respawn away from all enemies.
+     5. Up to 10 crews.
+     6. Spectator view on big maps.
+     7. Fleet Battle.
+     8. Sound by distance.
+     9. Log and summary additions, then check matches.
+     10. Add to Home Screen.
+     11. Cloud hosting, logs online and the spectator delay.
+  3. a) **Long gun range:** 850 everywhere, including the one-screen sea; to look at in the user's test games.
+
 ## Later
+
+- **(2026-10-30, after Stage 5's scaled layouts) Custom layouts for larger maps:** hand-made layouts made for the 3200 × 1800 and 4000 × 2250 seas, instead of today's nine spread out to fit. The user will look at them later.
 
 - **(2026-10-29, Stage 5) Sound by distance:** with up to 10 ships and a camera that follows your ship, other ships' sounds get quieter the further away they are, and nearly silent off screen. Stage 4 slice 2's volume rule is the place to add it. It works alongside the cap of 8 sounds at once.
 
