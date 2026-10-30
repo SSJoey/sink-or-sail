@@ -1182,6 +1182,17 @@ Drafted from `docs/design.md`, the roadmap and the "Later" notes. Question: **is
   Also offered: scaling the full-damage bump speed (540) and the standing-still speed (15) with top speed, leaving the bot gunner as it is, and re-recording the Stage 0 reference.
 - **User's decision (2026-10-30):** leave every value as it is for now; the user will run more test games before deciding. Nothing in `tuning.ts` changed. When the user is back, the report can be refreshed with the new logs.
 
+### 2026-10-30 — Cloud hosting moved to the very end
+
+- **User's choice:** cloud hosting (with logs online) moves out of Stage 4 and becomes the **last slice of the last stage (Stage 5)**. The questions put to the user on 2026-10-30 come back when it's planned, unanswered:
+  - where to host (a rented server with Docker Compose and Caddy, a hosting service such as Fly.io, or not at all);
+  - who plays online;
+  - the web address;
+  - logs online: this would change the "files stay on the laptop" rule, and needs the user's answer;
+  - a notice on the join screen that matches are logged;
+  - live spectators until the spectator delay.
+- **Stage 4 now has left:** tuning (values left as they are until the user's test games) and "Add to Home Screen", the last slice.
+
 ## Later
 
 - **(2026-10-29, Stage 5) Sound by distance:** with up to 10 ships and a camera that follows your ship, other ships' sounds get quieter the further away they are, and nearly silent off screen. Stage 4 slice 2's volume rule is the place to add it. It works alongside the cap of 8 sounds at once.
