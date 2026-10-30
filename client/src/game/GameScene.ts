@@ -1,7 +1,7 @@
 import * as Phaser from "phaser";
 import { TUNING, circleOverlapsPolygon, packButtonLit, rolePack, seaCentre, seaScale, statsOf, wreckHull, zoneRect, type Polygon, type Role, type Sea, type Vec, type WreckSpot } from "@sink-or-sail/shared";
 import { CHART, compassSpot, gridLines, inkOutline, offsetPolygon, palmSpots, reefMarks, waveSpots } from "./chartLook.ts";
-import { CREW_STYLES } from "./crews.ts";
+import { CREW_STYLES, crewFlag } from "./crews.ts";
 import { ShipEffects, type ShipEffect } from "./effects.ts";
 import { EmpRings } from "./empRing.ts";
 import { aimGuide, dashes, deckLines, hullPoints, shotTrail, turretEnd } from "./hull.ts";
@@ -480,12 +480,12 @@ export class GameScene extends Phaser.Scene {
       g.strokePath();
     }
 
-    // Crew flag on the deck near the stern, in cream: ● for crew 1, ■ for crew 2, ▲ for crew 3.
+    // Crew flag on the deck near the stern, in cream: the crew's symbol (● for crew 1, ■ for crew 2, …).
     const flag = { x: ship.x - Math.cos(ship.heading) * 13 * size, y: ship.y - Math.sin(ship.heading) * 13 * size };
     g.fillStyle(CHART.cream, alpha);
-    if (crew === 0) g.fillCircle(flag.x, flag.y, 4.5);
-    else if (crew === 1) g.fillRect(flag.x - 4.5, flag.y - 4.5, 9, 9);
-    else g.fillTriangle(flag.x, flag.y - 5.5, flag.x + 5.5, flag.y + 4.5, flag.x - 5.5, flag.y + 4.5);
+    const shape = crewFlag(crew, flag, 4.5);
+    if ("circle" in shape) g.fillCircle(flag.x, flag.y, shape.circle);
+    else this.fillPolygon(g, shape.points, CHART.cream, alpha);
 
     // Stage 4: an ink turret with a cream rim (the barrel too).
     const end = turretEnd(ship, ship.turret, ship.type);
@@ -787,9 +787,15 @@ export class GameScene extends Phaser.Scene {
       });
       const flag = { x: ghost.x - Math.cos(ghost.heading) * 14, y: ghost.y - Math.sin(ghost.heading) * 14 };
       g.lineStyle(2, INK, 0.7);
-      if (crew === 0) g.strokeCircle(flag.x, flag.y, 5);
-      else if (crew === 1) g.strokeRect(flag.x - 5, flag.y - 5, 10, 10);
-      else g.strokeTriangle(flag.x, flag.y - 6, flag.x + 6, flag.y + 5, flag.x - 6, flag.y + 5);
+      const shape = crewFlag(crew, flag, 5);
+      if ("circle" in shape) g.strokeCircle(flag.x, flag.y, shape.circle);
+      else {
+        g.beginPath();
+        g.moveTo(shape.points[0]!.x, shape.points[0]!.y);
+        for (const p of shape.points.slice(1)) g.lineTo(p.x, p.y);
+        g.closePath();
+        g.strokePath();
+      }
     }
   }
 

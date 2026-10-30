@@ -229,7 +229,9 @@ describe("bot ships (slice 10)", () => {
     await waitFor(() => shipBots(room).length === 4);
     const cat = await join(host.roomId, "Cat");
     await waitFor(() => playerOf(room, cat)?.crew === 1);
-    expect(shipBots(room)).toEqual([[2, "gunner"], [2, "pilot"]]);
+    // Stage 5: with ten crews both bot ships still fit, after the players' crews.
+    await waitFor(() => shipBots(room).some(([crew]) => crew === 3));
+    expect(shipBots(room)).toEqual([[2, "gunner"], [2, "pilot"], [3, "gunner"], [3, "pilot"]]);
     expect(room.state.botShips).toBe(2);
     await cat.leave();
     await waitFor(() => shipBots(room).length === 4);
@@ -262,6 +264,24 @@ describe("bot ships (slice 10)", () => {
     host.send(ClientMessage.Start);
     await waitFor(() => room.state.phase === Phase.Running);
     expect(room.world!.botShips).toEqual([0, 1]);
+  });
+
+  it("Stage 5: one player and nine bot ships make a 10-ship match on the 4000 × 2250 sea", async () => {
+    const host = await colyseus.sdk.create(ROOM_NAME, { name: "Ana" });
+    const room = colyseus.getRoomById<CrewRoom>(host.roomId) as CrewRoom;
+    room.countdownSeconds = 0.1;
+    host.send(ClientMessage.PlayWithBot);
+    host.send(ClientMessage.SetBotShips, { count: 9 });
+    await waitFor(() => shipBots(room).length === 18);
+    host.send(ClientMessage.Start);
+    await waitFor(() => room.state.phase === Phase.Running);
+    expect(room.world!.ships).toHaveLength(10);
+    expect(room.world!.botShips).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    expect([room.state.seaWidth, room.state.seaHeight]).toEqual([4000, 2250]);
+    expect(room.state.ships).toHaveLength(10);
+    // The bot ships sail.
+    const start = room.world!.ships[9]!.pos;
+    await waitFor(() => Math.hypot(room.world!.ships[9]!.pos.x - start.x, room.world!.ships[9]!.pos.y - start.y) > 40, 3000);
   });
 
   it("can't be changed during a match, and stay put while one is on", async () => {
@@ -300,7 +320,8 @@ describe("bots and spectators in the match log (slice 11)", () => {
     const sink = memorySink();
     room.logSinkFor = () => sink;
     host.send(ClientMessage.SetBotShips, { count: 2 });
-    await waitFor(() => bots(room).length === 3);
+    // Stage 5: both bot ships fit (ten crews): the partner bot and two bot ships of two.
+    await waitFor(() => bots(room).length === 5);
     const tv = await colyseus.sdk.joinById(code, { name: "TV", watch: true });
     await waitFor(() => playerOf(room, tv)?.spectator === true);
     host.send(ClientMessage.Start);
@@ -313,6 +334,7 @@ describe("bots and spectators in the match log (slice 11)", () => {
         { ship: 0, pilot: "Bot", gunner: "Ana", bots: ["pilot"], botShip: false },
         { ship: 1, pilot: "Ben", gunner: null, bots: [], botShip: false },
         { ship: 2, pilot: "Bot", gunner: "Bot", bots: ["pilot", "gunner"], botShip: true },
+        { ship: 3, pilot: "Bot", gunner: "Bot", bots: ["pilot", "gunner"], botShip: true },
       ],
       botShipsSetting: 2,
       spectators: ["TV"],

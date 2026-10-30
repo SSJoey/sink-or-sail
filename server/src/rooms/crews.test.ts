@@ -74,9 +74,11 @@ describe("Leave this crew", () => {
     expect(Object.fromEntries(r.roster.waiting)).toEqual({ 0: 4, 1: 4 });
   });
 
-  it("isn't possible with 3 crews already, or when you're alone in yours", () => {
-    const three = roster({ a: seat(0, "pilot"), b: seat(0, "gunner"), c: seat(1, "pilot"), d: seat(2, "pilot") });
-    expect(leaveCrew(three, "a", 1)).toEqual({ ok: false, reason: RejectReason.NoFreeCrew });
+  it("isn't possible with every crew in use already (10, Stage 5), or when you're alone in yours", () => {
+    const ten = roster({ a: seat(0, "pilot"), b: seat(0, "gunner"), ...Object.fromEntries([1, 2, 3, 4, 5, 6, 7, 8, 9].map((c) => [`p${c}`, seat(c, "pilot")])) });
+    expect(leaveCrew(ten, "a", 1)).toEqual({ ok: false, reason: RejectReason.NoFreeCrew });
+    const nine = roster({ a: seat(0, "pilot"), b: seat(0, "gunner"), ...Object.fromEntries([1, 2, 3, 4, 5, 6, 7, 8].map((c) => [`p${c}`, seat(c, "pilot")])) });
+    expect(leaveCrew(nine, "a", 1)).toMatchObject({ ok: true });
     expect(leaveCrew(roster({ a: seat(0, "pilot") }), "a", 1)).toEqual({ ok: false, reason: RejectReason.AlreadyAlone });
   });
 });
@@ -115,8 +117,10 @@ describe("placing players who waited out a match (slice 3)", () => {
     expect(r.seats.get("ana")).toEqual(seat(1, "pilot"));
   });
 
-  it("with 3 crews already, the pair splits up into crews waiting for a partner", () => {
-    const start = roster({ a: seat(0, "pilot"), b: seat(1, "pilot"), c: seat(2, "gunner"), tom: null, ana: null }, { 0: 1, 1: 2, 2: 3 });
+  it("with every crew in use already (10, Stage 5), the pair splits up into crews waiting for a partner", () => {
+    const singles = Object.fromEntries([1, 2, 3, 4, 5, 6, 7, 8, 9].map((c) => [`p${c}`, seat(c, "pilot")]));
+    const since = Object.fromEntries([1, 2, 3, 4, 5, 6, 7, 8, 9].map((c) => [c, c + 1]));
+    const start = roster({ a: seat(0, "pilot"), ...singles, tom: null, ana: null }, { 0: 1, ...since });
     const r = seatWaiting(start, [w("tom", "pilot", "ana"), w("ana", "pilot", "tom")], 5);
     expect(r.seats.get("tom")).toEqual(seat(0, "gunner"));
     expect(r.seats.get("ana")).toEqual(seat(1, "gunner"));
@@ -211,8 +215,11 @@ describe("bot ships (slice 10)", () => {
       "botship:0:pilot": seat(1, "pilot"), "botship:0:gunner": seat(1, "gunner"), "botship:1:pilot": seat(2, "pilot"), "botship:1:gunner": seat(2, "gunner") });
     expect(r.waiting.size).toBe(0);
     expect(crewsReady(r.seats, new Set(["ana", "ben"]))).toEqual({ ready: 3, crews: 3 });
-    expect(seatsOf(fillBotShips(roster({ a: seat(0, "pilot"), b: seat(1, "pilot") }), 2))).toMatchObject({ "botship:0:pilot": seat(2, "pilot") });
-    expect(seatsOf(fillBotShips(roster({ a: seat(0, "pilot"), b: seat(1, "pilot") }), 2))).not.toHaveProperty("botship:1:pilot");
+    // Stage 5: as many as fit in the ten crews.
+    const nine = roster(Object.fromEntries([0, 1, 2, 3, 4, 5, 6, 7, 8].map((c) => [`p${c}`, seat(c, "pilot")])));
+    expect(seatsOf(fillBotShips(nine, 2))).toMatchObject({ "botship:0:pilot": seat(9, "pilot") });
+    expect(seatsOf(fillBotShips(nine, 2))).not.toHaveProperty("botship:1:pilot");
+    expect(Object.keys(seatsOf(fillBotShips(roster({ a: seat(0, "pilot") }), 9))).filter((id) => id.startsWith("botship:"))).toHaveLength(18);
     expect(seatsOf(fillBotShips(roster({}), 2))).toMatchObject({ "botship:0:pilot": seat(0, "pilot"), "botship:1:gunner": seat(1, "gunner") });
   });
 

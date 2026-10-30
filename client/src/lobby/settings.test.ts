@@ -47,8 +47,8 @@ describe("hazards and reefs (Stage 2 slice 3)", () => {
 });
 
 describe("bot ships (Stage 3 slice 10)", () => {
-  it("offers 0, 1 or 2, and says how many fit when fewer do", () => {
-    expect(BOT_SHIP_CHOICES).toEqual([0, 1, 2]);
+  it("offers 0 to 9 (Stage 5; 0, 1 or 2 before), and says how many fit when fewer do", () => {
+    expect(BOT_SHIP_CHOICES).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
     expect(botShipsText(0, 0)).toBe("Bot ships: none");
     expect(botShipsText(1, 1)).toBe("Bot ships: 1");
     expect(botShipsText(2, 1)).toBe("Bot ships: 2 (1 fits)");

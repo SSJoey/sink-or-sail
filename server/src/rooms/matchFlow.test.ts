@@ -106,6 +106,12 @@ describe("shipCount (Stage 1 slice 8)", () => {
     expect(shipCount([0, 2])).toBe(3);
     expect(shipCount([])).toBe(2);
   });
+
+  it("Stage 5: a ship for every crew up to the highest one seated", () => {
+    expect(shipCount([0, 0, 1, 3])).toBe(4);
+    expect(shipCount([0, 6])).toBe(7);
+    expect(shipCount([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])).toBe(10);
+  });
 });
 
 describe("everyCrewManned (Stage 2)", () => {
@@ -139,7 +145,8 @@ describe("readBotShips (Stage 3 slice 10)", () => {
   it(`accepts only { count } with a whole number from 0 to ${MAX_BOT_SHIPS}`, () => {
     expect(readBotShips({ count: 0 })).toBe(0);
     expect(readBotShips({ count: 2 })).toBe(2);
-    for (const bad of [null, 1, { count: 3 }, { count: -1 }, { count: 1.5 }, { count: "1" }, { count: 1, extra: 1 }]) expect(readBotShips(bad)).toBeNull();
+    expect(readBotShips({ count: 9 })).toBe(9);
+    for (const bad of [null, 1, { count: 10 }, { count: -1 }, { count: 1.5 }, { count: "1" }, { count: 1, extra: 1 }]) expect(readBotShips(bad)).toBeNull();
   });
 });
 

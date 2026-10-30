@@ -313,7 +313,7 @@ describe("crews (Stage 3)", () => {
     expect(await paired).toEqual({ reason: RejectReason.AlreadyPaired });
   });
 
-  it("Leave this crew: to a new crew of your own, keeping your role; refused when alone or with 3 crews", async () => {
+  it("Leave this crew: to a new crew of your own, keeping your role; refused when alone or with every crew in use (10, Stage 5)", async () => {
     const { client: a, room, code } = await createRoom("A");
     const b = await join(code, "B");
     b.send(ClientMessage.LeaveCrew);
@@ -325,7 +325,15 @@ describe("crews (Stage 3)", () => {
     const c = await join(code, "C");
     await join(code, "D");
     expect(seatOf(room, c)).toEqual({ crew: 0, role: "gunner" });
-    await join(code, "E");
+    // Eight more join (pairing into Crews 3–6), then one of each pair leaves for a crew of their own (Crews 7–10).
+    const more = [];
+    for (let i = 0; i < 8; i++) more.push(await join(code, `P${i}`));
+    for (const p of more.filter((_, i) => i % 2 === 1)) {
+      const before = playerOf(room, p)?.crew;
+      p.send(ClientMessage.LeaveCrew);
+      await waitFor(() => playerOf(room, p)?.crew !== before);
+    }
+    expect(new Set([...room.state.players.values()].map((p) => p.crew)).size).toBe(10);
     const full = c.waitForMessage(ServerMessage.Rejected);
     c.send(ClientMessage.LeaveCrew);
     expect(await full).toEqual({ reason: RejectReason.NoFreeCrew });

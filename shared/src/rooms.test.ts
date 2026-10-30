@@ -19,9 +19,9 @@ describe("room constants", () => {
     expect(CODE_ALPHABET).toHaveLength(24);
   });
 
-  it("allows 6 players (3 crews), 12-character names and a 60 s reconnection window", () => {
-    expect(MAX_PLAYERS).toBe(6);
-    expect(CREWS).toEqual([0, 1, 2]);
+  it("allows 20 players (10 crews, Stage 5), 12-character names and a 60 s reconnection window", () => {
+    expect(MAX_PLAYERS).toBe(20);
+    expect(CREWS).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8, 9]);
     expect(NAME_MAX_LENGTH).toBe(12);
     expect(RECONNECT_WINDOW_SECONDS).toBe(60);
   });
@@ -87,7 +87,9 @@ describe("isSeat", () => {
   });
 
   it("rejects anything else", () => {
-    expect(isSeat({ crew: 3, role: "pilot" })).toBe(false);
+    expect(isSeat({ crew: 9, role: "pilot" })).toBe(true);
+    expect(isSeat({ crew: 10, role: "pilot" })).toBe(false);
+    expect(isSeat({ crew: -1, role: "pilot" })).toBe(false);
     expect(isSeat({ crew: "0", role: "pilot" })).toBe(false);
     expect(isSeat({ crew: 0, role: "captain" })).toBe(false);
     expect(isSeat({ crew: 0 })).toBe(false);

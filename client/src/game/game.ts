@@ -8,7 +8,7 @@ import { drawMinimap, minimapDots } from "./minimap.ts";
 import { legendRows, legendShown, loadLegendHidden, saveLegendHidden } from "./legend.ts";
 import { pickTip, tipShown, tipsFor } from "./tips.ts";
 import type { ShipEffect } from "./effects.ts";
-import { empText, formatClock, livesHtml, packSlotLabel, scoreHtml } from "./hud.ts";
+import { empText, formatClock, packSlotLabel, topBarScore } from "./hud.ts";
 import { BeepClock, type BeepKind } from "./beeps.ts";
 import { isDamaged } from "./damageLook.ts";
 import { hintsFor, loadUsedHints, saveUsedHints, usedControls, type Hint, type HintSituation, type HintSpot } from "./hints.ts";
@@ -703,7 +703,8 @@ function updateHud(frame: Frame | null, seat: { crew: number; role: Role } | nul
   showPackSlots(packSlot, seat ? haunting ?? [crewShip?.pilotPack ?? null, crewShip?.gunnerPack ?? null] : null);
   const score = byId("hud-score");
   const ships = frame?.ships ?? [];
-  const html = lastAfloat ? livesHtml(ships) : scoreHtml(ships.map((ship) => ship.sinkings));
+  // Stage 5: with more than 3 crews, a crew member sees their own crew's score and place.
+  const html = topBarScore({ sinkings: ships.map((ship) => ship.sinkings), lastAfloat, ships, crew: seat?.crew ?? null });
   if (score.innerHTML !== html) score.innerHTML = html;
 
   if (!seat) {

@@ -48,7 +48,8 @@ describe("takeSeat", () => {
 
   it("rejects malformed seats", () => {
     const seats: SeatMap = new Map([["a", null]]);
-    expect(takeSeat(seats, "a", { crew: 3, role: "pilot" })).toEqual({ ok: false, reason: "invalidSeat" });
+    expect(takeSeat(seats, "a", { crew: 10, role: "pilot" })).toEqual({ ok: false, reason: "invalidSeat" });
+    expect(takeSeat(seats, "a", { crew: -1, role: "pilot" })).toEqual({ ok: false, reason: "invalidSeat" });
     expect(takeSeat(seats, "a", "pilot")).toEqual({ ok: false, reason: "invalidSeat" });
   });
 

@@ -148,16 +148,22 @@ export function seaShipCounts(sea: Sea): number[] {
   return [...new Set([2, 3, ...counts])];
 }
 
+/** The corner respawn spots in order round the sea: top left, top right, bottom right, bottom left. */
+const FOUR_STARTS: readonly Vec[] = [SPAWN_POINTS[0]!, SPAWN_POINTS[1]!, SPAWN_POINTS[3]!, SPAWN_POINTS[2]!];
+
 const toVecs = (points: readonly (readonly [number, number])[]): Vec[] => points.map(([x, y]) => ({ x, y }));
 
 /**
  * Where a match's ships start, its packs can appear and its sunk ships come back. Today's sea: the layout's
- * hand-placed 2- or 3-ship spots and the four corners. A bigger sea: looked up in the table worked out by
+ * hand-placed 2- or 3-ship spots (4 ships: the corners) and the four corners. A bigger sea: looked up in the table worked out by
  * `scripts/seaSpotTable.ts` (see searchSeaSpots), or worked out now for a count the table doesn't hold.
  */
 export function seaSpots(id: LayoutId, sea: Sea, ships: number): SeaSpots {
   if (startRing(sea) === null) {
     const layout = LAYOUTS[id];
+    // Stage 5: four ships start in the four corner respawn spots (round the sea from the top left), with the
+    // layout's 2-ship pack spots, which are the same distance from every corner (approved 2026-10-30).
+    if (ships === 4) return { starts: FOUR_STARTS, packSpots: layout.packSpots, respawns: SPAWN_POINTS };
     return ships === 3
       ? { starts: layout.starts3, packSpots: layout.packSpots3, respawns: SPAWN_POINTS }
       : { starts: layout.starts, packSpots: layout.packSpots, respawns: SPAWN_POINTS };

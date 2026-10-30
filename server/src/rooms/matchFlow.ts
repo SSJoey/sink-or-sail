@@ -13,7 +13,7 @@ export function canChangeSeat(phase: string, _isSeated: boolean): boolean {
   return !(phase === Phase.Countdown || phase === Phase.Running || phase === Phase.Paused);
 }
 
-/** During a match, only crews with a ship can be joined (no ship for Crew 3 if it was empty at the start). */
+/** During a match, only crews with a ship can be joined (none for a crew beyond the match's ships). */
 export function crewHasShip(phase: string, crew: number, shipCount: number): boolean {
   const matchOn = phase === Phase.Countdown || phase === Phase.Running || phase === Phase.Paused;
   return !matchOn || crew < shipCount;
@@ -52,9 +52,12 @@ export function canSetPacks(sessionId: string, hostId: string, phase: string): b
   return sessionId === hostId && (phase === Phase.Waiting || phase === Phase.Over);
 }
 
-/** A third ship only when someone sits in Crew 3 as the match starts. `crews` has one entry per seated player. */
-export function shipCount(crews: readonly number[]): 2 | 3 {
-  return crews.includes(2) ? 3 : 2;
+/**
+ * A ship for every crew up to the highest one seated as the match starts (at least 2): Crew 3 seated means 3 ships,
+ * Crew 7 seated means 7 (Stage 5). `crews` has one entry per seated player (bot ships included).
+ */
+export function shipCount(crews: readonly number[]): number {
+  return Math.max(2, ...crews.map((crew) => crew + 1));
 }
 
 /** Last Afloat needs a player in every crew that will have a ship, so no ship is left unmanned. */

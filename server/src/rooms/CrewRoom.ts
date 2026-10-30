@@ -146,7 +146,7 @@ export class CrewRoom extends Room<{ state: CrewState }> {
         return;
       }
       const seat = result.seats.get(client.sessionId) ?? null;
-      // A match that started without Crew 3 has no third ship: Crew 3 opens again between matches.
+      // A crew beyond the match's ships has none until the next match.
       if (seat && !crewHasShip(this.state.phase, seat.crew, this.world?.ships.length ?? 0)) {
         client.send(ServerMessage.Rejected, { reason: RejectReason.CrewNotInMatch } satisfies RejectedMessage);
         return;
@@ -361,7 +361,7 @@ export class CrewRoom extends Room<{ state: CrewState }> {
     // Stage 3 slice 9: bots (all named "Bot") don't hold a name and don't count among the players.
     const people = [...this.state.players.values()].filter((p) => !p.bot);
     if (isNameTaken(people.map((p) => p.name), name)) throw new ServerError(ErrorCode.APPLICATION_ERROR, JoinError.NameTaken);
-    // Stage 3: up to 6 players plus up to 4 spectators.
+    // Up to 20 players (Stage 5) plus up to 4 spectators.
     const watch = options?.watch === true;
     const spectators = people.filter((p) => p.spectator).length;
     if (watch && spectators >= MAX_SPECTATORS) throw new ServerError(ErrorCode.APPLICATION_ERROR, JoinError.SpectatorsFull);
@@ -422,7 +422,7 @@ export class CrewRoom extends Room<{ state: CrewState }> {
     this.botMinds = new Map();
     const seed = this.seedForMatch() >>> 0;
     const packsOn = this.state.packsEnabled;
-    // A third ship only when someone sits in Crew 3 as the match starts.
+    // A ship for every crew up to the highest one seated as the match starts.
     const ships = shipCount(this.seatedCrews());
     const mode = this.state.mode === "lastAfloat" ? "lastAfloat" : "sinkCount";
     const lives = mode === "lastAfloat" ? this.state.lives : null;

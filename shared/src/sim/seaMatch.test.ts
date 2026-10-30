@@ -4,6 +4,7 @@ import { zoneCount, zoneOf, zoneRect } from "./hazards.ts";
 import { SPAWN_POINTS } from "./map.ts";
 import { createWorld } from "./match.ts";
 import { DEFAULT_SEA, seaCentre } from "./sea.ts";
+import { botGunner, botPilot, newBotMind } from "./bots.ts";
 import { seaSpots, spreadLayout } from "./seaLayout.ts";
 import { keepInSea } from "./ship.ts";
 import { DEFAULT_STORM_TIMES, inStorm, stormRadius } from "./storm.ts";
@@ -98,5 +99,43 @@ describe("a match's sea (Stage 5)", () => {
       most = Math.max(most, world.packs.length);
     }
     expect(most).toBe(3);
+  });
+});
+
+describe("ten ships (Stage 5)", () => {
+  it("a 10-ship Last Afloat match of bots with packs and hazards plays two minutes on the 4000 × 2250 sea", () => {
+    let world = createWorld({ ships: 10, packs: true, hazards: true, mode: "lastAfloat", lives: 2, seed: 5, botShips: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] });
+    let minds = world.ships.map((s) => ({ pilot: newBotMind(5, s.id, "pilot"), gunner: newBotMind(5, s.id, "gunner") }));
+    const starts = world.ships.map((s) => s.pos);
+    let shots = 0;
+    for (let t = 0; t < 120; t += DT) {
+      const inputs: ShipInput[] = world.ships.map((s, i) => {
+        const p = botPilot(world, s.id, minds[i]!.pilot, DT);
+        const g = botGunner(world, s.id, minds[i]!.gunner, DT);
+        minds[i] = { pilot: p.mind, gunner: g.mind };
+        return { pilot: p.input, gunner: g.input };
+      });
+      const r = step(world, inputs, DT);
+      world = r.world;
+      shots += r.events.filter((e) => e.type === "shotFired").length;
+    }
+    expect(world.ships).toHaveLength(10);
+    expect(shots).toBeGreaterThan(0);
+    expect(world.ships.filter((s, i) => distance(s.pos, starts[i]!) > 100).length).toBeGreaterThan(5);
+    for (const s of world.ships) {
+      expect(s.pos.x).toBeGreaterThanOrEqual(0);
+      expect(s.pos.x).toBeLessThanOrEqual(4000);
+      expect(s.pos.y).toBeLessThanOrEqual(2250);
+    }
+    expect(world.packs.length).toBeLessThanOrEqual(5);
+  });
+});
+
+describe("four ships on today's sea (Stage 5)", () => {
+  it("start in the four corner respawn spots, round the sea from the top left, facing the middle", () => {
+    const world = createWorld({ ships: 4, layout: "twinIsles" });
+    expect(world.sea).toEqual(DEFAULT_SEA);
+    expect(world.ships.map((s) => s.pos)).toEqual([SPAWN_POINTS[0], SPAWN_POINTS[1], SPAWN_POINTS[3], SPAWN_POINTS[2]]);
+    for (const ship of world.ships) expect(ship.heading).toBeCloseTo(angleOf(sub(seaCentre(DEFAULT_SEA), ship.pos)));
   });
 });

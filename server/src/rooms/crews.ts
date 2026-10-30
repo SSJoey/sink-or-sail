@@ -113,7 +113,7 @@ function intoCrew(roster: CrewRoster, id: string, crew: number, now: number): Cr
   return refreshWaiting({ seats, waiting: roster.waiting }, now);
 }
 
-/** The lowest crew number nobody is in, or null when all three are in use. */
+/** The lowest crew number nobody is in, or null when every crew is in use. */
 function freeCrew(seats: SeatMap): number | null {
   const used = members(seats);
   return CREWS.find((crew) => !used.has(crew)) ?? null;
@@ -198,7 +198,7 @@ export function findPartner(roster: CrewRoster, id: string, now: number): CrewRe
   return { ok: true, roster: intoCrew(roster, id, waiting[0]!, now) };
 }
 
-/** Leave this crew: a new crew of your own, keeping your role; refused with 3 crews already, or when you're alone. */
+/** Leave this crew: a new crew of your own, keeping your role; refused with every crew in use, or when you're alone. */
 export function leaveCrew(roster: CrewRoster, id: string, now: number): CrewResult {
   const seat = roster.seats.get(id);
   if (!seat) return { ok: false, reason: RejectReason.InvalidSeat };

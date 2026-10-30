@@ -1450,6 +1450,54 @@ Drafted from `docs/design.md`, the roadmap and "Later". Scope:
   - Both passed three times in a row alone; the 3 later-group tests passed on their own.
   - The user chose to commit as it is, with the lifebar test added to the watch items.
 
+### 2026-10-30 — Stage 5 slice 6 plan: up to 10 crews
+
+- **Plan:**
+  - crews 1–10 (20 players), Bot ships 0–9;
+  - a match has as many ships as the highest crew with someone in it (at least 2): today's rule, extended;
+  - as today:
+    - Last Afloat needs every crew with a ship manned;
+    - crews beyond the match's ships are closed until the next round;
+    - bot ships fill the crews after the players' and give way to them;
+  - 10 crew colours with symbols;
+  - every list of crews checked;
+  - tests, including a 10-ship browser test (one player and 9 bot ships on the 4000 × 2250 sea).
+- **User's answers** (all as recommended):
+  1. a) Crew colours and symbols:
+     1. orange `#C9782A` ●
+     2. magenta `#B0407A` ■
+     3. teal `#2A7F78` ▲
+     4. navy `#2F5D9E` ◆
+     5. olive green `#5E7F2A` ✚
+     6. purple `#6E4A9E` ★
+     7. brick red `#A33B2B` ▼
+     8. gold `#B8922A` ⬟
+     9. brown `#7A5232` ✖
+     10. slate grey `#5A6670` ⬢
+  2. a) Four ships on today's sea start in the four corner respawn spots, facing the middle, with the layout's 2-ship pack spots.
+  3. a) With more than 3 crews, the top bar shows your crew's score and place ("● 3 · 2nd of 7"). Last Afloat shows your lives and how many ships are afloat ("♥♥ · 5 afloat"). 2–3 crews keep today's line.
+  4. a) Spectators stay at most 4.
+- **Built (2026-10-30):**
+  - **Limits** (`shared/src/rooms.ts`): `CREWS` 0–9, `MAX_PLAYERS` 20, `MAX_BOT_SHIPS` 9; spectators stay 4.
+  - **Ship count** (`matchFlow.ts` `shipCount`): the highest crew seated, plus one (at least 2), bot ships included. Everything else (Last Afloat manning, crews closed beyond the match's ships, bot ships after the players') was already general.
+  - **Four ships on today's sea** (`seaSpots`): the corners, top left round to bottom left, with the layout's 2-ship pack spots.
+  - **Crew styles** (`client/src/game/crews.ts`): the ten agreed colours and symbols. `crewFlag` draws each symbol's shape on the deck and on ghosts: ✚ and ✖ as plus shapes, ★ a 5-point star, ⬟ a pentagon, ⬢ a hexagon.
+  - **Top bar** (`hud.ts` `topBarScore`): more than 3 crews show "● 3 · 2nd of 7" (crews level share a place), or in Last Afloat "● ♥♥ · 5 afloat". 2–3 crews and spectators keep every crew's line.
+  - **Messages:** "That crew joins from the next match.", "There are already 10 crews.", "The room already has 20 players: …".
+  - **Tests:**
+    - new: ship count up to 10; seats up to Crew 10; Bot ships 0–9; four-ship corners equally far from the packs on every layout; a 2-minute 10-ship bot match with packs and hazards on the 4000 × 2250 sea; a 10-ship room match (one player and nine bot ships); crew styles and flags; the top bar text.
+    - Tests on the old limits moved to the new ones, with the same checks at the new boundary:
+      - 6 players / 3 crews → 20 / 10;
+      - "no free crew" with 10 crews;
+      - bot ships that no longer have to give way;
+      - the Bot ships choices;
+      - three messages.
+    - Browser: `tenShips.spec.ts` (a group of its own, last): a 667 px phone with a bot partner and nine bot ships has 10 ships, today's view round the ship, ten minimap dots and "● 0 · 1st of 10", and its top bar still fits.
+- **Runs:**
+  - Type-check clean; 1357 unit tests pass (plus 1 skipped).
+  - Full browser run 44 (peak load 43) failed only the lifebar test (0.82 instead of 0.95), its third full run in a row. It passed alone; the 4 later-group tests passed on their own.
+  - The user chose to commit, then fix the lifebar test next as a small separate change.
+
 ## Later
 
 - **(2026-10-30, watch) The lifebar browser test under load:** it failed in the last two full runs (slice 4's run 42, slice 5's run 43). The ship took extra reef scrapes before the lifebar was read. A fix to plan: stop steering at the reef's first scrape and wait for the reading, so the test still checks exactly 0.95.

@@ -1,24 +1,27 @@
-/** Colyseus room type name for a crew match (2 or 3 crews). */
+/** Colyseus room type name for a crew match (2 to 10 crews). */
 export const ROOM_NAME = "crew";
 
 export const CODE_LENGTH = 4;
 /** A–Z without I and O, so codes can't be confused with 1 and 0. */
 export const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ";
 
-/** Three crews of two. */
-export const MAX_PLAYERS = 6;
+/** Stage 5: ten crews of two. */
+export const MAX_PLAYERS = 20;
 /** Stage 3: spectators (a TV, a laptop, a host who only hosts) on top of the players. */
 export const MAX_SPECTATORS = 4;
-/** Stage 3 slice 10: the host's bot ships (still at most 3 ships in all). */
-export const MAX_BOT_SHIPS = 2;
+/** Stage 3 slice 10: the host's bot ships; Stage 5: up to 9 (one crew fewer than the most). */
+export const MAX_BOT_SHIPS = 9;
 export const NAME_MAX_LENGTH = 12;
 /** How long a dropped player's seat is held for them. */
 export const RECONNECT_WINDOW_SECONDS = 60;
 /** A client sending more messages than this per second is disconnected (it can reconnect). */
 export const MAX_MESSAGES_PER_SECOND = 60;
 
-/** Crew 3 (index 2) has a ship only in matches it was seated for at the start. */
-export const CREWS = [0, 1, 2] as const;
+/**
+ * Stage 5: ten crews. A match has a ship for every crew up to the highest one seated as it starts (at least 2); a crew
+ * beyond that has no ship until the next match.
+ */
+export const CREWS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9] as const;
 export type Crew = (typeof CREWS)[number];
 
 export const ROLES = ["pilot", "gunner"] as const;
@@ -115,7 +118,7 @@ export const RejectReason = {
   InvalidSeat: "invalidSeat",
   /** Seated players can't switch seats while a match is on. */
   SeatLocked: "seatLocked",
-  /** That crew has no ship in this match (Crew 3, when nobody sat in it at the start). */
+  /** That crew has no ship in this match (nobody sat in it, or a crew after it, at the start). */
   CrewNotInMatch: "crewNotInMatch",
   /** Last Afloat can't start while a crew with a ship has no player. */
   CrewsNeedPlayers: "crewsNeedPlayers",
@@ -124,7 +127,7 @@ export const RejectReason = {
   InvalidName: "invalidName",
   NameLocked: "nameLocked",
   /** Stage 3 crews: Find me a partner with nobody waiting, or when you already have a partner; Leave this crew
-   *  with 3 crews already, or when you're alone in yours. */
+   *  with every crew already in use, or when you're alone in yours. */
   NoPartnerWaiting: "noPartnerWaiting",
   AlreadyPaired: "alreadyPaired",
   NoFreeCrew: "noFreeCrew",

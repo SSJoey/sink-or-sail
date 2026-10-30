@@ -85,6 +85,23 @@ describe("the sea by number of ships (Stage 5)", () => {
   });
 });
 
+describe("four ships on today's sea (Stage 5)", () => {
+  it("every layout: the corners are equally far from the layout's 2-ship pack spots, and over 200 from them", () => {
+    for (const id of LAYOUT_IDS) {
+      const { starts, packSpots, respawns } = seaSpots(id, DEFAULT_SEA, 4);
+      expect(starts).toHaveLength(4);
+      expect(respawns).toBe(SPAWN_POINTS);
+      for (const s of starts) expect(SPAWN_POINTS).toContain(s);
+      const nearest = starts.map((s) => {
+        const [a, b] = packSpots.map((p) => distance(s, p)).sort((x, y) => x - y);
+        return (a! + b!) / 2;
+      });
+      for (const d of nearest) expect(d, id).toBeCloseTo(nearest[0]!, 0);
+      for (const s of starts) for (const p of packSpots) expect(distance(s, p)).toBeGreaterThan(200);
+    }
+  });
+});
+
 describe("layouts on today's sea (Stage 5)", () => {
   it("are exactly the layout's own", () => {
     for (const id of LAYOUT_IDS) {

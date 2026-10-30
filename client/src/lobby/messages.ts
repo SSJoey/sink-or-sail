@@ -1,4 +1,4 @@
-import { JoinError, NAME_MAX_LENGTH, RejectReason, type RejectedMessage } from "@sink-or-sail/shared";
+import { CREWS, JoinError, MAX_PLAYERS, NAME_MAX_LENGTH, RejectReason, type RejectedMessage } from "@sink-or-sail/shared";
 
 const GENERAL = "Could not connect. Check the Wi-Fi and try again.";
 
@@ -20,16 +20,16 @@ export function rejectedText(message: RejectedMessage): string {
     case RejectReason.SeatTaken: return "That seat is taken.";
     case RejectReason.InvalidSeat: return "That seat doesn't exist.";
     case RejectReason.SeatLocked: return "Seats are locked during a match.";
-    case RejectReason.CrewNotInMatch: return "Crew 3 joins from the next match.";
+    case RejectReason.CrewNotInMatch: return "That crew joins from the next match.";
     case RejectReason.CrewsNeedPlayers: return "Every crew needs a player for Last Afloat.";
     case RejectReason.NameTaken: return joinErrorText(new Error(JoinError.NameTaken));
     case RejectReason.InvalidName: return joinErrorText(new Error(JoinError.InvalidName));
     case RejectReason.NameLocked: return "Names can be changed between matches.";
     case RejectReason.NoPartnerWaiting: return "Nobody is waiting for a partner yet: the next player to join will be paired with you.";
     case RejectReason.AlreadyPaired: return "You already have a partner.";
-    case RejectReason.NoFreeCrew: return "There are already 3 crews.";
+    case RejectReason.NoFreeCrew: return `There are already ${CREWS.length} crews.`;
     case RejectReason.AlreadyAlone: return "You're already in a crew of your own.";
-    case RejectReason.RoomFull: return "The room already has 6 players: keep watching for now.";
+    case RejectReason.RoomFull: return `The room already has ${MAX_PLAYERS} players: keep watching for now.`;
     case RejectReason.NoBot: return "Your crew has no bot.";
     case RejectReason.NotTypePicker: return "Your pilot picks the ship.";
     case RejectReason.ShipTypeLocked: return "The ship can be changed between matches, before you're Ready.";

@@ -21,7 +21,7 @@ describe("rejectedText", () => {
     expect(rejectedText({ reason: RejectReason.SeatTaken })).toBe("That seat is taken.");
     expect(rejectedText({ reason: RejectReason.InvalidSeat })).toBe("That seat doesn't exist.");
     expect(rejectedText({ reason: RejectReason.SeatLocked })).toBe("Seats are locked during a match.");
-    expect(rejectedText({ reason: RejectReason.CrewNotInMatch })).toBe("Crew 3 joins from the next match.");
+    expect(rejectedText({ reason: RejectReason.CrewNotInMatch })).toBe("That crew joins from the next match.");
     expect(rejectedText({ reason: RejectReason.CrewsNeedPlayers })).toBe("Every crew needs a player for Last Afloat.");
   });
 });
@@ -38,7 +38,7 @@ describe("refused crew moves (Stage 3)", () => {
   it("explains each", () => {
     expect(rejectedText({ reason: RejectReason.NoPartnerWaiting })).toBe("Nobody is waiting for a partner yet: the next player to join will be paired with you.");
     expect(rejectedText({ reason: RejectReason.AlreadyPaired })).toBe("You already have a partner.");
-    expect(rejectedText({ reason: RejectReason.NoFreeCrew })).toBe("There are already 3 crews.");
+    expect(rejectedText({ reason: RejectReason.NoFreeCrew })).toBe("There are already 10 crews.");
     expect(rejectedText({ reason: RejectReason.AlreadyAlone })).toBe("You're already in a crew of your own.");
   });
 });
@@ -47,7 +47,7 @@ describe("spectators (Stage 3)", () => {
   it("explains a full room or a full set of spectators", () => {
     expect(joinErrorText(new Error(JoinError.RoomFull))).toBe("That room is full.");
     expect(joinErrorText(new Error(JoinError.SpectatorsFull))).toBe("That room already has 4 watching.");
-    expect(rejectedText({ reason: RejectReason.RoomFull })).toBe("The room already has 6 players: keep watching for now.");
+    expect(rejectedText({ reason: RejectReason.RoomFull })).toBe("The room already has 20 players: keep watching for now.");
     expect(rejectedText({ reason: RejectReason.NoBot })).toBe("Your crew has no bot.");
   });
 });
