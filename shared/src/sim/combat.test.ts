@@ -52,7 +52,7 @@ describe("traceShot", () => {
   it("finds the first ship on the shot's path", () => {
     const near = testShip({ id: 1, pos: { x: 200, y: 100 } });
     const far = testShip({ id: 2, pos: { x: 300, y: 100 } });
-    expect(traceShot(0, { x: 100, y: 100 }, { x: 400, y: 100 }, [shooter, far, near], [ISLAND])).toEqual({ kind: "ship", target: 1 });
+    expect(traceShot(0, { x: 100, y: 100 }, { x: 400, y: 100 }, [shooter, far, near], [ISLAND])).toEqual({ kind: "ship", target: 1, at: expect.any(Number) });
   });
 
   it("never hits the ship that fired it", () => {
@@ -71,6 +71,6 @@ describe("traceShot", () => {
 
   it("hits a ship in front of the island", () => {
     const before = testShip({ id: 1, pos: { x: 620, y: 450 } });
-    expect(traceShot(0, { x: 560, y: 450 }, { x: 700, y: 450 }, [shooter, before], [ISLAND])).toEqual({ kind: "ship", target: 1 });
+    expect(traceShot(0, { x: 560, y: 450 }, { x: 700, y: 450 }, [shooter, before], [ISLAND])).toEqual({ kind: "ship", target: 1, at: expect.any(Number) });
   });
 });

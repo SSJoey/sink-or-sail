@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { botShipCount, crewRows, myCrew, readyCount, type LobbyPlayer } from "./crewList.ts";
+import { botShipCount, crewRows, myCrew, readyCount, type LobbyPlayer, shipTypeFacts } from "./crewList.ts";
 
 const p = (id: string, name: string, crew: number | undefined, role: string | undefined, ready = false, connected = true): LobbyPlayer => ({ id, name, crew, role, ready, connected });
 
@@ -33,7 +33,7 @@ describe("the crews in the room (Stage 3)", () => {
 describe("your own crew (Stage 3)", () => {
   it("shows who holds each role, whether you are alone, and its colour", () => {
     const players = [p("ana", "Ana", 1, "gunner"), p("ben", "Ben", 1, "pilot"), p("sam", "Sam", 0, "pilot")];
-    expect(myCrew(players, "ana")).toEqual({ crew: 1, label: "■ Crew 2", colour: "#B0407A", role: "gunner", pilot: "Ben", gunner: "Ana (you)", alone: false, withBot: false, crews: 2 });
+    expect(myCrew(players, "ana")).toEqual({ crew: 1, label: "■ Crew 2", colour: "#B0407A", role: "gunner", pilot: "Ben", gunner: "Ana (you)", alone: false, withBot: false, shipType: "frigate", picker: false, crews: 2 });
     expect(myCrew(players, "sam")).toMatchObject({ crew: 0, pilot: "Sam (you)", gunner: null, alone: true });
   });
 
@@ -54,5 +54,32 @@ describe("your own crew (Stage 3)", () => {
 
   it("is null for a player without a crew (joined during a match)", () => {
     expect(myCrew([p("new", "New", undefined, undefined)], "new")).toBeNull();
+  });
+});
+
+describe("ship types in the lobby (Stage 5)", () => {
+  const p = (id: string, crew: number, role: string, extra: Partial<LobbyPlayer> = {}): LobbyPlayer =>
+    ({ id, name: id, crew, role, ready: false, connected: true, ...extra });
+
+  it("each crew row names its ship: the pilot's pick, or the gunner's with a bot pilot; a bot ship's is a Frigate", () => {
+    const players = [
+      p("Ana", 0, "pilot", { shipType: "cutter" }), p("Ben", 0, "gunner", { shipType: "ironclad" }),
+      p("Bot1", 1, "pilot", { bot: true }), p("Cat", 1, "gunner", { shipType: "longGun" }),
+      p("Bot2", 2, "pilot", { bot: true }), p("Bot3", 2, "gunner", { bot: true }),
+    ];
+    expect(crewRows(players, "Ana", "Ana").map((r) => r.ship)).toEqual(["Cutter", "Long gun", "Frigate"]);
+  });
+
+  it("your crew: its ship type, and whether you pick it", () => {
+    const players = [p("Ana", 0, "pilot", { shipType: "gunboat" }), p("Ben", 0, "gunner")];
+    expect(myCrew(players, "Ana")).toMatchObject({ shipType: "gunboat", picker: true });
+    expect(myCrew(players, "Ben")).toMatchObject({ shipType: "gunboat", picker: false });
+    const alone = [p("Ben", 0, "gunner", { shipType: "cutter" })];
+    expect(myCrew(alone, "Ben")).toMatchObject({ shipType: "cutter", picker: true });
+  });
+
+  it("describes a type in one line", () => {
+    expect(shipTypeFacts("cutter")).toBe("Health 75 · speed 175 · range 450 · fires every 0.3 s");
+    expect(shipTypeFacts("longGun")).toBe("Health 85 · speed 145 · range 850 · fires every 0.7 s");
   });
 });

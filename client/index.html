@@ -77,12 +77,16 @@
       /* A taken role can't be tapped, but stays easy to read (yours, or your partner's). */
       .role-btn:disabled { opacity: 1; cursor: default; }
       .crew-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+      /* Stage 5: the crew's ship type (a dropdown for whoever picks it, its name for the crewmate). */
+      #ship-type { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 0 0 8px; }
+      #ship-type label { font-weight: 600; }
+      #ship-type-facts { flex-basis: 100%; margin: 0; font-size: 14px; }
       #crew-list { list-style: none; padding: 0; margin: 0 0 16px; background: var(--cream); border: 2px solid var(--ink); }
       #crew-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; min-height: 52px; padding: 4px 12px; border-bottom: 1px solid rgba(59,47,34,0.3); box-sizing: border-box; }
       #crew-list li:last-child { border-bottom: 0; }
       #crew-list .crew-name { flex: 1 1 120px; min-width: 0; }
       #crew-list li > span:first-child { white-space: nowrap; font-weight: 600; }
-      #crew-list li > span:nth-child(3) { font-size: 13px; font-weight: 600; }
+      #crew-list li > span:nth-child(3), #crew-list .crew-ship { font-size: 13px; font-weight: 600; }
       #crew-list button { background: var(--ink); color: var(--cream); font-size: 14px; }
       /* Host card: the QR code (on white, so it scans) beside the room code; then the settings. */
       #join-card { display: flex; align-items: center; gap: 16px; }
@@ -227,6 +231,19 @@
             <div id="role-buttons">
               <button id="role-pilot" class="role-btn" aria-pressed="false"><strong>Pilot</strong><span id="role-pilot-who"></span></button>
               <button id="role-gunner" class="role-btn" aria-pressed="false"><strong>Gunner</strong><span id="role-gunner-who"></span></button>
+            </div>
+            <div id="ship-type">
+              <label for="ship-type-pick">Ship</label>
+              <select id="ship-type-pick">
+                <option value="frigate">Frigate</option>
+                <option value="cutter">Cutter</option>
+                <option value="ironclad">Ironclad</option>
+                <option value="gunboat">Gunboat</option>
+                <option value="longGun">Long gun</option>
+              </select>
+              <strong id="ship-type-name"></strong>
+              <span id="ship-type-who" class="note"></span>
+              <p id="ship-type-facts" class="note"></p>
             </div>
             <div class="crew-actions"><button id="find-partner">Find me a partner</button> <button id="play-bot">Play with a bot</button> <button id="remove-bot">Remove bot</button> <button id="leave-crew">Leave this crew</button></div>
           </section>

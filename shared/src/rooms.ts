@@ -74,6 +74,9 @@ export const ClientMessage = {
   SetReefs: "setReefs",
   /** Change your name, between matches (Stage 3). */
   SetName: "setName",
+  /** Stage 5: the crew's ship type for the next match, { type } (the crew's picker only: see shipTypePicker; between
+   *  matches, and not while the picker is Ready). */
+  SetShipType: "setShipType",
 } as const;
 
 /** The host's layout setting: a layout, or Random (picked at each match start). */
@@ -130,6 +133,9 @@ export const RejectReason = {
   RoomFull: "roomFull",
   /** Stage 3 slice 9: Remove bot when your crew has no bot. */
   NoBot: "noBot",
+  /** Stage 5: a ship type from someone who isn't their crew's picker, or once they're Ready or a match is on. */
+  NotTypePicker: "notTypePicker",
+  ShipTypeLocked: "shipTypeLocked",
 } as const;
 export type RejectReason = (typeof RejectReason)[keyof typeof RejectReason];
 
@@ -169,4 +175,14 @@ export function isSeat(value: unknown): value is Seat {
   if (typeof value !== "object" || value === null) return false;
   const { crew, role } = value as Record<string, unknown>;
   return (CREWS as readonly unknown[]).includes(crew) && (ROLES as readonly unknown[]).includes(role);
+}
+
+/**
+ * Stage 5: who picks a crew's ship type: the pilot, or the gunner when the pilot is a bot (or the seat is empty); null
+ * for a crew with no person in it (a bot ship, which sails a Frigate).
+ */
+export function shipTypePicker(pilot: { bot: boolean } | undefined, gunner: { bot: boolean } | undefined): Role | null {
+  if (pilot && !pilot.bot) return "pilot";
+  if (gunner && !gunner.bot) return "gunner";
+  return null;
 }

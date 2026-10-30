@@ -20,7 +20,7 @@ test("three crews: a pilot in each crew gets 3 ships, and the top bar still fits
 
   // Under load the game view can take a while to appear (see the watch item in CLAUDE.md).
   for (const page of [host, two, phone]) await expect(page.locator("#game")).toHaveAttribute("data-ships", "3", { timeout: 15_000 });
-  await expect(phone.locator("#hud-role")).toHaveText("Pilot");
+  await expect(phone.locator("#hud-role")).toHaveText("Pilot · Frigate");
   await expect(phone.locator("#hud-score")).toContainText("▲ 0");
 
   // Every part of the top bar is on screen: nothing pushed past the right edge.

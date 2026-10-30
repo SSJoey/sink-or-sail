@@ -52,9 +52,9 @@ export function heldShips(hazards: ReadonlyMap<string, HazardView>): number[] {
 
 /**
  * A kraken's eight tentacles at `time` (seconds), each a wavy line out from its body. Holding a ship (`held`, its
- * position), the four facing the ship reach out and wrap round it.
+ * position, and its size: Stage 5), the four facing the ship reach out and wrap round it.
  */
-export function krakenTentacles(h: HazardView, time: number, held: Vec | null): Vec[][] {
+export function krakenTentacles(h: HazardView, time: number, held: Vec | null, heldRadius: number = TUNING.ship.radius): Vec[][] {
   const steps = 10;
   const toShip = held ? Math.atan2(held.y - h.y, held.x - h.x) : 0;
   return Array.from({ length: 8 }, (_, k) => {
@@ -62,7 +62,7 @@ export function krakenTentacles(h: HazardView, time: number, held: Vec | null): 
     const start = { x: h.x + Math.cos(a) * K.bodyRadius * 0.8, y: h.y + Math.sin(a) * K.bodyRadius * 0.8 };
     const facing = held !== null && Math.abs(Math.atan2(Math.sin(a - toShip), Math.cos(a - toShip))) <= Math.PI / 2 + 1e-9;
     const end = facing
-      ? { x: held!.x + Math.cos(a + time) * TUNING.ship.radius * 0.7, y: held!.y + Math.sin(a + time) * TUNING.ship.radius * 0.7 }
+      ? { x: held!.x + Math.cos(a + time) * heldRadius * 0.7, y: held!.y + Math.sin(a + time) * heldRadius * 0.7 }
       : { x: start.x + Math.cos(a) * 40, y: start.y + Math.sin(a) * 40 };
     const side = { x: -(end.y - start.y), y: end.x - start.x };
     const len = Math.hypot(side.x, side.y) || 1;

@@ -9,8 +9,8 @@ import recording from "./fixtures/stage0-run.json" with { type: "json" };
 
 /**
  * A scripted Stage 0 fight recorded with packs off. First recorded 2026-10-24 before packs existed;
- * re-recorded (with approval) when the energy refill changed to 5 per second. It holds the tuning it was
- * recorded with: any tuning change alters play, so the recording must then be re-recorded, with approval.
+ * re-recorded (with approval) when the energy refill changed to 5 per second, and again (approved 2026-10-30) for
+ * Stage 5: turrets turn at a set rate, and hits record their distance. It holds the tuning it was recorded with: any tuning change alters play, so the recording must then be re-recorded, with approval.
  */
 const recorded = recording as unknown as { tuning: unknown; world: World; events: SimEvent[] };
 
@@ -38,7 +38,7 @@ function stage0Events(events: readonly SimEvent[]) {
 describe("packs off plays exactly as Stage 0", () => {
   it("was recorded with the current Stage 0 tuning (if not: it changed since; re-record with approval)", () => {
     // Only the sections that shape a packs-off match; pack and client values can't change it.
-    const stage0Sections = ["sea", "ship", "boost", "shield", "energy", "gun", "bump", "respawn", "match"] as const;
+    const stage0Sections = ["sea", "ship", "boost", "shield", "energy", "gun", "bump", "respawn", "match", "shipTypes"] as const;
     const pick = (t: Record<string, unknown>) => Object.fromEntries(stage0Sections.map((k) => [k, t[k]]));
     expect(pick(JSON.parse(JSON.stringify(TUNING)))).toEqual(pick(recorded.tuning as Record<string, unknown>));
   });

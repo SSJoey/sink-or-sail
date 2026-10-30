@@ -13,12 +13,21 @@ export interface EnergyWants {
   shield: boolean;
 }
 
-/** One time step of the shared bar: decides whether boost and shield are on, then drains or refills. */
+/** A ship type's bar (Stage 5); the Frigate's by default. */
+export interface EnergyBar {
+  max: number;
+  refillPerSecond: number;
+}
+
+const FRIGATE_BAR: EnergyBar = { max: TUNING.energy.max, refillPerSecond: TUNING.energy.refillPerSecond };
+
+/** One time step of the shared bar: decides whether boost and shield are on, then drains or refills up to the bar's size. */
 export function updateEnergy(
   prev: EnergyState,
   shipId: number,
   wants: EnergyWants,
   dt: number,
+  bar: EnergyBar = FRIGATE_BAR,
 ): { state: EnergyState; events: SimEvent[]; spent: { boost: number; shield: number } } {
   const events: SimEvent[] = [];
   let { energy, locked } = prev;
@@ -46,7 +55,7 @@ export function updateEnergy(
       events.push({ type: "energyEmpty", ship: shipId });
     }
   } else {
-    energy = Math.min(TUNING.energy.max, energy + TUNING.energy.refillPerSecond * dt);
+    energy = Math.min(bar.max, energy + bar.refillPerSecond * dt);
   }
 
   // What was actually used (never more than the bar held), split by each one's share of the cost.

@@ -7,6 +7,7 @@ import { pickUpPacks, updatePacks, updateWreckPacks } from "./packs.ts";
 import { launchTorpedo, outsideSea, torpedoDamage } from "./torpedoes.ts";
 import { matchDuration, matchResult } from "./match.ts";
 import { chooseSpawn, respawnShip } from "./respawn.ts";
+import { statsOf } from "./shipTypes.ts";
 import { keepInSea, pushOutOfIslands, separateShips, steerShip } from "./ship.ts";
 import { NO_INPUT, type Ghost, type Mine, type Ship, type ShipInput, type Shot, type SimEvent, type SinkCause, type Torpedo, type World, type Wreck, type WreckPack, type WreckWeapon } from "./types.ts";
 import { add, distance, scale } from "./vec.ts";
@@ -131,7 +132,7 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
       const enemies = ships.filter((s) => s.id !== ship.id && !s.sunk).map((s) => s.pos);
       const spot = chooseSpawn(SPAWN_POINTS, enemies);
       // Stage 2: while the storm closes, a ship comes back inside the circle.
-      ship = respawnShip(ship, world.storm ? respawnInside(spot, stormRadius(world.storm, world.time), solids()) : spot);
+      ship = respawnShip(ship, world.storm ? respawnInside(spot, stormRadius(world.storm, world.time), solids(), statsOf(ship).radius) : spot);
       events.push({ type: "respawned", ship: ship.id, pos: ship.pos });
       ships[i] = ship;
       continue;
@@ -148,13 +149,14 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
     const disabled = ship.disabled > EPSILON;
     // Stage 2: a ship a kraken holds can't steer or boost (its gunner can still aim, fire and shield).
     const held = world.hazards.length > 0 && heldByKraken(world.hazards, ship.id);
-    ship = aimTurret(ship, input.gunner.aim);
+    ship = aimTurret(ship, input.gunner.aim, dt);
 
     const energy = updateEnergy(
       { energy: ship.energy, locked: ship.energyLocked, boosting: ship.boosting, shielding: ship.shielding },
       ship.id,
       { boost: input.pilot.boost && !disabled && !held, shield: input.gunner.shield && !disabled },
       dt,
+      { max: statsOf(ship).energyMax, refillPerSecond: statsOf(ship).refillPerSecond },
     );
     events.push(...energy.events);
     ship = {
@@ -206,7 +208,7 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
       for (let j = 0; j < ships.length; j++) {
         const other = ships[j]!;
         if (j === i || other.sunk || other.protection > 0) continue;
-        if (distance(other.pos, ship.pos) >= TUNING.ship.radius + TUNING.emp.radius) continue;
+        if (distance(other.pos, ship.pos) >= statsOf(other).radius + TUNING.emp.radius) continue;
         ships[j] = { ...other, disabled: TUNING.emp.duration, shielding: false, boosting: false };
         caught.push(other.id);
       }
@@ -382,11 +384,11 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
     const moved = moveShot(shot, dt);
     const trace = traceShot(shot.owner, moved.from, moved.to, ships, world.islands, mines.filter(isArmed), wrecks, krakens());
     if (trace.kind === "kraken") {
-      hazards = hitKraken(hazards, trace.hazard, shot.owner, "shot", TUNING.gun.shotDamage, events);
+      hazards = hitKraken(hazards, trace.hazard, shot.owner, "shot", shot.damage, events);
       continue;
     }
     if (trace.kind === "wreck") {
-      hitWreck(trace.wreck, shot.owner, "shot", wreckDamage("shot"));
+      hitWreck(trace.wreck, shot.owner, "shot", shot.damage);
       continue;
     }
     if (trace.kind === "mine") {
@@ -401,9 +403,10 @@ export function step(world: World, inputs: readonly (ShipInput | undefined)[], d
       if (target.shielding) {
         events.push({ type: "shotBlocked", attacker: shot.owner, target: target.id });
       } else if (canBeDamaged(target)) {
-        const hurt = damageShip(target, TUNING.gun.shotDamage);
+        const hurt = damageShip(target, shot.damage);
         ships[index] = hurt.ship;
-        events.push({ type: "hit", attacker: shot.owner, target: target.id, damage: TUNING.gun.shotDamage });
+        const flown = shot.travelled + trace.at * (moved.shot.travelled - shot.travelled);
+        events.push({ type: "hit", attacker: shot.owner, target: target.id, damage: shot.damage, distance: flown });
         if (hurt.sank) sink(index, shot.owner, "shot");
       }
       continue;

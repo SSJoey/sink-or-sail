@@ -1,4 +1,4 @@
-import { GAME_MODES, MAX_BOT_SHIPS, Phase, RANDOM_LAYOUT, TUNING, isLayoutId, isReefAmount, type GameMode, type LayoutId, type ReefAmount } from "@sink-or-sail/shared";
+import { GAME_MODES, MAX_BOT_SHIPS, Phase, RANDOM_LAYOUT, TUNING, isLayoutId, isReefAmount, isShipType, type GameMode, type LayoutId, type ReefAmount, type ShipType } from "@sink-or-sail/shared";
 
 /** Only the host starts a match, and only when none is on. */
 export function canStart(sessionId: string, hostId: string, phase: string): boolean {
@@ -108,4 +108,10 @@ export function readOnOff(message: unknown): boolean | null {
 export function readReady(message: unknown): boolean | null {
   const ready = onlyKey(message, "ready");
   return typeof ready === "boolean" ? ready : null;
+}
+
+/** Stage 5: the type from a SetShipType message ({ type }); null if not one of the five. */
+export function readShipType(message: unknown): ShipType | null {
+  const type = onlyKey(message, "type");
+  return isShipType(type) ? type : null;
 }

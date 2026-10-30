@@ -1,4 +1,4 @@
-import type { Role } from "@sink-or-sail/shared";
+import { SHIP_TYPE_NAMES, TUNING, isShipType, shipTypePicker, type Role, type ShipType } from "@sink-or-sail/shared";
 import { CREW_STYLES } from "../game/crews.ts";
 
 /** A player as the lobby sees them (Stage 3 crews). */
@@ -11,6 +11,8 @@ export interface LobbyPlayer {
   connected: boolean;
   /** Stage 3 slice 9: a partner bot. */
   bot?: boolean;
+  /** Stage 5: the ship type this player picks (used when they're their crew's picker). */
+  shipType?: string;
 }
 
 export interface CrewRow {
@@ -24,6 +26,8 @@ export interface CrewRow {
   status: string;
   /** The free role this player can Join, or null. */
   join: Role | null;
+  /** Stage 5: the crew's ship type's name. */
+  ship: string;
 }
 
 const styleOf = (crew: number) => CREW_STYLES[crew] ?? CREW_STYLES[0];
@@ -32,6 +36,21 @@ const otherRole = (role: string | undefined): Role => (role === "pilot" ? "gunne
 
 function nameOf(player: LobbyPlayer, hostId: string, myId: string): string {
   return player.name + (player.id === hostId ? " ★" : "") + (player.id === myId ? " (you)" : "") + (player.connected ? "" : " (reconnecting)");
+}
+
+/** Stage 5: a crew's picker (see shipTypePicker) and the type it sails (a Frigate for a crew of bots). */
+function pickOf(members: readonly LobbyPlayer[]): { picker: LobbyPlayer | null; type: ShipType } {
+  const pilot = members.find((m) => m.role === "pilot");
+  const gunner = members.find((m) => m.role === "gunner");
+  const role = shipTypePicker(pilot && { bot: pilot.bot === true }, gunner && { bot: gunner.bot === true });
+  const picker = role === "pilot" ? pilot! : role === "gunner" ? gunner! : null;
+  return { picker, type: picker && isShipType(picker.shipType) ? picker.shipType : "frigate" };
+}
+
+/** Stage 5: a ship type in one line, for picking: "Health 75 · speed 175 · range 450 · fires every 0.3 s". */
+export function shipTypeFacts(type: ShipType): string {
+  const s = TUNING.shipTypes[type];
+  return `Health ${s.maxHealth} · speed ${s.maxSpeed} · range ${s.shotRange} · fires every ${s.fireInterval} s`;
 }
 
 function crewsOf(players: readonly LobbyPlayer[]): Map<number, LobbyPlayer[]> {
@@ -57,6 +76,7 @@ export function crewRows(players: readonly LobbyPlayer[], hostId: string, myId: 
       names: members.map((m) => nameOf(m, hostId, myId)).join(" & ") + (isBotShip(members) ? " (bot ship)" : ""),
       status: free ? `Needs a ${free}` : members.every((m) => m.ready) ? "Ready" : "Not ready",
       join: free && crew !== mine ? free : null,
+      ship: SHIP_TYPE_NAMES[pickOf(members).type],
     };
   });
 }
@@ -80,6 +100,9 @@ export function myCrew(players: readonly LobbyPlayer[], myId: string) {
     alone: members.length === 1,
     /** Slice 9: the other role is a bot's (for Remove bot). */
     withBot: members.some((m) => m.bot === true),
+    /** Stage 5: the crew's ship type, and whether you pick it. */
+    shipType: pickOf(members).type,
+    picker: pickOf(members).picker?.id === myId,
     crews: crewsOf(players).size,
   };
 }

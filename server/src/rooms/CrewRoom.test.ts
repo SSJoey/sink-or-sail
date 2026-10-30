@@ -62,7 +62,7 @@ describe("creating a room", () => {
 
   it("puts the creator in a new crew of their own, as pilot (Stage 3)", async () => {
     const { client, room } = await createRoom("Host");
-    expect(playerOf(room, client)?.toJSON()).toEqual({ name: "Host", crew: 0, role: "pilot", connected: true, ready: false, nextRole: "pilot", partner: "", spectator: false, bot: false, withBot: false });
+    expect(playerOf(room, client)?.toJSON()).toEqual({ name: "Host", crew: 0, role: "pilot", connected: true, ready: false, nextRole: "pilot", partner: "", spectator: false, bot: false, withBot: false, shipType: "frigate" });
   });
 
   it("frees the code when the last player leaves and the room closes", async () => {
@@ -413,7 +413,7 @@ describe("leaving and reconnecting", () => {
 
     expect(back.sessionId).toBe(sam.sessionId);
     await waitFor(() => playerOf(room, back)?.connected === true);
-    expect(playerOf(room, back)?.toJSON()).toEqual({ name: "Sam", crew: 1, role: "gunner", connected: true, ready: false, nextRole: "pilot", partner: "", spectator: false, bot: false, withBot: false });
+    expect(playerOf(room, back)?.toJSON()).toEqual({ name: "Sam", crew: 1, role: "gunner", connected: true, ready: false, nextRole: "pilot", partner: "", spectator: false, bot: false, withBot: false, shipType: "frigate" });
   });
 
   it("frees the seat once the reconnection window runs out", async () => {

@@ -1,6 +1,6 @@
 import * as Phaser from "phaser";
 import type { Room } from "@colyseus/sdk";
-import { ClientMessage, DEFAULT_LAYOUT, LAYOUTS, PACK_LABELS, Phase, TUNING, inStorm, isLayoutId, isReefAmount, packButtonLit, reefsFor, rolePack, type CueKind, type PackType, type Role, type SoundCue } from "@sink-or-sail/shared";
+import { ClientMessage, DEFAULT_LAYOUT, LAYOUTS, PACK_LABELS, Phase, SHIP_TYPE_NAMES, TUNING, inStorm, statsOf, isLayoutId, isReefAmount, packButtonLit, reefsFor, rolePack, type CueKind, type PackType, type Role, type SoundCue } from "@sink-or-sail/shared";
 import { CREW_STYLES } from "./crews.ts";
 import { GameScene } from "./GameScene.ts";
 import type { ShipEffect } from "./effects.ts";
@@ -41,6 +41,8 @@ export interface PlayerView {
   /** Stage 3 slice 9: a partner bot; and, for a player waiting out a match, Play with a bot chosen for the next round. */
   bot: boolean;
   withBot: boolean;
+  /** Stage 5: the ship type this player picks (when they're their crew's picker). */
+  shipType: string;
 }
 export interface RoomStateView extends GameStateView {
   players: {
@@ -51,7 +53,7 @@ export interface RoomStateView extends GameStateView {
   /** Stage 3: the last match's awards (at most one per crew). */
   awards: Iterable<{ award: string; ship: number; detail: string }>;
   /** Stage 3: the last match's results, one per ship. */
-  results: Iterable<{ ship: number; place: number; sinkings: number; afloatSeconds: number; livesLeft: number; out: boolean }>;
+  results: Iterable<{ ship: number; type: string; place: number; sinkings: number; afloatSeconds: number; livesLeft: number; out: boolean }>;
   /** Stage 3: the laptop's Wi-Fi address for the QR code, or "". */
   joinAddress: string;
   packsEnabled: boolean;
@@ -258,6 +260,8 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
         .join(";");
       canvasHost.dataset.mines = String(frame?.mines.size ?? 0);
       if (own) canvasHost.dataset.ownHealth = String(Math.round(own.health));
+      // Stage 5: each ship's type, for the browser smoke tests.
+      canvasHost.dataset.types = (frame?.ships ?? []).map((s) => s.type).join(",");
       // Wrecks still standing as "id:health:pack;…" (pack 1 when it holds one), for the browser smoke tests.
       canvasHost.dataset.wrecks = [...(frame?.wrecks ?? new Map())].map(([id, w]) => `${id}:${Math.round(w.health)}:${w.hasPack ? 1 : 0}`).join(";");
       canvasHost.dataset.torpedoes = String(frame?.torpedoes.size ?? 0);
@@ -266,7 +270,7 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
       canvasHost.dataset.hidden = frame ? hiddenShips(frame.ships, frame.hazards, mine?.crew ?? null).join(",") : "";
       // Stage 3 lifebars shown to this player as "ship:fill:colour;…", for the browser smoke tests.
       canvasHost.dataset.lifebars = (frame?.ships ?? [])
-        .map((s, id) => (lifebarShown(s, id, mine?.crew ?? null, frame!.hazards) ? `${id}:${lifebarFill(s.health).toFixed(2)}:${lifebarColour(lifebarFill(s.health))}` : ""))
+        .map((s, id) => (lifebarShown(s, id, mine?.crew ?? null, frame!.hazards) ? `${id}:${lifebarFill(s.health, statsOf(s).maxHealth).toFixed(2)}:${lifebarColour(lifebarFill(s.health, statsOf(s).maxHealth))}` : ""))
         .filter(Boolean)
         .join(";");
       // Stage 4: the ships this player sees damaged (below a quarter of full health), for the browser smoke tests.
@@ -419,7 +423,7 @@ export function renderResult(el: HTMLElement, state: RoomStateView): void {
   layout.textContent = layoutText(state.layout, state.matchLayout);
   const table = document.createElement("table");
   table.className = "results";
-  const head = ["Place", "Crew", "Sinkings", "Time afloat", ...(lastAfloat ? ["Lives left"] : [])];
+  const head = ["Place", "Crew", "Ship", "Sinkings", "Time afloat", ...(lastAfloat ? ["Lives left"] : [])];
   const row = (cells: string[], tag: "th" | "td") => {
     const tr = document.createElement("tr");
     tr.append(...cells.map((text) => Object.assign(document.createElement(tag), { textContent: text })));
@@ -610,11 +614,14 @@ function updateHud(frame: Frame | null, seat: { crew: number; role: Role } | nul
   const style = CREW_STYLES[seat.crew] ?? CREW_STYLES[0];
   // Stage 4 slice 7: the role as a tag in the crew colour; the crew name in ink. The Boost button and the lit Pack
   // button's glow use the crew colour too.
-  role.textContent = roleLabel[seat.role];
+  // Stage 5: with the crew's ship type ("Pilot · Cutter").
+  const tag = `${roleLabel[seat.role]} · ${SHIP_TYPE_NAMES[crewShip?.type ?? "frigate"]}`;
+  if (role.textContent !== tag) role.textContent = tag;
   role.style.background = style.css;
   crew.textContent = `${style.symbol} ${style.name}`;
   document.getElementById("game-screen")!.style.setProperty("--crew", style.css);
   bar.hidden = false;
-  const energy = frame?.ships[seat.crew]?.energy ?? 0;
-  fill.style.width = `${(100 * energy) / TUNING.energy.max}%`;
+  const energy = crewShip?.energy ?? 0;
+  // Stage 5: the bar is the ship type's own size.
+  fill.style.width = `${(100 * energy) / (crewShip ? statsOf(crewShip).energyMax : TUNING.energy.max)}%`;
 }

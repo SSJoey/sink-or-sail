@@ -1,5 +1,6 @@
 import type { Polygon } from "./geometry.ts";
 import type { LayoutId } from "./layouts.ts";
+import type { ShipType } from "./shipTypes.ts";
 import type { Vec } from "./vec.ts";
 
 export interface PilotInput {
@@ -139,6 +140,8 @@ export interface Torpedo {
 
 export interface Ship {
   id: number;
+  /** Stage 5: its type, fixed for the match (size, speed, turning, gun, bar and health come from it). */
+  type: ShipType;
   pos: Vec;
   vel: Vec;
   /** Direction the bow points (radians). */
@@ -182,6 +185,9 @@ export interface Shot {
   pos: Vec;
   vel: Vec;
   travelled: number;
+  /** Stage 5: the firing ship's gun (its type's damage and range). */
+  damage: number;
+  range: number;
 }
 
 export interface World {
@@ -239,7 +245,8 @@ export interface World {
 
 export type SimEvent =
   | { type: "shotFired"; ship: number; shot: number }
-  | { type: "hit"; attacker: number; target: number; damage: number }
+  /** `distance`: how far the shot had flown when it hit (Stage 5). */
+  | { type: "hit"; attacker: number; target: number; damage: number; distance: number }
   | { type: "shotBlocked"; attacker: number; target: number }
   | { type: "bump"; ships: [number, number]; damage: [number, number] }
   | { type: "boostStarted"; ship: number }

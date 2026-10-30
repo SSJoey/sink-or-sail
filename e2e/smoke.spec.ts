@@ -17,7 +17,7 @@ test("loads, joins a room and shows a ship", async ({ page }) => {
   await expect(page.locator("#game canvas")).toBeVisible();
   // The scene reports how many ships it drew (a canvas has no elements to inspect).
   await expect(page.locator("#game")).toHaveAttribute("data-ships", "2");
-  await expect(page.locator("#hud-role")).toHaveText("Pilot");
+  await expect(page.locator("#hud-role")).toHaveText("Pilot · Frigate");
   await expect(page.locator("#countdown")).toBeHidden({ timeout: 10_000 }); // 3-2-1, then "Go!" for a second
 });
 

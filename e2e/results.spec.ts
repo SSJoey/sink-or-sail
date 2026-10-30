@@ -27,7 +27,7 @@ test("results: everyone sees the table; the host plays again; the results close 
   await expect(other.locator("#result .awards li")).toContainText(["Speed Demon · ● Crew 1 · energy on boost"]);
   for (const p of [host, other]) {
     await expect(p.locator("#scoreboard")).toBeVisible();
-    await expect(p.locator("#result tr th")).toHaveText(["Place", "Crew", "Sinkings", "Time afloat"]);
+    await expect(p.locator("#result tr th")).toHaveText(["Place", "Crew", "Ship", "Sinkings", "Time afloat"]);
     await expect(p.locator("#result tr")).toHaveCount(3);
     await expect(p.locator("#results-countdown")).toHaveText(/^Back to the lobby in \d+$/);
   }

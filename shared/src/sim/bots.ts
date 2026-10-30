@@ -3,6 +3,7 @@ import { circleOverlapsPolygon, pointInPolygon, segmentPolygonHit, type Polygon 
 import { inMovingStorm } from "./hazards.ts";
 import { SEA_CENTRE } from "./map.ts";
 import { nextRandom } from "./random.ts";
+import { statsOf, type ShipType } from "./shipTypes.ts";
 import { stormRadius } from "./storm.ts";
 import type { GunnerInput, Hazard, PackType, PilotInput, Ship, World } from "./types.ts";
 import { add, angleOf, distance, dot, fromAngle, normalise, scale, sub, wrapAngle, type Vec } from "./vec.ts";
@@ -28,13 +29,13 @@ export interface BotMind {
   gunner: GunnerInput;
 }
 
-/** A bot's mind at the match start, seeded from the match seed, its ship and its role. */
-export function newBotMind(seed: number, ship: number, role: "pilot" | "gunner"): BotMind {
+/** A bot's mind at the match start, seeded from the match seed, its ship and its role; it knows its ship's type (Stage 5). */
+export function newBotMind(seed: number, ship: number, role: "pilot" | "gunner", type: ShipType = "frigate"): BotMind {
   const rng = (seed ^ Math.imul(ship + 1, 0x9e3779b1) ^ (role === "pilot" ? 0x51ed27 : 0x2c1b3c6d)) >>> 0;
   return {
     rng,
     thinkIn: 0,
-    seenHealth: TUNING.ship.maxHealth,
+    seenHealth: statsOf({ type }).maxHealth,
     shieldLeft: 0,
     circle: ship % 2 === 0 ? 1 : -1,
     pilot: { steer: { x: 0, y: 0 }, boost: false },
@@ -65,7 +66,8 @@ const canBoost = (ship: Ship) => !ship.energyLocked && ship.energy >= B.boostEne
 
 /**
  * The gunner: aims at the nearest enemy it can see, leading it, with wobble; fires when aimed within `fireAngle`,
- * in range and with nothing solid in the way; raises the shield for `shieldSeconds` after a hit (with energy);
+ * in range (`fireRange` is for the Frigate's gun; other guns in the same proportion), with nothing solid in the way and
+ * the turret swung round to within `fireAngle` of the aim (Stage 5: turrets turn at a set rate); raises the shield for `shieldSeconds` after a hit (with energy);
  * fires a torpedo at an enemy nearly dead ahead and an EMP at one close by.
  */
 export function botGunner(world: World, shipId: number, mind: BotMind, dt: number): { input: GunnerInput; mind: BotMind } {
@@ -88,7 +90,8 @@ export function botGunner(world: World, shipId: number, mind: BotMind, dt: numbe
         const aimAt = leadPoint(ship.pos, target);
         const aim = fromAngle(angleOf(sub(aimAt, ship.pos)) + error);
         const range = distance(ship.pos, target.pos);
-        const fire = Math.abs(error) <= B.fireAngle + EPSILON && range <= B.fireRange && clearLine(ship.pos, aimAt, solids);
+        const fireRange = (B.fireRange * statsOf(ship).shotRange) / TUNING.gun.shotRange;
+        const fire = Math.abs(error) <= B.fireAngle + EPSILON && range <= fireRange && clearLine(ship.pos, aimAt, solids);
         next.gunner = { aim, fire, shield: false };
         pack = gunnerPackNow(world, ship, solids);
       } else {
@@ -97,7 +100,8 @@ export function botGunner(world: World, shipId: number, mind: BotMind, dt: numbe
     }
   }
   const shield = next.shieldLeft > EPSILON && !ship.sunk;
-  const input: GunnerInput = { ...next.gunner, fire: next.gunner.fire && !shield, shield, ...(pack && { pack: true }) };
+  const swung = Math.abs(wrapAngle(ship.turret - angleOf(next.gunner.aim))) <= B.fireAngle + EPSILON;
+  const input: GunnerInput = { ...next.gunner, fire: next.gunner.fire && !shield && swung, shield, ...(pack && { pack: true }) };
   return { input, mind: next };
 }
 
@@ -122,7 +126,7 @@ function gunnerPackNow(world: World, ship: Ship, solids: readonly Polygon[]): bo
 
 /** Whether the ship can take a pack of this type now (health only when hurt, others when that slot is free). */
 function canUse(ship: Ship, type: PackType): boolean {
-  if (type === "health") return ship.health < TUNING.ship.maxHealth - EPSILON;
+  if (type === "health") return ship.health < statsOf(ship).maxHealth - EPSILON;
   if (type === "mine") return ship.pilotPack === null;
   return ship.gunnerPack === null;
 }
@@ -166,7 +170,7 @@ function pilotGoal(world: World, ship: Ship, circle: number): { goal: Vec; boost
   }
   const enemies = visibleEnemies(world, ship);
   const nearest = enemies[0];
-  if (nearest && ship.health <= B.escapeHealth * TUNING.ship.maxHealth + EPSILON && distance(nearest.pos, ship.pos) <= B.escapeRange) {
+  if (nearest && ship.health <= B.escapeHealth * statsOf(ship).maxHealth + EPSILON && distance(nearest.pos, ship.pos) <= B.escapeRange) {
     return { goal: away(nearest.pos), boost: true };
   }
   const reach = nearest ? B.packDetour : Infinity;
@@ -208,13 +212,15 @@ function clearHeading(world: World, ship: Ship, goal: Vec): Vec {
   const solids = solidsOf(world);
   // Already against an island or wreck: first stop pressing into it, and ease off it.
   let wanted = goal;
+  let against = false;
   for (const solid of solids) {
-    const push = circleOverlapsPolygon(ship.pos, TUNING.ship.radius + 2, solid);
+    const push = circleOverlapsPolygon(ship.pos, statsOf(ship).radius + 2, solid);
+    if (push) against = true;
     const into = push ? dot(wanted, push.normal) : 0;
     if (push && into < 0.5) wanted = normalise(add(sub(wanted, scale(push.normal, into)), scale(push.normal, 0.5)));
   }
   const whirlpools = world.hazards.filter((h) => h.kind === "whirlpool" && h.phase !== "fading");
-  const r = TUNING.ship.radius;
+  const r = statsOf(ship).radius;
   const points = (dir: Vec) => [0.2, 0.4, 0.6, 0.8, 1].map((f) => add(ship.pos, scale(dir, B.lookAhead * f)));
   const hard = (p: Vec) => p.x < r || p.y < r || p.x > TUNING.sea.width - r || p.y > TUNING.sea.height - r
     || solids.some((s) => circleOverlapsPolygon(p, r + CLEARANCE, s) !== null);
@@ -226,6 +232,7 @@ function clearHeading(world: World, ship: Ship, goal: Vec): Vec {
   const dir = tries.find((d) => points(d).every((p) => !hard(p) && !soft(p)))
     ?? tries.find((d) => points(d).every((p) => !hard(p)))
     ?? wanted;
-  // A sharp turn is taken slowly, so the ship doesn't drift wide into what it is turning away from.
-  return Math.abs(wrapAngle(angleOf(dir) - ship.heading)) > SHARP_TURN ? scale(dir, SLOW_TURN) : dir;
+  // A sharp turn is taken slowly, so the ship doesn't drift wide into what it is turning away from; but not while
+  // already against an island or wreck, where creeping keeps it there.
+  return !against && Math.abs(wrapAngle(angleOf(dir) - ship.heading)) > SHARP_TURN ? scale(dir, SLOW_TURN) : dir;
 }

@@ -17,6 +17,7 @@ export function syncWorld(state: CrewState, world: World): void {
   while (state.ships.length > world.ships.length) state.ships.pop();
   world.ships.forEach((ship, i) => {
     const synced = state.ships[i]!;
+    synced.type = ship.type;
     synced.x = ship.pos.x;
     synced.y = ship.pos.y;
     synced.heading = ship.heading;

@@ -29,15 +29,15 @@ export function stormTicks(storm: StormTimes, from: number, to: number): number 
 /**
  * Where a ship respawns while the storm closes: its chosen spot if that is well inside the circle; otherwise the
  * spot pulled in toward the middle until it's `respawnInset` inside the circle, then further in until it's clear
- * of every island and wreck (`solids`).
+ * of every island and wreck (`solids`) for a ship of `shipRadius`.
  */
-export function respawnInside(spot: Vec, radius: number, solids: readonly Polygon[]): Vec {
+export function respawnInside(spot: Vec, radius: number, solids: readonly Polygon[], shipRadius: number = TUNING.ship.radius): Vec {
   const limit = radius - S.respawnInset;
   const fromMiddle = sub(spot, SEA_CENTRE);
   const dist = distance(spot, SEA_CENTRE);
   if (dist <= limit) return spot;
   const dir = normalise(fromMiddle);
-  const clear = (p: Vec) => solids.every((solid) => circleOverlapsPolygon(p, TUNING.ship.radius, solid) === null);
+  const clear = (p: Vec) => solids.every((solid) => circleOverlapsPolygon(p, shipRadius, solid) === null);
   for (let r = limit; r > 0; r -= 10) {
     const p = add(SEA_CENTRE, scale(dir, r));
     if (clear(p)) return p;

@@ -1,4 +1,4 @@
-import { DEFAULT_LAYOUT, TUNING, type EarnedAward, type GameMode, type LayoutId, type ReefAmount, type Role, type Seat, type SimEvent, type StormTimes, type World, type Wreck } from "@sink-or-sail/shared";
+import { DEFAULT_LAYOUT, TUNING, type EarnedAward, type GameMode, type LayoutId, type ReefAmount, type Role, type Seat, type ShipType, type SimEvent, type StormTimes, type World, type Wreck } from "@sink-or-sail/shared";
 
 /** Who crews each ship (index = ship id); null for an empty seat. */
 export type Roster = { pilot: string | null; gunner: string | null }[];
@@ -25,7 +25,7 @@ export function simEventLines(t: number, events: readonly SimEvent[], roster: Ro
   for (const e of events) {
     switch (e.type) {
       case "shotFired": lines.push({ t, type: "shotFired", ...actor(roster, e.ship, "gunner") }); break;
-      case "hit": lines.push({ t, type: "hit", ...actor(roster, e.attacker, "gunner"), target: e.target, damage: r1(e.damage) }); break;
+      case "hit": lines.push({ t, type: "hit", ...actor(roster, e.attacker, "gunner"), target: e.target, damage: r1(e.damage), distance: r1(e.distance) }); break;
       case "shieldRaised": lines.push({ t, type: "shieldRaised", ...actor(roster, e.ship, "gunner") }); break;
       case "shotBlocked": lines.push({ t, type: "shotBlocked", ...actor(roster, e.target, "gunner"), attacker: e.attacker }); break;
       case "boostStarted": lines.push({ t, type: "boostUsed", ...actor(roster, e.ship, "pilot") }); break;
@@ -115,6 +115,8 @@ export function matchStartLine(room: string, roster: Roster, match: {
   firstHazardAt?: number | null;
   /** Stage 3: who in each crew is a bot, the bot ships, the host's Bot ships setting, the spectators, how many wait. */
   lobby?: MatchLobby;
+  /** Stage 5: each crew's ship type (by ship id). */
+  types?: readonly ShipType[];
 }): LogLine {
   const lobby = match.lobby;
   return {
@@ -125,6 +127,7 @@ export function matchStartLine(room: string, roster: Roster, match: {
       ship,
       pilot: c.pilot,
       gunner: c.gunner,
+      ...(match.types && { type: match.types[ship] ?? "frigate" }),
       ...(lobby && { bots: [...(lobby.bots[ship] ?? [])], botShip: lobby.botShips.includes(ship) }),
     })),
     packsOn: match.packsOn,

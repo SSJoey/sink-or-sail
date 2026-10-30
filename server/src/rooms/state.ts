@@ -19,11 +19,15 @@ export const Player = schema({
   bot: t.boolean().default(false),
   /** Slice 9, while waiting out a match without a crew: chose Play with a bot for the next round. */
   withBot: t.boolean().default(false),
+  /** Stage 5: the ship type this player picks for their crew (used when they're its picker); kept between rounds. */
+  shipType: t.string().default("frigate"),
 }, "Player");
 export type Player = SchemaType<typeof Player>;
 
 /** What clients need to draw a ship; mirrors the simulation's Ship (index = ship id = crew). */
 export const ShipState = schema({
+  /** Stage 5: its ship type, fixed for the match. */
+  type: t.string().default("frigate"),
   x: t.float32(),
   y: t.float32(),
   heading: t.float32(),
@@ -131,6 +135,8 @@ export type AwardState = SchemaType<typeof AwardState>;
 /** Stage 3: one ship's line in the results at the end of a match. */
 export const ResultState = schema({
   ship: t.int8(),
+  /** Stage 5: the ship's type. */
+  type: t.string().default("frigate"),
   /** 1 for first; equal results share a place. */
   place: t.uint8(),
   sinkings: t.uint8(),

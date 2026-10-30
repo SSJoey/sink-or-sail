@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { MAX_BOT_SHIPS, Phase, TUNING } from "@sink-or-sail/shared";
-import { canChangeSeat, canEndMatch, canPause, canResume, canSetPacks, canStart, crewHasShip, everyCrewManned, nextHost, readBotShips, readLayout, readOnOff, readReefs, readLives, readMode, shipCount } from "./matchFlow.ts";
+import { canChangeSeat, canEndMatch, canPause, canResume, canSetPacks, canStart, crewHasShip, everyCrewManned, nextHost, readBotShips, readLayout, readOnOff, readReefs, readLives, readMode, readShipType, shipCount } from "./matchFlow.ts";
 
 describe("canStart", () => {
   it("lets only the host start, and only when no match is on", () => {
@@ -162,5 +162,12 @@ describe("readReefs and readOnOff (Stage 2 slice 3)", () => {
     expect(readOnOff({ on: true })).toBe(true);
     expect(readOnOff({ on: false })).toBe(false);
     for (const bad of [null, "off", { on: "no" }, { on: false, extra: 1 }]) expect(readOnOff(bad)).toBeNull();
+  });
+});
+
+describe("readShipType (Stage 5)", () => {
+  it("accepts only { type } with one of the five types", () => {
+    for (const ok of ["frigate", "cutter", "ironclad", "gunboat", "longGun"] as const) expect(readShipType({ type: ok })).toBe(ok);
+    for (const bad of [null, "cutter", { type: "raft" }, { type: 1 }, { type: "cutter", extra: 1 }]) expect(readShipType(bad)).toBeNull();
   });
 });

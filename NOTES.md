@@ -1244,6 +1244,68 @@ Drafted from `docs/design.md`, the roadmap and "Later". Scope:
      11. Cloud hosting, logs online and the spectator delay.
   3. a) **Long gun range:** 850 everywhere, including the one-screen sea; to look at in the user's test games.
 
+### 2026-10-30 — Stage 5 slice 1 plan: ship types (rules, hull shapes, the pilot's pick)
+
+- **Plan:** the five types with the approved values (Frigate unchanged); each ship carries its type, and hits, bumps, pickups, mines, the EMP, reefs, wrecks, storms and the kraken use its own size. The pilot picks in the lobby (Frigate by default, kept between rounds, locked once the crew is Ready). Five hull silhouettes; aiming line as long as the type's range; energy bar and lifebar by the type's own maximums; the type shown in the lobby, crew panel, top bar role tag and results. Log: each crew's type and the type values at match start, and each hit's distance.
+- **User's answers:**
+  1. a) Turning scales with speed: Frigate 180°/s, Cutter 210°/s, Ironclad 150°/s, Gunboat 186°/s, Long gun 174°/s; grip unchanged. The user added: **"turn rate can also apply to the gun"** (today the turret points at the aim at once). Values to confirm.
+  2. a) Reefs, the closing storm, the kraken and bumps do **fixed amounts** (today's Frigate amounts), like packs.
+  3. a) Energy restart after an empty bar: **20 for every type**.
+  4. b) **Bigger ships push smaller ones further** in a bump. How to share the push: to confirm.
+  5. b) With a bot pilot and a person as gunner, **the gunner picks the type and the bot pilot sails it**. This changes the 2026-10-25 note "Bots use only the Frigate at first" for partner bots; bot ships: to confirm.
+- **Follow-ups confirmed (user, "go with your suggestions", also the go-ahead):**
+  1. a) **Turret turn rate for every type**, scaled by speed like the hull: Frigate 360°/s, Cutter 420°/s, Ironclad 300°/s, Gunboat 372°/s, Long gun 348°/s. The Frigate changes too, so **the Stage 0 reference recording is re-recorded** (approved).
+  2. a) **A bump's push is shared by area** (size squared): an Ironclad meeting a Cutter takes 30% and the Cutter 70%; equal sizes 50/50 (Frigate bumps unchanged). Bump damage stays fixed for both.
+  3. a) **Bot ships are always Frigates.** A partner bot pilot sails the type its human gunner picks.
+- **Built (2026-10-30):**
+  - **Shared:**
+    - `tuning.ts` `shipTypes` (the Frigate's row is the original `ship`, `energy` and `gun` values);
+    - `sim/shipTypes.ts` (`SHIP_TYPES`, `SHIP_TYPE_NAMES`, `isShipType`, `statsOf`).
+    - Each `Ship` has a `type`, and a `Shot` carries its gun's `damage` and `range`.
+    - Everything that used the Frigate's size now uses the ship's own: sailing, the sea edge, islands, bumps, hits, pickups, mines (drop, touch, blast), the torpedo's launch, the EMP's reach, wreck contact, hazard spawn clearance, storm respawn.
+    - The bar's size and refill are by type.
+    - `aimTurret` turns at the type's turret rate.
+    - A `hit` event carries `distance` (how far the shot had flown).
+    - `createWorld({ types })`; `newBotMind(…, type)`.
+    - `rooms.ts`: `SetShipType`, `NotTypePicker`, `ShipTypeLocked`, `shipTypePicker`.
+  - **Server:**
+    - `Player.shipType` (each player's own pick, kept between rounds);
+    - `ShipState.type` and `ResultState.type`;
+    - `readShipType`;
+    - the match start log line has each crew's `type` (the tuning snapshot includes `shipTypes`);
+    - hit lines have `distance`.
+  - **Client:**
+    - five hull shapes with their own deck marks and barrel length (Frigate as before, Long gun barrel 30);
+    - the aiming line to the type's range;
+    - the own-ship ring, shield ring, boost wake, flag, cracks, flames and kraken grip scaled to size;
+    - lifebar, visible damage and energy bar by the type's own maximums;
+    - top bar role tag "Pilot · Cutter";
+    - a Ship column in the results;
+    - in the lobby, a Ship dropdown for the picker (disabled once Ready or in a match), the type's name with "(your pilot picks)" for the crewmate, a one-line description ("Health 75 · speed 175 · range 450 · fires every 0.3 s"), and the type in each crew's row of the list.
+  - **Tests:** about 85 new (sim rules per type, bot gunner, room picking, log, hulls, lifebar, damage, crew list, results, a browser test).
+  - **Tests changed with the rules, not weakened:**
+    - turret tests give the turret time to swing (`aimTurret` takes `dt`; three of them use a full second);
+    - two tests start the turret on the aim;
+    - the traceShot ship result has `at`;
+    - hit events have `distance`;
+    - room JSON has `shipType`;
+    - the role tag reads "Pilot · Frigate" in three browser tests;
+    - the results rows have the Ship column.
+  - **Stage 0 reference recording re-recorded (approved):** still 47 hits and 9 sinkings. The tuning check now includes `shipTypes`.
+- **Chosen while building (to confirm with the user):**
+  - **Bot pilot:** a bot no longer slows for a sharp turn while it is already against an island or wreck. Without this, the turret change led one bot match (The Ring, seed 4) to a bot creeping against a rock for 2.4 s, over the bot test's 2 s limit. The bot tests pass with it.
+  - **Bot gunner:** it fires only once the turret has swung to within 5° of its aim. Its fire range is `fireRange` (550 of the Frigate's 600) in the same proportion for other guns (a Long gun's is about 779).
+  - **Who picks, in detail:** each player keeps their own pick. A crew sails its picker's, so the type follows the pilot if crews change. The pick locks while the picker is Ready, not the whole crew.
+  - **Close Shave award:** still "afloat at under 25 health" (a fixed amount, like damage), not a share of each type's full health.
+  - **Ghosts** keep the Frigate's outline whatever the crew sailed.
+- **Runs:**
+  - Type-check clean; 1168 unit tests pass (plus 1 skipped).
+  - Full browser run 38 (peak load 24) failed three tests:
+    - two not yet updated for the results' new Ship column (fixed);
+    - the phone torpedo test (the pilot picked up a mine on the way), which passed alone.
+  - Run 39 (peak load 26) failed only the results test: no Speed Demon award, as Space is held a fixed 2.5 s and less boost reached the server under load. It passed in run 38 and alone.
+  - The user chose to commit as it is.
+
 ## Later
 
 - **(2026-10-30, after Stage 5's scaled layouts) Custom layouts for larger maps:** hand-made layouts made for the 3200 × 1800 and 4000 × 2250 seas, instead of today's nine spread out to fit. The user will look at them later.

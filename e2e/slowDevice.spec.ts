@@ -17,7 +17,7 @@ test("a slow device still sees the countdown, the layout banner, the beeps and t
     (window as unknown as { seen: Record<string, string> }).seen = seen;
     const countdown = () => document.getElementById("countdown")!.textContent ?? "";
     new MutationObserver(() => {
-      if (!seen.role && document.getElementById("hud-role")!.textContent === "Pilot") seen.role = countdown();
+      if (!seen.role && document.getElementById("hud-role")!.textContent === "Pilot · Frigate") seen.role = countdown();
       if (!seen.packs && document.getElementById("hud-pack")!.getAttribute("aria-label") === "Packs: — · —") seen.packs = countdown();
     }).observe(document.body, { subtree: true, childList: true, attributes: true, characterData: true });
   });

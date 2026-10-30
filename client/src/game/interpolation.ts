@@ -1,6 +1,8 @@
-import { wrapAngle, type PackType } from "@sink-or-sail/shared";
+import { wrapAngle, type PackType, type ShipType } from "@sink-or-sail/shared";
 
 export interface ShipView {
+  /** Stage 5: its ship type. */
+  type: ShipType;
   x: number;
   y: number;
   heading: number;

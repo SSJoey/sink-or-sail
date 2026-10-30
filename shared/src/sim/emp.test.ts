@@ -78,7 +78,7 @@ describe("firing an EMP", () => {
     const w = world(undefined, (w) => {
       w.mines = [{ id: 0, owner: 1, pos: { x: 450, y: 450 }, age: 0 }];
       w.torpedoes = [{ id: 0, owner: 1, pos: { x: 500, y: 600 }, vel: { x: 0, y: -300 } }];
-      w.shots = [{ id: 0, owner: 1, pos: { x: 300, y: 600 }, vel: { x: 0, y: 450 }, travelled: 0 }];
+      w.shots = [{ id: 0, owner: 1, pos: { x: 300, y: 600 }, vel: { x: 0, y: 450 }, travelled: 0, damage: 20, range: 600 }];
     });
     const { world: after } = run(w, DT, empThen(idle));
     expect(after.mines).toHaveLength(1);

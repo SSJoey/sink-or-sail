@@ -25,7 +25,7 @@ describe("the award tally (Stage 3)", () => {
   it("counts hits landed and taken, shots, reef hits, bumps, grabs, packs and haunted hazards", () => {
     const t = tally([
       { type: "shotFired", ship: 0, shot: 1 }, { type: "shotFired", ship: 0, shot: 2 },
-      { type: "hit", attacker: 0, target: 1, damage: 20 },
+      { type: "hit", attacker: 0, target: 1, damage: 20, distance: 300 },
       { type: "torpedoHit", torpedo: 1, attacker: 2, target: 1, damage: 50, shieldHalved: false },
       { type: "mineTriggered", mine: 1, owner: 0, shooter: null, hits: [{ ship: 2, damage: 40, ownMine: false }, { ship: 0, damage: 0, ownMine: true }] },
       { type: "bump", ships: [0, 1], damage: [5, 0] },

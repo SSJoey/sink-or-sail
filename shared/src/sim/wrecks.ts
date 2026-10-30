@@ -2,6 +2,7 @@ import { TUNING } from "../tuning.ts";
 import { bumpDamage, canBeDamaged } from "./combat.ts";
 import { circleOverlapsPolygon, type Polygon } from "./geometry.ts";
 import { nextRandom, weightedPick } from "./random.ts";
+import { statsOf } from "./shipTypes.ts";
 import type { PackType, Ship, Wreck, WreckWeapon } from "./types.ts";
 import { dot, type Vec } from "./vec.ts";
 
@@ -51,7 +52,7 @@ export function placeWrecks(spots: readonly WreckSpot[], packsOn: boolean, seed:
 
 /** A ship touching a wreck (with the same slop as ship-to-ship contact). */
 export function touchingWreck(ship: Ship, wreck: Wreck) {
-  return circleOverlapsPolygon(ship.pos, TUNING.ship.radius + 1, wreck.hull);
+  return circleOverlapsPolygon(ship.pos, statsOf(ship).radius + 1, wreck.hull);
 }
 
 /**
@@ -64,7 +65,7 @@ export function ramDamage(ship: Ship, normal: Vec): { ship: number; wreck: numbe
   return { ship: canBeDamaged(ship) ? damage : 0, wreck: damage * TUNING.wreck.ramFactor };
 }
 
-/** Damage each weapon does to a wreck: its usual damage to a ship's full health. */
+/** Damage each weapon does to a wreck: its usual damage to a ship (a shot: a Frigate's; a shot carries its own gun's). */
 export function wreckDamage(weapon: Exclude<WreckWeapon, "bump">): number {
   const full = TUNING.ship.maxHealth;
   if (weapon === "shot") return TUNING.gun.shotDamage;

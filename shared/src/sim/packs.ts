@@ -1,6 +1,7 @@
 import { PACK_USER } from "../packRules.ts";
 import { TUNING } from "../tuning.ts";
 import { randomIndex, weightedPick } from "./random.ts";
+import { statsOf } from "./shipTypes.ts";
 import type { Pack, PackType, Ship, SimEvent, World, WreckPack } from "./types.ts";
 import { distance, type Vec } from "./vec.ts";
 
@@ -10,14 +11,13 @@ const EPSILON = 1e-9;
 export const PACK_CHANCES = Object.entries(TUNING.packs.chances) as [PackType, number][];
 
 /** A ship and a pack touch when their circles overlap. */
-const touches = (a: { x: number; y: number }, b: { x: number; y: number }) =>
-  distance(a, b) < TUNING.ship.radius + TUNING.packs.radius;
+const touches = (ship: Ship, pack: Vec) => distance(ship.pos, pack) < statsOf(ship).radius + TUNING.packs.radius;
 
 /** Spots (indices into the world's pack spots) with no pack, glowing or not, and no ship afloat on them. */
 export function freeSpots(world: World): number[] {
   return world.packSpots.flatMap((spot, i) => {
     const used = world.packs.some((p) => p.spot === i);
-    const shipOnIt = world.ships.some((s) => !s.sunk && touches(s.pos, spot));
+    const shipOnIt = world.ships.some((s) => !s.sunk && touches(s, spot));
     return used || shipOnIt ? [] : [i];
   });
 }
@@ -47,17 +47,17 @@ const slotFor = (type: PackType) => (PACK_USER[type] === "pilot" ? "pilotPack" :
  */
 function takerOf(ships: readonly Ship[], pos: Vec, type: PackType): number {
   return ships.findIndex((ship) => {
-    if (ship.sunk || !touches(ship.pos, pos)) return false;
-    return type === "health" ? ship.health < TUNING.ship.maxHealth : ship[slotFor(type)] === null;
+    if (ship.sunk || !touches(ship, pos)) return false;
+    return type === "health" ? ship.health < statsOf(ship).maxHealth : ship[slotFor(type)] === null;
   });
 }
 
-/** The taker gets the pack: a slot pack goes in its slot; a health pack heals at once (never above full). */
+/** The taker gets the pack: a slot pack goes in its slot; a health pack heals a fixed amount at once (never above its own full health). */
 function givePack(ships: Ship[], index: number, pack: { id: number; type: PackType }, events: SimEvent[]): void {
   const ship = ships[index]!;
   events.push({ type: "packPickedUp", ship: ship.id, pack: pack.id, packType: pack.type });
   if (pack.type === "health") {
-    const amount = Math.min(TUNING.ship.maxHealth - ship.health, TUNING.packs.healthRestore * TUNING.ship.maxHealth);
+    const amount = Math.min(statsOf(ship).maxHealth - ship.health, TUNING.packs.healthRestore * TUNING.ship.maxHealth);
     ships[index] = { ...ship, health: ship.health + amount };
     events.push({ type: "healthRestored", ship: ship.id, amount });
   } else {

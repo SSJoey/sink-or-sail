@@ -5,6 +5,7 @@ import { PACK_CHANCES } from "./packs.ts";
 import { ZONES, hazardSeed } from "./hazards.ts";
 import { DEFAULT_STORM_TIMES } from "./storm.ts";
 import { placeWrecks } from "./wrecks.ts";
+import { statsOf, type ShipType } from "./shipTypes.ts";
 import type { GameMode, Ship, StormTimes, World } from "./types.ts";
 import { angleOf, sub } from "./vec.ts";
 
@@ -31,6 +32,8 @@ export interface WorldOptions {
   firstHazardAt?: number | null;
   /** Stage 3: ships crewed by bots only (none by default). */
   botShips?: readonly number[];
+  /** Stage 5: each ship's type, by ship id (a Frigate where none is given). */
+  types?: readonly ShipType[];
 }
 
 export function createWorld(options: WorldOptions = {}): World {
@@ -42,14 +45,16 @@ export function createWorld(options: WorldOptions = {}): World {
   const livesLeft = mode === "lastAfloat" ? (options.lives ?? TUNING.lastAfloat.lives) : null;
   const ships: Ship[] = (three ? layout.starts3 : layout.starts).map((pos, id) => {
     const heading = angleOf(sub(SEA_CENTRE, pos));
+    const type = options.types?.[id] ?? "frigate";
     return {
       id,
+      type,
       pos,
       vel: { x: 0, y: 0 },
       heading,
       turret: heading,
-      health: TUNING.ship.maxHealth,
-      energy: TUNING.energy.max,
+      health: statsOf({ type }).maxHealth,
+      energy: statsOf({ type }).energyMax,
       energyLocked: false,
       boosting: false,
       shielding: false,

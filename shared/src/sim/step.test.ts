@@ -120,7 +120,7 @@ describe("shooting", () => {
   it("hits the enemy ship for shot damage", () => {
     const { world, events } = run(duel(), 1, [input({ fire: true })]);
     const hits = ofType(events, "hit");
-    expect(hits[0]).toEqual({ type: "hit", attacker: 0, target: 1, damage: shotDamage });
+    expect(hits[0]).toEqual({ type: "hit", attacker: 0, target: 1, damage: shotDamage, distance: expect.any(Number) });
     expect(world.ships[1]!.health).toBe(TUNING.ship.maxHealth - hits.length * shotDamage);
     expect(ofType(events, "shotFired")[0]).toMatchObject({ ship: 0 });
   });
@@ -135,6 +135,8 @@ describe("shooting", () => {
   it("lets the gunner aim independently of the heading", () => {
     const world = duel();
     world.ships[1] = { ...world.ships[1]!, pos: { x: 400, y: 400 } };
+    // Stage 5: the turret turns at a set rate, so it starts on the aim, as the ship sails off across it.
+    world.ships[0] = { ...world.ships[0]!, turret: Math.PI / 2 };
     const { events } = run(world, 1, [input({ steer: { x: 1, y: 0 }, aim: { x: 0, y: 1 }, fire: true })]);
     expect(ofType(events, "hit").length).toBeGreaterThan(0);
   });

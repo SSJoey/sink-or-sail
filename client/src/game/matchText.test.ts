@@ -165,8 +165,8 @@ describe("the results table (Stage 3)", () => {
   it("lists the crews by place, with sinkings and time afloat", () => {
     const results = [{ ship: 0, place: 2, sinkings: 1, afloatSeconds: 183, livesLeft: -1, out: false }, { ship: 1, place: 1, sinkings: 3, afloatSeconds: 240, livesLeft: -1, out: false }];
     expect(resultRows(results, players, false)).toEqual([
-      ["1st", "■ Crew 2 · Sam", "3", "4:00"],
-      ["2nd", "● Crew 1 · Ana & Ben", "1", "3:03"],
+      ["1st", "■ Crew 2 · Sam", "Frigate", "3", "4:00"],
+      ["2nd", "● Crew 1 · Ana & Ben", "Frigate", "1", "3:03"],
     ]);
   });
 
@@ -178,7 +178,12 @@ describe("the results table (Stage 3)", () => {
 
   it("adds lives left (or out) in Last Afloat", () => {
     const results = [{ ship: 0, place: 1, sinkings: 2, afloatSeconds: 300, livesLeft: 1, out: false }, { ship: 1, place: 2, sinkings: 0, afloatSeconds: 95, livesLeft: 0, out: true }];
-    expect(resultRows(results, players, true).map((r) => r[4])).toEqual(["1", "out"]);
+    expect(resultRows(results, players, true).map((r) => r[5])).toEqual(["1", "out"]);
+  });
+
+  it("names each crew's ship type (Stage 5)", () => {
+    const results = [{ ship: 0, type: "longGun", place: 1, sinkings: 2, afloatSeconds: 240, livesLeft: -1, out: false }, { ship: 1, type: "cutter", place: 2, sinkings: 0, afloatSeconds: 240, livesLeft: -1, out: false }];
+    expect(resultRows(results, players, false).map((r) => r[2])).toEqual(["Long gun", "Cutter"]);
   });
 
   it("counts down to going back to the lobby", () => {

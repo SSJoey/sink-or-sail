@@ -9,20 +9,21 @@ const DT = 0.05;
 const gunner = (g: Partial<GunnerInput> = {}): GunnerInput => ({ aim: { x: 0, y: 0 }, fire: false, shield: false, ...g });
 
 describe("aimTurret", () => {
+  // Stage 5: the turret turns at its type's rate, so these give it a full second to settle.
   it("points the turret exactly where the gunner aims, in sea directions", () => {
-    expect(aimTurret(testShip({ heading: 1 }), { x: 0, y: -1 }).turret).toBeCloseTo(-Math.PI / 2);
+    expect(aimTurret(testShip({ heading: 1 }), { x: 0, y: -1 }, 1).turret).toBeCloseTo(-Math.PI / 2);
   });
 
   it("keeps the last aim when the stick is released", () => {
-    expect(aimTurret(testShip({ turret: 2 }), { x: 0, y: 0 }).turret).toBe(2);
+    expect(aimTurret(testShip({ turret: 2 }), { x: 0, y: 0 }, 1).turret).toBe(2);
   });
 
   it("ignores non-finite aim", () => {
-    expect(aimTurret(testShip({ turret: 2 }), { x: NaN, y: 1 }).turret).toBe(2);
+    expect(aimTurret(testShip({ turret: 2 }), { x: NaN, y: 1 }, 1).turret).toBe(2);
   });
 
   it("is independent of the ship's heading", () => {
-    const ship = aimTurret(testShip({ heading: 0 }), { x: -1, y: 0 });
+    const ship = aimTurret(testShip({ heading: 0 }), { x: -1, y: 0 }, 1);
     expect(ship.turret).toBeCloseTo(Math.PI);
     expect(ship.heading).toBe(0);
   });
@@ -77,7 +78,7 @@ describe("fireGun", () => {
 });
 
 describe("moveShot", () => {
-  const shot: Shot = { id: 1, owner: 0, pos: { x: 0, y: 0 }, vel: { x: shotSpeed, y: 0 }, travelled: 0 };
+  const shot: Shot = { id: 1, owner: 0, pos: { x: 0, y: 0 }, vel: { x: shotSpeed, y: 0 }, travelled: 0, damage: 20, range: 600 };
 
   it("moves the shot along its velocity and returns the path it swept", () => {
     const moved = moveShot(shot, DT);

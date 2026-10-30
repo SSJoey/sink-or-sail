@@ -1,9 +1,9 @@
-import type { PackType } from "@sink-or-sail/shared";
+import { isShipType, type PackType } from "@sink-or-sail/shared";
 import type { GhostView, HazardView, MineView, PackView, ShipView, ShotView, Snapshot, WreckView } from "./interpolation.ts";
 
 /** The parts of the synced room state the game reads. */
 /** A ship as synced: each pack slot is "" when empty. */
-type SyncedShip = Omit<ShipView, "pilotPack" | "gunnerPack"> & { pilotPack: string; gunnerPack: string };
+type SyncedShip = Omit<ShipView, "pilotPack" | "gunnerPack" | "type"> & { pilotPack: string; gunnerPack: string; type: string };
 
 const slot = (synced: string) => (synced ? (synced as PackType) : null);
 
@@ -24,6 +24,7 @@ export function snapshotFromState(state: GameStateView, t: number): Snapshot {
   const ships: ShipView[] = [];
   for (const s of state.ships) {
     ships.push({
+      type: isShipType(s.type) ? s.type : "frigate",
       x: s.x, y: s.y, heading: s.heading, turret: s.turret, health: s.health, energy: s.energy,
       boosting: s.boosting, shielding: s.shielding, protection: s.protection, sunk: s.sunk, respawnIn: s.respawnIn,
       sinkings: s.sinkings, sunkBy: s.sunkBy, hits: s.hits,

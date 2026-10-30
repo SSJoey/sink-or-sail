@@ -87,6 +87,21 @@ describe("the bot gunner", () => {
     expect(thinks(sea([{ pos: { x: 300 + B.fireRange + 20, y: 450 } }]), 20).some((i) => i.fire)).toBe(false);
   });
 
+  it("holds fire until the turret has swung round to the aim (Stage 5)", () => {
+    expect(thinks(sea([{}], { turret: Math.PI }), 20).some((i) => i.fire)).toBe(false);
+  });
+
+  it("fires out to its own gun's range: a Long gun at 760, but not a Frigate (Stage 5)", () => {
+    const far = { pos: { x: 300 + 760, y: 450 } };
+    expect(thinks(sea([far], { type: "longGun" }), 60).some((i) => i.fire)).toBe(true);
+    expect(thinks(sea([far]), 60).some((i) => i.fire)).toBe(false);
+  });
+
+  it("knows its own ship's full health, so a Cutter's first look isn't taken for a hit (Stage 5)", () => {
+    expect(newBotMind(7, 0, "gunner", "cutter").seenHealth).toBe(75);
+    expect(newBotMind(7, 0, "gunner").seenHealth).toBe(100);
+  });
+
   it("holds fire when an island or wreck is in the way", () => {
     const rock = [{ x: 480, y: 420 }, { x: 520, y: 420 }, { x: 520, y: 480 }, { x: 480, y: 480 }];
     expect(thinks(sea([{}], {}, (w) => { w.islands = [rock]; }), 20).some((i) => i.fire)).toBe(false);

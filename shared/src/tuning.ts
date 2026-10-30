@@ -1,19 +1,41 @@
 // Every adjustable gameplay number. Starting values, approved 2026-10-23; change them during playtests.
 // Units: world units (about one pixel on a laptop screen), seconds, radians.
 
+const DEG = Math.PI / 180;
+
+/**
+ * Stage 5 ship types (values approved 2026-10-25; turning and turret rates 2026-10-30). Speed, turning and the
+ * turret's turn follow size (bigger is slower). The Frigate is the original ship: `ship`, `energy` and `gun` below
+ * hold its values, and pack and hazard amounts are shares of its health, the same for every type.
+ */
+const FRIGATE = {
+  maxHealth: 100,
+  radius: 28,
+  maxSpeed: 150,
+  /** Fastest the heading can turn: 180°/s. */
+  turnRate: 180 * DEG,
+  /** Fastest the turret can turn toward the aim: 360°/s. */
+  turretTurnRate: 360 * DEG,
+  fireInterval: 0.4,
+  shotDamage: 20,
+  shotRange: 600,
+  energyMax: 100,
+  refillPerSecond: 5,
+};
+
 export const TUNING = {
   sea: {
     width: 1600,
     height: 900,
   },
+  /** The Frigate's hull; other types are in `shipTypes`. */
   ship: {
-    radius: 28,
-    maxSpeed: 150,
-    /** Fastest the heading can turn: 180°/s. */
-    turnRate: Math.PI,
-    /** How quickly velocity catches up with the heading (per second). Lower = more drift. */
+    radius: FRIGATE.radius,
+    maxSpeed: FRIGATE.maxSpeed,
+    turnRate: FRIGATE.turnRate,
+    /** How quickly velocity catches up with the heading (per second), the same for every type. Lower = more drift. */
     grip: 3,
-    maxHealth: 100,
+    maxHealth: FRIGATE.maxHealth,
   },
   boost: {
     speedMultiplier: 1.8,
@@ -22,17 +44,27 @@ export const TUNING = {
   shield: {
     energyPerSecond: 40,
   },
+  /** The Frigate's bar; other types are in `shipTypes`. */
   energy: {
-    max: 100,
-    refillPerSecond: 5,
-    /** After the bar runs empty, boost and shield need this much before they work again. */
+    max: FRIGATE.energyMax,
+    refillPerSecond: FRIGATE.refillPerSecond,
+    /** After the bar runs empty, boost and shield need this much before they work again (every type). */
     restartThreshold: 20,
   },
+  /** The Frigate's gun; shot speed is the same for every type, the rest is in `shipTypes`. */
   gun: {
-    fireInterval: 0.4,
+    fireInterval: FRIGATE.fireInterval,
     shotSpeed: 450,
-    shotRange: 600,
-    shotDamage: 20,
+    shotRange: FRIGATE.shotRange,
+    shotDamage: FRIGATE.shotDamage,
+  },
+  /** Stage 5: the five ship types. A bump's push is shared by area (radius squared): the smaller ship moves further. */
+  shipTypes: {
+    frigate: FRIGATE,
+    cutter: { maxHealth: 75, radius: 22, maxSpeed: 175, turnRate: 210 * DEG, turretTurnRate: 420 * DEG, fireInterval: 0.3, shotDamage: 15, shotRange: 450, energyMax: 80, refillPerSecond: 6.5 },
+    ironclad: { maxHealth: 140, radius: 34, maxSpeed: 125, turnRate: 150 * DEG, turretTurnRate: 300 * DEG, fireInterval: 0.6, shotDamage: 30, shotRange: 500, energyMax: 130, refillPerSecond: 4 },
+    gunboat: { maxHealth: 80, radius: 26, maxSpeed: 155, turnRate: 186 * DEG, turretTurnRate: 372 * DEG, fireInterval: 0.5, shotDamage: 27, shotRange: 450, energyMax: 100, refillPerSecond: 5 },
+    longGun: { maxHealth: 85, radius: 30, maxSpeed: 145, turnRate: 174 * DEG, turretTurnRate: 348 * DEG, fireInterval: 0.7, shotDamage: 32, shotRange: 850, energyMax: 100, refillPerSecond: 5 },
   },
   bump: {
     /** Closing speed below which a bump does no damage. */

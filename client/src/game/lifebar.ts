@@ -4,8 +4,8 @@ import type { HazardView } from "./interpolation.ts";
 
 const C = TUNING.client;
 
-/** How full a ship's lifebar is (0–1). */
-export const lifebarFill = (health: number) => Math.max(0, Math.min(1, health / TUNING.ship.maxHealth));
+/** How full a ship's lifebar is (0–1), of its own full health (Stage 5: its type's; a Frigate's by default). */
+export const lifebarFill = (health: number, maxHealth: number = TUNING.ship.maxHealth) => Math.max(0, Math.min(1, health / maxHealth));
 
 /** Green above half health, amber from a quarter to half, red below a quarter. */
 export function lifebarColour(fill: number): "green" | "amber" | "red" {

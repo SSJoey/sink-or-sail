@@ -39,7 +39,9 @@ describe("syncWorld", () => {
 
   it("adds new shots and removes shots that are gone", () => {
     const state = new CrewState();
-    let world = advance(createWorld(), 0.1);
+    // Stage 5: the turret turns at a set rate, so ship 0 starts aimed the way it fires.
+    const start = createWorld();
+    let world = advance({ ...start, ships: start.ships.map((s, i) => (i === 0 ? { ...s, turret: -Math.PI / 2 } : s)) }, 0.1);
     syncWorld(state, world);
     expect(state.shots.size).toBe(world.shots.length);
     const firstId = String(world.shots[0]!.id);
@@ -75,8 +77,8 @@ describe("applyEvents", () => {
   it("counts hits on the target ship, including damaging bumps", () => {
     const state = synced();
     applyEvents(state, [
-      { type: "hit", attacker: 0, target: 1, damage: 20 },
-      { type: "hit", attacker: 0, target: 1, damage: 20 },
+      { type: "hit", attacker: 0, target: 1, damage: 20, distance: 300 },
+      { type: "hit", attacker: 0, target: 1, damage: 20, distance: 300 },
       { type: "bump", ships: [0, 1], damage: [5, 0] },
       { type: "bump", ships: [0, 1], damage: [0, 0] },
     ]);

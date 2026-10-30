@@ -7,6 +7,7 @@ export * from "./packRules.ts";
 export * from "./sim/vec.ts";
 export * from "./sim/geometry.ts";
 export * from "./sim/types.ts";
+export * from "./sim/shipTypes.ts";
 export * from "./sim/map.ts";
 export * from "./sim/layouts.ts";
 export * from "./sim/wrecks.ts";

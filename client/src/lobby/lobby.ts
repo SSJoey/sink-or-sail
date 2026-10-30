@@ -8,6 +8,7 @@ import {
   CREWS,
   ROLES,
   ROOM_NAME,
+  SHIP_TYPE_NAMES,
   ServerMessage,
   normaliseCode,
   normaliseName,
@@ -18,7 +19,7 @@ import {
 import { renderResult, startGame, type GameHandle, type RoomStateView } from "../game/game.ts";
 import { joinErrorText, rejectedText } from "./messages.ts";
 import { reloadIfNewBuild } from "./newBuild.ts";
-import { botShipCount, crewRows, myCrew, readyCount, type LobbyPlayer } from "./crewList.ts";
+import { botShipCount, crewRows, myCrew, readyCount, shipTypeFacts, type LobbyPlayer } from "./crewList.ts";
 import { waitingView } from "./waiting.ts";
 import { BOT_SHIP_CHOICES, LAYOUT_CHOICES, LIFE_CHOICES, REEF_CHOICES, botShipsText, hazardsText, layoutText, livesShown, settingsText } from "./settings.ts";
 import { clearToken, loadToken, saveToken } from "./reconnectToken.ts";
@@ -148,6 +149,8 @@ export function startLobby(): void {
       renderRoom(room, room.state as StateView);
     };
     byId("ready").onclick = () => room.send(ClientMessage.SetReady, { ready: byId("ready").getAttribute("aria-pressed") !== "true" });
+    // Stage 5: the crew's picker picks the ship type.
+    byId<HTMLSelectElement>("ship-type-pick").onchange = (e) => room.send(ClientMessage.SetShipType, { type: (e.target as HTMLSelectElement).value });
     // Only the host sees Start; the server checks it too.
     byId("start").onclick = () => { showError(""); room.send(ClientMessage.Start); };
     byId<HTMLInputElement>("packs-toggle").onchange = (e) =>
@@ -350,7 +353,7 @@ export function startLobby(): void {
    */
   function renderCrews(room: Room, state: StateView, matchOn: boolean): void {
     const players: LobbyPlayer[] = [];
-    state.players.forEach((pl, id) => players.push({ id, name: pl.name, crew: pl.crew, role: pl.role, ready: pl.ready, connected: pl.connected, bot: pl.bot }));
+    state.players.forEach((pl, id) => players.push({ id, name: pl.name, crew: pl.crew, role: pl.role, ready: pl.ready, connected: pl.connected, bot: pl.bot, shipType: pl.shipType }));
     const mine = myCrew(players, room.sessionId);
     myCrewNow = mine?.crew ?? null;
     byId("my-crew").hidden = mine === null;
@@ -378,6 +381,16 @@ export function startLobby(): void {
         button.disabled = matchOn || who !== null;
         byId(`role-${role}-who`).textContent = who ?? (mine.alone ? "Waiting for a partner" : "");
       }
+      // Stage 5: the picker gets the dropdown (locked once Ready or during a match); the crewmate sees the name.
+      const pick = byId<HTMLSelectElement>("ship-type-pick");
+      pick.hidden = !mine.picker;
+      pick.disabled = matchOn || state.players.get(room.sessionId)?.ready === true;
+      if (pick.value !== mine.shipType) pick.value = mine.shipType;
+      byId("ship-type-name").hidden = mine.picker;
+      byId("ship-type-name").textContent = SHIP_TYPE_NAMES[mine.shipType];
+      byId("ship-type-who").textContent = mine.picker ? "" : `(your ${mine.role === "pilot" ? "gunner" : "pilot"} picks)`;
+      byId("ship-type-facts").textContent = shipTypeFacts(mine.shipType);
+      crewBox.dataset.shipType = mine.shipType;
       byId("play-bot").hidden = matchOn || !mine.alone;
       byId("remove-bot").hidden = matchOn || !mine.withBot;
       byId("find-partner").hidden = matchOn || !mine.alone;
@@ -397,7 +410,11 @@ export function startLobby(): void {
         names.textContent = row.names;
         const status = document.createElement("span");
         status.textContent = row.status;
-        item.append(swatch, names, status);
+        // Stage 5: the crew's ship type.
+        const ship = document.createElement("span");
+        ship.className = "crew-ship";
+        ship.textContent = row.ship;
+        item.append(swatch, names, status, ship);
         // Join a crew with one player: between matches, or (without a crew) during one.
         // (Not for a spectator: Play next round first.)
         const spectating = state.players.get(room.sessionId)?.spectator === true;

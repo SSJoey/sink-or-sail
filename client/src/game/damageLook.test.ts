@@ -51,3 +51,19 @@ describe("visible damage (Stage 4 slice 6)", () => {
     for (const p of puffs) expect(p.x).toBeGreaterThan(500);
   });
 });
+
+describe("Stage 5: damage by the ship's own full health and size", () => {
+  it("shows below a quarter of that type's full health", () => {
+    expect(isDamaged({ health: 30, sunk: false, type: "ironclad" })).toBe(true);
+    expect(isDamaged({ health: 36, sunk: false, type: "ironclad" })).toBe(false);
+    expect(isDamaged({ health: 18, sunk: false, type: "cutter" })).toBe(true);
+    expect(isDamaged({ health: 19, sunk: false, type: "cutter" })).toBe(false);
+  });
+
+  it("scales the cracks and flames to the ship's size", () => {
+    const far = (pts: { x: number; y: number }[]) => Math.max(...pts.map((p) => Math.hypot(p.x, p.y)));
+    const frigate = far(flameSpots({ x: 0, y: 0 }, 0));
+    expect(far(flameSpots({ x: 0, y: 0 }, 0, "ironclad"))).toBeCloseTo((frigate * 34) / 28, 9);
+    expect(far(hullCracks({ x: 0, y: 0 }, 0, "cutter").flat())).toBeLessThan(far(hullCracks({ x: 0, y: 0 }, 0).flat()));
+  });
+});

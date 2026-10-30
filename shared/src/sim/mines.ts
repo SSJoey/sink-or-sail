@@ -1,14 +1,15 @@
 import { TUNING } from "../tuning.ts";
 import { circleOverlapsPolygon, type Polygon } from "./geometry.ts";
+import { statsOf } from "./shipTypes.ts";
 import type { Mine, Ship, SimEvent } from "./types.ts";
 import { add, distance, fromAngle, scale, type Vec } from "./vec.ts";
 
 /** Guards timer comparisons against float drift from adding dt many times. */
 const EPSILON = 1e-9;
 
-/** Where a ship drops its mine: just behind the stern, clear of the hull. */
+/** Where a ship drops its mine: just behind its own stern, clear of the hull. */
 export function dropSpot(ship: Ship): Vec {
-  return add(ship.pos, scale(fromAngle(ship.heading), -(TUNING.ship.radius + TUNING.mine.radius + 2)));
+  return add(ship.pos, scale(fromAngle(ship.heading), -(statsOf(ship).radius + TUNING.mine.radius + 2)));
 }
 
 /** A mine can't be dropped into an island or off the sea. */
@@ -21,8 +22,8 @@ export function canDropAt(pos: Vec, islands: readonly Polygon[]): boolean {
 
 export const isArmed = (mine: Mine) => mine.age >= TUNING.mine.armTime - EPSILON;
 
-const touchesMine = (ship: Ship, mine: Mine) => !ship.sunk && distance(ship.pos, mine.pos) < TUNING.ship.radius + TUNING.mine.radius;
-const inBlast = (ship: Ship, mine: Mine) => !ship.sunk && distance(ship.pos, mine.pos) < TUNING.ship.radius + TUNING.mine.blastRadius;
+const touchesMine = (ship: Ship, mine: Mine) => !ship.sunk && distance(ship.pos, mine.pos) < statsOf(ship).radius + TUNING.mine.radius;
+const inBlast = (ship: Ship, mine: Mine) => !ship.sunk && distance(ship.pos, mine.pos) < statsOf(ship).radius + TUNING.mine.blastRadius;
 
 /** Damage each touching ship takes: protection blocks it, a raised shield halves it. */
 function mineDamage(ship: Ship): number {

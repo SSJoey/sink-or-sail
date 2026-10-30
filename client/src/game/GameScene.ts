@@ -1,5 +1,5 @@
 import * as Phaser from "phaser";
-import { SEA_CENTRE, TUNING, circleOverlapsPolygon, packButtonLit, rolePack, wreckHull, zoneRect, type Polygon, type Role, type Vec, type WreckSpot } from "@sink-or-sail/shared";
+import { SEA_CENTRE, TUNING, circleOverlapsPolygon, packButtonLit, rolePack, statsOf, wreckHull, zoneRect, type Polygon, type Role, type Vec, type WreckSpot } from "@sink-or-sail/shared";
 import { CHART, gridLines, inkOutline, offsetPolygon, palmSpots, reefMarks, waveSpots } from "./chartLook.ts";
 import { CREW_STYLES } from "./crews.ts";
 import { ShipEffects, type ShipEffect } from "./effects.ts";
@@ -174,7 +174,8 @@ export class GameScene extends Phaser.Scene {
       // Stage 3 lifebar: not over another crew's ship hidden in a moving storm (it would give the ship away).
       const bar = crew === ownCrew || !hiddenByStorms(ship, frame.hazards);
       // Stage 4: a dashed ink ring round your own ship, so you find it at a glance.
-      if (!ship.sunk && crew === ownCrew) this.dashedCircle(ship.x, ship.y, TUNING.client.ownShipRing, 1.6, INK, 0.8);
+      // Stage 5: as far outside the hull as the Frigate's, whatever the type.
+      if (!ship.sunk && crew === ownCrew) this.dashedCircle(ship.x, ship.y, TUNING.client.ownShipRing - TUNING.ship.radius + statsOf(ship).radius, 1.6, INK, 0.8);
       if (!ship.sunk) this.drawShip(ship, crew, flash, 1, bar);
       else if (effect?.sinkAlpha) this.drawShip(ship, crew, null, effect.sinkAlpha, bar);
     };
@@ -368,7 +369,7 @@ export class GameScene extends Phaser.Scene {
 
   private drawAimGuide(ship: ShipView): void {
     const g = this.g;
-    const guide = aimGuide(ship, ship.turret);
+    const guide = aimGuide(ship, ship.turret, statsOf(ship).shotRange);
     g.fillStyle(INK_DARK, 0.08);
     g.fillTriangle(ship.x, ship.y, guide.coneLeft.x, guide.coneLeft.y, guide.coneRight.x, guide.coneRight.y);
     g.lineStyle(2, INK_DARK, 0.6);
@@ -387,24 +388,27 @@ export class GameScene extends Phaser.Scene {
     const style = CREW_STYLES[crew] ?? CREW_STYLES[0];
     const protectedAlpha = blinkVisible(ship.protection, TUNING.client.protectionBlinkHz) ? 0.6 : 0.2;
     const alpha = (ship.protection > 0 ? protectedAlpha : 1) * fade;
+    // Stage 5: the ship type's size, against the Frigate's the deck marks were placed for.
+    const { radius } = statsOf(ship);
+    const size = radius / TUNING.ship.radius;
 
     if (ship.boosting) {
       g.lineStyle(3, INK, 0.5 * alpha);
       const back = Math.PI + ship.heading;
       for (const side of [-0.35, 0.35]) {
-        const from = { x: ship.x + Math.cos(back + side) * 26, y: ship.y + Math.sin(back + side) * 26 };
+        const from = { x: ship.x + Math.cos(back + side) * (radius - 2), y: ship.y + Math.sin(back + side) * (radius - 2) };
         g.lineBetween(from.x, from.y, from.x + Math.cos(back + side) * 22, from.y + Math.sin(back + side) * 22);
       }
     }
 
     // EMP'd: grey hull with flickering blue sparks.
     const disabled = ship.disabled > 0;
-    this.polygon(hullPoints(ship, ship.heading), flash ?? (disabled ? 0x8a8a8a : style.colour), HULL_EDGE, alpha, 2.5);
+    this.polygon(hullPoints(ship, ship.heading, ship.type), flash ?? (disabled ? 0x8a8a8a : style.colour), HULL_EDGE, alpha, 2.5);
     if (disabled) this.drawSparks(ship, alpha);
 
     // Stage 4: cream deck planks (the mock-up's).
     g.lineStyle(1.8, CHART.cream, alpha);
-    for (const line of deckLines(ship, ship.heading)) {
+    for (const line of deckLines(ship, ship.heading, ship.type)) {
       g.beginPath();
       g.moveTo(line[0]!.x, line[0]!.y);
       for (const p of line.slice(1)) g.lineTo(p.x, p.y);
@@ -412,14 +416,14 @@ export class GameScene extends Phaser.Scene {
     }
 
     // Crew flag on the deck near the stern, in cream: ● for crew 1, ■ for crew 2, ▲ for crew 3.
-    const flag = { x: ship.x - Math.cos(ship.heading) * 13, y: ship.y - Math.sin(ship.heading) * 13 };
+    const flag = { x: ship.x - Math.cos(ship.heading) * 13 * size, y: ship.y - Math.sin(ship.heading) * 13 * size };
     g.fillStyle(CHART.cream, alpha);
     if (crew === 0) g.fillCircle(flag.x, flag.y, 4.5);
     else if (crew === 1) g.fillRect(flag.x - 4.5, flag.y - 4.5, 9, 9);
     else g.fillTriangle(flag.x, flag.y - 5.5, flag.x + 5.5, flag.y + 4.5, flag.x - 5.5, flag.y + 4.5);
 
     // Stage 4: an ink turret with a cream rim (the barrel too).
-    const end = turretEnd(ship, ship.turret);
+    const end = turretEnd(ship, ship.turret, ship.type);
     g.lineStyle(8, CHART.cream, alpha);
     g.lineBetween(ship.x, ship.y, end.x, end.y);
     g.lineStyle(5, HULL_EDGE, alpha);
@@ -431,7 +435,7 @@ export class GameScene extends Phaser.Scene {
 
     if (ship.shielding) {
       g.lineStyle(3, SHIELD, 0.9);
-      g.strokeCircle(ship.x, ship.y, TUNING.ship.radius + 8);
+      g.strokeCircle(ship.x, ship.y, radius + 8);
     }
     // Stage 4 slice 6: below a quarter of full health, cracks, flames and smoke (not on a ship hidden in a storm).
     if (lifebar && isDamaged(ship)) this.drawDamage(ship, alpha);
@@ -443,13 +447,13 @@ export class GameScene extends Phaser.Scene {
     const g = this.g;
     const now = performance.now();
     g.lineStyle(1.6, INK_DARK, alpha);
-    for (const line of hullCracks(ship, ship.heading)) {
+    for (const line of hullCracks(ship, ship.heading, ship.type)) {
       g.beginPath();
       g.moveTo(line[0]!.x, line[0]!.y);
       for (const p of line.slice(1)) g.lineTo(p.x, p.y);
       g.strokePath();
     }
-    flameSpots(ship, ship.heading).forEach((p, i) => {
+    flameSpots(ship, ship.heading, ship.type).forEach((p, i) => {
       const flicker = 1 + 0.25 * Math.sin(now / 70 + i * 2);
       // Red with a thin ink rim and a yellow heart, so they show on every crew's hull.
       g.fillStyle(INK_DARK, alpha);
@@ -469,7 +473,7 @@ export class GameScene extends Phaser.Scene {
   private drawLifebar(ship: ShipView, alpha: number): void {
     const g = this.g;
     const C = TUNING.client;
-    const fill = lifebarFill(ship.health);
+    const fill = lifebarFill(ship.health, statsOf(ship).maxHealth);
     const x = ship.x - C.lifebarWidth / 2;
     const y = ship.y - C.lifebarOffset - C.lifebarHeight / 2;
     // Stage 4 slice 6: a cream bar with a thin ink outline, and ink ticks where the colour changes.
@@ -674,7 +678,7 @@ export class GameScene extends Phaser.Scene {
       const flashing = this.krakenFlashes.update(`k${id}`, h.health, now);
       const held = h.holding >= 0 ? frame.ships[h.holding] ?? null : null;
       // Stage 4: an old-map sea monster: each tentacle inked, then washed in its colour.
-      const arms = krakenTentacles(h, t, held && !held.sunk ? held : null);
+      const arms = krakenTentacles(h, t, held && !held.sunk ? held : null, held ? statsOf(held).radius : undefined);
       for (const [width, colour] of [[10, KRAKEN_EDGE], [6, flashing ? CHART.cream : KRAKEN_SKIN]] as const) {
         g.lineStyle(width, colour, alpha);
         for (const arm of arms) {

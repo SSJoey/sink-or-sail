@@ -31,5 +31,7 @@ export function rejectedText(message: RejectedMessage): string {
     case RejectReason.AlreadyAlone: return "You're already in a crew of your own.";
     case RejectReason.RoomFull: return "The room already has 6 players: keep watching for now.";
     case RejectReason.NoBot: return "Your crew has no bot.";
+    case RejectReason.NotTypePicker: return "Your pilot picks the ship.";
+    case RejectReason.ShipTypeLocked: return "The ship can be changed between matches, before you're Ready.";
   }
 }

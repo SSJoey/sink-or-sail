@@ -7,7 +7,7 @@ const one = (e: SimEvent) => soundCues([e]);
 describe("soundCues (Stage 4 slice 2)", () => {
   it("names the ship each sound belongs to", () => {
     expect(one({ type: "shotFired", ship: 1, shot: 4 })).toEqual([{ k: "shot", s: [1] }]);
-    expect(one({ type: "hit", attacker: 0, target: 2, damage: 20 })).toEqual([{ k: "hit", s: [2] }]);
+    expect(one({ type: "hit", attacker: 0, target: 2, damage: 20, distance: 300 })).toEqual([{ k: "hit", s: [2] }]);
     expect(one({ type: "shotBlocked", attacker: 0, target: 1 })).toEqual([{ k: "blocked", s: [1] }]);
     expect(one({ type: "boostStarted", ship: 0 })).toEqual([{ k: "boost", s: [0] }]);
     expect(one({ type: "energyEmpty", ship: 1 })).toEqual([{ k: "empty", s: [1] }]);

@@ -1,4 +1,4 @@
-import { AWARD_NAMES, Phase, TUNING } from "@sink-or-sail/shared";
+import { AWARD_NAMES, Phase, SHIP_TYPE_NAMES, TUNING, isShipType } from "@sink-or-sail/shared";
 import { CREW_STYLES } from "./crews.ts";
 
 const crewLabel = (crew: number) => {
@@ -113,7 +113,7 @@ const minutes = (seconds: number) => `${Math.floor(seconds / 60)}:${String(Math.
  * time afloat; Last Afloat adds lives left (or "out").
  */
 export function resultRows(
-  results: readonly { ship: number; place: number; sinkings: number; afloatSeconds: number; livesLeft: number; out: boolean }[],
+  results: readonly { ship: number; type?: string; place: number; sinkings: number; afloatSeconds: number; livesLeft: number; out: boolean }[],
   players: readonly { name: string; crew?: number; role?: string; bot?: boolean }[],
   lastAfloat: boolean,
 ): string[][] {
@@ -127,7 +127,9 @@ export function resultRows(
         .join(" & ") || "—";
       // Slice 10: a bot ship shows as the crew's bots.
       const bots = crew.length > 0 && crew.every((p) => p.bot === true);
-      return [ordinal(r.place), bots ? `${crewLabel(r.ship)} (bots)` : `${crewLabel(r.ship)} · ${names}`, String(r.sinkings), minutes(r.afloatSeconds), ...(lastAfloat ? [r.out ? "out" : String(r.livesLeft)] : [])];
+      // Stage 5: the ship type, after the crew.
+      const ship = SHIP_TYPE_NAMES[isShipType(r.type) ? r.type : "frigate"];
+      return [ordinal(r.place), bots ? `${crewLabel(r.ship)} (bots)` : `${crewLabel(r.ship)} · ${names}`, ship, String(r.sinkings), minutes(r.afloatSeconds), ...(lastAfloat ? [r.out ? "out" : String(r.livesLeft)] : [])];
     });
 }
 

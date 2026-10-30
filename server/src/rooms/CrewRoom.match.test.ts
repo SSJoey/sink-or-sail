@@ -176,7 +176,8 @@ describe("input", () => {
     const { room, gunner } = await started();
     gunner.send(ClientMessage.Input, gun(0, -1, true));
     await waitFor(() => room.state.shots.size > 0);
-    expect(ship0(room).turret).toBeCloseTo(-Math.PI / 2, 4);
+    // Stage 5: the turret swings round to the aim at its set rate.
+    await waitFor(() => Math.abs(ship0(room).turret + Math.PI / 2) < 1e-4);
   });
 
   it("lets the gunner raise the shield", async () => {

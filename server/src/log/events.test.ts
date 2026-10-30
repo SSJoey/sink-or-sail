@@ -19,8 +19,8 @@ describe("simEventLines", () => {
 
   it("names the gunner for shots, hits, shield and blocks", () => {
     expect(lines({ type: "shotFired", ship: 0, shot: 7 })).toEqual([{ t: 1234, type: "shotFired", ship: 0, player: "Sam", role: "gunner" }]);
-    expect(lines({ type: "hit", attacker: 0, target: 1, damage: 20 })).toEqual([
-      { t: 1234, type: "hit", ship: 0, player: "Sam", role: "gunner", target: 1, damage: 20 },
+    expect(lines({ type: "hit", attacker: 0, target: 1, damage: 20, distance: 312.345 })).toEqual([
+      { t: 1234, type: "hit", ship: 0, player: "Sam", role: "gunner", target: 1, damage: 20, distance: 312.3 },
     ]);
     expect(lines({ type: "shieldRaised", ship: 0 })).toEqual([{ t: 1234, type: "shieldRaised", ship: 0, player: "Sam", role: "gunner" }]);
     expect(lines({ type: "shotBlocked", attacker: 1, target: 0 })).toEqual([

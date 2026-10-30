@@ -5,6 +5,7 @@ import type { Ship } from "./types.ts";
 export function testShip(overrides: Partial<Ship> = {}): Ship {
   return {
     id: 0,
+    type: "frigate",
     pos: { x: 300, y: 300 },
     vel: { x: 0, y: 0 },
     heading: 0,

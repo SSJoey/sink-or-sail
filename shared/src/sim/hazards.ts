@@ -1,6 +1,7 @@
 import { TUNING } from "../tuning.ts";
 import { circleOverlapsPolygon, type Polygon } from "./geometry.ts";
 import { nextRandom, randomIndex, weightedPick, type Random } from "./random.ts";
+import { statsOf } from "./shipTypes.ts";
 import type { Ghost, Hazard, HazardKind, Ship, SimEvent, World } from "./types.ts";
 import { add, angleOf, distance, fromAngle, scale, sub, type Vec } from "./vec.ts";
 
@@ -40,7 +41,7 @@ const outsideSea = (pos: Vec) => pos.x < 0 || pos.y < 0 || pos.x > TUNING.sea.wi
 function clearSpot(kind: HazardKind, pos: Vec, afloat: readonly Ship[], solids: readonly Polygon[]): boolean {
   const { radius, clearOfSolids } = SIZES[kind];
   const inSea = pos.x >= radius && pos.y >= radius && pos.x <= TUNING.sea.width - radius && pos.y <= TUNING.sea.height - radius;
-  if (!inSea || afloat.some((s) => distance(s.pos, pos) < radius + TUNING.ship.radius + H.clearance)) return false;
+  if (!inSea || afloat.some((s) => distance(s.pos, pos) < radius + statsOf(s).radius + H.clearance)) return false;
   return clearOfSolids <= 0 || solids.every((solid) => circleOverlapsPolygon(pos, clearOfSolids, solid) === null);
 }
 

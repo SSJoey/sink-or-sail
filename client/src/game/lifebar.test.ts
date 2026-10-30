@@ -33,3 +33,11 @@ describe("the styled lifebar (Stage 4 slice 6)", () => {
     expect(LIFEBAR_TICKS).toEqual([0.25, 0.5]);
   });
 });
+
+describe("Stage 5: the lifebar goes by the ship's own full health", () => {
+  it("fills by health over that type's full health", () => {
+    expect(lifebarFill(70, 140)).toBe(0.5);
+    expect(lifebarFill(75, 75)).toBe(1);
+    expect(lifebarFill(50)).toBe(0.5);
+  });
+});

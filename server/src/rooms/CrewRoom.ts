@@ -6,6 +6,7 @@ import {
   RANDOM_LAYOUT,
   isLayoutId,
   isReefAmount,
+  isShipType,
   randomLayout,
   type LayoutId,
   JoinError,
@@ -21,6 +22,8 @@ import {
   botPilot,
   closeTally,
   newBotMind,
+  shipTypePicker,
+  type ShipType,
   type BotMind,
   createWorld,
   earnedAwards,
@@ -48,7 +51,7 @@ import { LOG_DIR, firstHazardAt, fixedSeed, fixedStormTimes, joinAddress, testSi
 import { soundCues } from "./cues.ts";
 import { awardsLine, controlLine, matchEndLine, matchMs, matchStartLine, playNextRoundLine, playerLine, positionLines, seatLine, simEventLines, type LogLine, type MatchLobby, type Roster } from "../log/events.ts";
 import { MatchLog, fileSink, logFileName, type LogSink } from "../log/matchLog.ts";
-import { canChangeSeat, canEndMatch, canPause, canResume, canSetPacks, canStart, crewHasShip, everyCrewManned, nextHost, readBotShips, readLayout, readOnOff, readReefs, readLives, readMode, readReady, shipCount } from "./matchFlow.ts";
+import { canChangeSeat, canEndMatch, canPause, canResume, canSetPacks, canStart, crewHasShip, everyCrewManned, nextHost, readBotShips, readLayout, readOnOff, readReefs, readLives, readMode, readReady, readShipType, shipCount } from "./matchFlow.ts";
 import { generateUniqueCode } from "./roomCode.ts";
 import { isNameTaken, takeSeat, type SeatMap } from "./seats.ts";
 import { addBot, closeUpCrews, fillBotShips, findPartner, isBotId, isBotShipId, leaveCrew, placeJoiner, refreshWaiting, removeBot, seatWaiting, withoutBotShips, type CrewResult, type CrewRoster } from "./crews.ts";
@@ -241,6 +244,18 @@ export class CrewRoom extends Room<{ state: CrewState }> {
       player.ready = ready;
     });
 
+    // Stage 5: the crew's picker (its pilot, or its gunner with a bot pilot) picks the ship type, between matches
+    // and until they're Ready.
+    this.onMessage(ClientMessage.SetShipType, (client, message: unknown) => {
+      const player = this.state.players.get(client.sessionId);
+      const type = readShipType(message);
+      if (!player || type === null || player.crew === undefined) return;
+      const reject = (reason: RejectReason) => client.send(ServerMessage.Rejected, { reason } satisfies RejectedMessage);
+      if (this.pickerOf(player.crew) !== client.sessionId) return reject(RejectReason.NotTypePicker);
+      if (this.matchOn() || player.ready) return reject(RejectReason.ShipTypeLocked);
+      player.shipType = type;
+    });
+
     this.onMessage(ClientMessage.Start, (client) => {
       if (!canStart(client.sessionId, this.state.hostId, this.state.phase)) return;
       if (this.state.mode === "lastAfloat" && !everyCrewManned(this.seatedCrews())) {
@@ -421,7 +436,8 @@ export class CrewRoom extends Room<{ state: CrewState }> {
     const storm = fixedStormTimes(process.env) ?? undefined;
     // HAZARDS_FIRST_AT: when the first dynamic hazard comes ("never" for none), for the browser tests only.
     const botShips = this.botShipCrews().filter((crew) => crew < ships);
-    this.world = createWorld({ packs: packsOn, seed, ships, mode, lives: lives ?? undefined, layout, hazards: hazardsOn, reefs, storm, firstHazardAt: firstHazardAt(process.env), botShips });
+    const types = Array.from({ length: ships }, (_, crew) => this.crewShipType(crew));
+    this.world = createWorld({ packs: packsOn, seed, ships, mode, lives: lives ?? undefined, layout, hazards: hazardsOn, reefs, storm, firstHazardAt: firstHazardAt(process.env), botShips, types });
     this.pendingTestSink = testSink(process.env);
     this.state.matchReefs = reefs;
     this.state.matchMode = mode;
@@ -430,7 +446,7 @@ export class CrewRoom extends Room<{ state: CrewState }> {
     this.tally = newTally(this.world.ships.length);
     this.matchSeed = seed;
     this.log = new MatchLog(this.logSinkFor(logFileName(new Date(), this.roomId)), { onError: (error) => this.logErrors(error) });
-    this.logLine(matchStartLine(this.roomId, this.roster, { packsOn, seed, mode, lives, layout, layoutRandom, hazardsOn, reefs, wrecks: this.world.wrecks, storm: this.world.storm, firstHazardAt: this.world.nextHazardIn, lobby: this.matchLobby(botShips) }));
+    this.logLine(matchStartLine(this.roomId, this.roster, { packsOn, seed, mode, lives, layout, layoutRandom, hazardsOn, reefs, wrecks: this.world.wrecks, storm: this.world.storm, firstHazardAt: this.world.nextHazardIn, lobby: this.matchLobby(botShips), types }));
     for (const line of positionLines(this.world)) this.logLine(line);
     this.nextPositionAt = 1;
     this.latestInput.clear();
@@ -524,6 +540,26 @@ export class CrewRoom extends Room<{ state: CrewState }> {
   }
 
   /** One entry per seated player: their crew. */
+  /** Stage 5: the session id of the player who picks a crew's ship type (see shipTypePicker), or null for none. */
+  private pickerOf(crew: number): string | null {
+    let pilot: [string, Player] | undefined;
+    let gunner: [string, Player] | undefined;
+    this.state.players.forEach((player, id) => {
+      if (player.crew !== crew) return;
+      if (player.role === "pilot") pilot = [id, player];
+      else if (player.role === "gunner") gunner = [id, player];
+    });
+    const role = shipTypePicker(pilot?.[1], gunner?.[1]);
+    return role === "pilot" ? pilot![0] : role === "gunner" ? gunner![0] : null;
+  }
+
+  /** Stage 5: the type a crew sails: its picker's pick; a Frigate for a crew with no person in it (a bot ship). */
+  private crewShipType(crew: number): ShipType {
+    const picker = this.pickerOf(crew);
+    const type = picker ? this.state.players.get(picker)?.shipType : undefined;
+    return isShipType(type) ? type : "frigate";
+  }
+
   private seatedCrews(): number[] {
     return [...this.state.players.values()].flatMap((p) => (p.crew === undefined ? [] : [p.crew]));
   }
@@ -594,7 +630,7 @@ export class CrewRoom extends Room<{ state: CrewState }> {
       const seat = player.bot ? this.seatOf(id) : null;
       const ship = seat ? inputs[seat.crew] : undefined;
       if (!seat || !ship) return;
-      const mind = this.botMinds.get(id) ?? newBotMind(this.matchSeed, seat.crew, seat.role);
+      const mind = this.botMinds.get(id) ?? newBotMind(this.matchSeed, seat.crew, seat.role, this.world!.ships[seat.crew]?.type);
       if (seat.role === "pilot") {
         const bot = botPilot(this.world!, seat.crew, mind, dt);
         ship.pilot = bot.input;
@@ -698,7 +734,7 @@ export class CrewRoom extends Room<{ state: CrewState }> {
     this.logLine(awardsLine(this.logTime(), awards, this.roster));
     this.state.results.clear();
     for (const r of shipResults(this.world, this.afloat, this.outAt.map((t) => t ?? null))) {
-      this.state.results.push(new ResultState({ ship: r.ship, place: r.place, sinkings: r.sinkings, afloatSeconds: r.afloatSeconds, livesLeft: r.livesLeft ?? -1, out: r.out }));
+      this.state.results.push(new ResultState({ ship: r.ship, type: this.world.ships[r.ship]?.type ?? "frigate", place: r.place, sinkings: r.sinkings, afloatSeconds: r.afloatSeconds, livesLeft: r.livesLeft ?? -1, out: r.out }));
     }
   }
 

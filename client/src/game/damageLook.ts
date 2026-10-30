@@ -1,14 +1,19 @@
-import { TUNING, type Vec } from "@sink-or-sail/shared";
+import { TUNING, statsOf, type ShipType, type Vec } from "@sink-or-sail/shared";
 
-/** Stage 4 slice 6: a ship afloat below a quarter of full health shows visible damage (cracks, flames, smoke). */
-export function isDamaged(ship: { health: number; sunk: boolean }): boolean {
-  return !ship.sunk && ship.health < TUNING.ship.maxHealth * TUNING.client.damage.below;
+/**
+ * Stage 4 slice 6: a ship afloat below a quarter of full health shows visible damage (cracks, flames, smoke).
+ * Stage 5: its own type's full health (a Frigate's when no type is given).
+ */
+export function isDamaged(ship: { health: number; sunk: boolean; type?: ShipType }): boolean {
+  return !ship.sunk && ship.health < statsOf({ type: ship.type ?? "frigate" }).maxHealth * TUNING.client.damage.below;
 }
 
-const turn = (pos: Vec, heading: number, p: Vec): Vec => ({
-  x: pos.x + p.x * Math.cos(heading) - p.y * Math.sin(heading),
-  y: pos.y + p.x * Math.sin(heading) + p.y * Math.cos(heading),
+/** A point in the hull's frame (drawn for a Frigate) turned onto the sea, scaled to the type's size (Stage 5). */
+const turn = (pos: Vec, heading: number, p: Vec, scaleBy = 1): Vec => ({
+  x: pos.x + (p.x * Math.cos(heading) - p.y * Math.sin(heading)) * scaleBy,
+  y: pos.y + (p.x * Math.sin(heading) + p.y * Math.cos(heading)) * scaleBy,
 });
+const sizeOf = (type: ShipType) => statsOf({ type }).radius / TUNING.ship.radius;
 
 /** Crack lines on the deck, in the hull's own frame (bow along +x). */
 const CRACKS: readonly (readonly Vec[])[] = [
@@ -19,8 +24,9 @@ const CRACKS: readonly (readonly Vec[])[] = [
 /** Where the two flames burn, on the deck. */
 const FLAMES: readonly Vec[] = [{ x: 9, y: -5 }, { x: -10, y: 5 }];
 
-export const hullCracks = (pos: Vec, heading: number): Vec[][] => CRACKS.map((line) => line.map((p) => turn(pos, heading, p)));
-export const flameSpots = (pos: Vec, heading: number): Vec[] => FLAMES.map((p) => turn(pos, heading, p));
+export const hullCracks = (pos: Vec, heading: number, type: ShipType = "frigate"): Vec[][] =>
+  CRACKS.map((line) => line.map((p) => turn(pos, heading, p, sizeOf(type))));
+export const flameSpots = (pos: Vec, heading: number, type: ShipType = "frigate"): Vec[] => FLAMES.map((p) => turn(pos, heading, p, sizeOf(type)));
 
 /**
  * The smoke in the air now (`now` in ms): puffs leave the deck one after another, drift back from the stern with a

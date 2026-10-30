@@ -93,3 +93,54 @@ describe("shotTrail", () => {
     expect(trail[0]!.radius).toBeLessThan(T.client.shotRadius);
   });
 });
+
+describe("Stage 5: a hull for each ship type", () => {
+  const types = ["frigate", "cutter", "ironclad", "gunboat", "longGun"] as const;
+  const box = (pts: { x: number; y: number }[]) => {
+    const xs = pts.map((p) => p.x);
+    const ys = pts.map((p) => p.y);
+    return { long: Math.max(...xs) - Math.min(...xs), wide: Math.max(...ys) - Math.min(...ys) };
+  };
+
+  it.each(types)("a %s has its bow at its own size, stays inside its own circle and is mirror-symmetric", (type) => {
+    const r = T.shipTypes[type].radius;
+    const pts = hullPoints({ x: 0, y: 0 }, 0, type);
+    expect(pts[0]!.x).toBeCloseTo(r, 9);
+    for (const p of pts) expect(Math.hypot(p.x, p.y)).toBeLessThanOrEqual(r + 0.001);
+    for (const p of pts) expect(pts.some((q) => Math.abs(q.x - p.x) < 1e-9 && Math.abs(q.y + p.y) < 1e-9)).toBe(true);
+  });
+
+  it.each(types)("a %s keeps its deck lines inside its hull, and its turret starts inside", (type) => {
+    const pos = { x: 300, y: 200 };
+    const hull = hullPoints(pos, 0.7, type);
+    for (const line of deckLines(pos, 0.7, type)) for (const p of line) expect(pointInPolygon(p, hull)).toBe(true);
+    expect(deckLines(pos, 0.7, type).length).toBeGreaterThan(0);
+  });
+
+  it("gives each type its own shape: a slim Cutter, a broad Ironclad, a short Gunboat, a long Long gun", () => {
+    const shape = (type: (typeof types)[number]) => {
+      const b = box(hullPoints({ x: 0, y: 0 }, 0, type));
+      return b.long / b.wide;
+    };
+    expect(shape("cutter")).toBeGreaterThan(shape("frigate"));
+    expect(shape("ironclad")).toBeLessThan(shape("frigate"));
+    expect(shape("gunboat")).toBeLessThan(shape("frigate"));
+    expect(shape("longGun")).toBeGreaterThan(shape("frigate"));
+    for (const t of types) expect(shape(t)).toBeGreaterThan(1.3);
+  });
+
+  it("the Frigate's hull is the same as before", () => {
+    expect(hullPoints({ x: 5, y: 6 }, 0.3, "frigate")).toEqual(hullPoints({ x: 5, y: 6 }, 0.3));
+  });
+
+  it("the Long gun has the longest barrel", () => {
+    const len = (type: (typeof types)[number]) => dist(turretEnd({ x: 0, y: 0 }, 0, type), { x: 0, y: 0 });
+    for (const t of types.filter((t) => t !== "longGun")) expect(len("longGun")).toBeGreaterThan(len(t));
+    expect(len("frigate")).toBe(18);
+  });
+
+  it("the aiming line is as long as the ship's own gun range", () => {
+    expect(aimGuide({ x: 0, y: 0 }, 0, 850).end).toEqual({ x: 850, y: 0 });
+    expect(aimGuide({ x: 0, y: 0 }, 0, 450).coneLeft.x).toBeCloseTo(450 * Math.cos(AIM_CONE_HALF_ANGLE), 9);
+  });
+});

@@ -9,6 +9,7 @@ import {
   isSeat,
   normaliseCode,
   normaliseName,
+  shipTypePicker,
 } from "./rooms.ts";
 
 describe("room constants", () => {
@@ -92,5 +93,19 @@ describe("isSeat", () => {
     expect(isSeat({ crew: 0 })).toBe(false);
     expect(isSeat(null)).toBe(false);
     expect(isSeat("pilot")).toBe(false);
+  });
+});
+
+describe("shipTypePicker (Stage 5)", () => {
+  const person = { bot: false };
+  const bot = { bot: true };
+  it("is the pilot, or the gunner when the pilot is a bot or the seat is empty; nobody for a crew of bots", () => {
+    expect(shipTypePicker(person, person)).toBe("pilot");
+    expect(shipTypePicker(person, undefined)).toBe("pilot");
+    expect(shipTypePicker(person, bot)).toBe("pilot");
+    expect(shipTypePicker(bot, person)).toBe("gunner");
+    expect(shipTypePicker(undefined, person)).toBe("gunner");
+    expect(shipTypePicker(bot, bot)).toBeNull();
+    expect(shipTypePicker(undefined, undefined)).toBeNull();
   });
 });
