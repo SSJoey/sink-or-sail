@@ -3,6 +3,7 @@ import { TUNING } from "../tuning.ts";
 import { circleOverlapsPolygon, closestPointOnSegment, pointInPolygon, type Polygon } from "./geometry.ts";
 import { DEFAULT_LAYOUT, LAYOUTS, LAYOUT_IDS, randomLayout, type Layout } from "./layouts.ts";
 import { createWorld } from "./match.ts";
+import { SHIP_TYPES } from "./shipTypes.ts";
 import { step } from "./step.ts";
 import type { ShipInput } from "./types.ts";
 import { ISLAND, PACK_SPOTS, PACK_SPOTS_3, SPAWN_POINTS, START_POINTS, START_POINTS_3 } from "./map.ts";
@@ -11,6 +12,8 @@ import { wreckHull } from "./wrecks.ts";
 
 const { width: W, height: H } = TUNING.sea;
 const R = TUNING.ship.radius;
+/** Stage 5: the biggest ship type's size (the Ironclad's 34), which every spot must fit. */
+const BIGGEST = Math.max(...SHIP_TYPES.map((t) => TUNING.shipTypes[t].radius));
 /** The narrowest channel: a Frigate (56 across) with a little room. */
 const MIN_CHANNEL = 70;
 /** Pack spots sit this far from any island, so a ship can sail onto them. */
@@ -42,8 +45,8 @@ const edgeGap = (island: Polygon) => Math.min(...island.flatMap((p) => [p.x, W -
 const toShore = (p: Vec, islands: readonly Polygon[]) =>
   Math.min(...islands.flatMap((island) => island.map((a, i) => distance(p, closestPointOnSegment(p, a, island[(i + 1) % island.length]!)))));
 
-/** Cells a Frigate's centre can be in (a grid over the sea), and which of them it can reach from `from`. */
-function reachable(islands: readonly Polygon[], from: Vec): (p: Vec) => boolean {
+/** Cells a ship's centre can be in (a grid over the sea), and which of them it can reach from `from`; a Frigate by default. */
+function reachable(islands: readonly Polygon[], from: Vec, R: number = TUNING.ship.radius): (p: Vec) => boolean {
   const step = 8;
   const cols = Math.floor(W / step);
   const rows = Math.floor(H / step);
@@ -167,6 +170,20 @@ describe.each(all.map((l) => [l.name, l] as [string, Layout]))("%s", (_name, l) 
     for (let i = 0; i < solids.length; i++) {
       expect(edgeGap(solids[i]!), `island or wreck ${i} to the edge`).toBeGreaterThanOrEqual(MIN_CHANNEL);
       for (let j = i + 1; j < solids.length; j++) expect(islandGap(solids[i]!, solids[j]!), `islands or wrecks ${i} and ${j}`).toBeGreaterThanOrEqual(MIN_CHANNEL);
+    }
+  });
+
+  it("lets every ship type sail from a start to every start, pack spot and respawn spot, with every wreck standing (Stage 5)", () => {
+    for (const type of SHIP_TYPES) {
+      const canReach = reachable([...l.islands, ...hulls(l)], l.starts[0]!, TUNING.shipTypes[type].radius);
+      for (const p of [...l.starts, ...l.starts3, ...l.packSpots, ...l.packSpots3, ...SPAWN_POINTS]) expect(canReach(p), `${type} ${JSON.stringify(p)}`).toBe(true);
+    }
+  });
+
+  it("keeps every start and respawn spot room for the biggest ship type: its size from the sea edge, three sizes from islands (Stage 5)", () => {
+    for (const p of [...l.starts, ...l.starts3, ...SPAWN_POINTS]) {
+      expect(p.x >= BIGGEST && p.x <= W - BIGGEST && p.y >= BIGGEST && p.y <= H - BIGGEST, JSON.stringify(p)).toBe(true);
+      expect(clearOf(p, BIGGEST * 3, l.islands), JSON.stringify(p)).toBe(true);
     }
   });
 

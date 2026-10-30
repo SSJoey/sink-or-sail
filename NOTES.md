@@ -1306,6 +1306,39 @@ Drafted from `docs/design.md`, the roadmap and "Later". Scope:
   - Run 39 (peak load 26) failed only the results test: no Speed Demon award, as Space is held a fixed 2.5 s and less boost reached the server under load. It passed in run 38 and alone.
   - The user chose to commit as it is.
 
+### 2026-10-30 — Stage 5 slice 2 plan: summary per ship type, layout checks for every type
+
+- **Found while planning:**
+  - On every layout an Ironclad can reach every start, pack spot and respawn spot, with every wreck standing, except Four Rocks' 3-ship start at (800, 30): it is only 30 from the top edge, so an Ironclad (34) or Long gun (30) doesn't fit there.
+  - The narrowest channel allowed (70) is wider than an Ironclad (68), so no channel stops a big ship on today's layouts.
+- **Plan:**
+  - layout checks for every type: reachability, starts and respawn spots clear by three of the biggest ship's sizes, every start at least the biggest size from the sea edge;
+  - a Ship column in the summary's crew table (older logs: Frigate);
+  - a new "By ship type" table: crews, sinkings, times sunk, shots, hits, accuracy, average and longest hit distance, gun damage dealt and taken;
+  - tests on a hand-made sample log.
+- **User's answers:**
+  1. a) Move Four Rocks' three 3-ship starts 10 further from the top edge (the triangle keeps its shape), and re-run the fairness checks.
+  2. a) The By ship type table as listed.
+  3. a) Keep all five of slice 1's "to confirm" choices as built:
+     - bot pilots don't slow while against a rock;
+     - bot gunners fire once the turret has swung, with range scaled to the gun;
+     - each player keeps their own pick, locked by the picker's Ready;
+     - Close Shave stays under 25 health;
+     - ghosts keep the Frigate's outline.
+- **Built (2026-10-30):**
+  - **`layouts.test.ts`**, for every layout:
+    - every ship type can reach every start, pack spot and respawn spot, with every wreck standing;
+    - every start and respawn spot is the biggest type's size (34) from the sea edge, and three of its sizes from any island.
+  - **Four Rocks:** the 3-ship starts moved 10 down; the top one is now at (800, 40). Its fairness checks still pass.
+  - **`summary.ts`:**
+    - each crew's `type` (a Frigate for older logs), and a Ship column in the crew table;
+    - `byType`, one row per type in the match, shown as a "By ship type" table: crews, sinkings, times sunk, shots, hits, accuracy, average and longest hit distance ("—" for older logs), gun damage dealt and taken.
+  - **Tests:** 22 new (18 layout checks, 4 summary tests on a hand-made 3-type log). One existing test's exact crew figures now include `type`.
+- **Runs:**
+  - Type-check clean; 1190 unit tests pass (plus 1 skipped).
+  - Full browser run 40 (peak load 24) failed only the reef test: its game view reported the layout later than 5 s (the sea starting late). It passed alone.
+  - The user chose to commit as it is.
+
 ## Later
 
 - **(2026-10-30, after Stage 5's scaled layouts) Custom layouts for larger maps:** hand-made layouts made for the 3200 × 1800 and 4000 × 2250 seas, instead of today's nine spread out to fit. The user will look at them later.

@@ -1,11 +1,13 @@
 // Turns a match log (JSON Lines) into per-crew numbers for tuning and playtest notes.
 
-import { AWARD_NAMES, LAYOUTS, isLayoutId } from "@sink-or-sail/shared";
+import { AWARD_NAMES, LAYOUTS, SHIP_TYPES, SHIP_TYPE_NAMES, isLayoutId, isShipType, type ShipType } from "@sink-or-sail/shared";
 
 export type Line = { t: number; type: string } & Record<string, unknown>;
 
 export interface CrewSummary {
   ship: number;
+  /** Stage 5: its ship type (a Frigate in logs from before types). */
+  type: ShipType;
   pilot: string | null;
   gunner: string | null;
   sinkings: number;
@@ -44,6 +46,24 @@ export interface CrewSummary {
   wreckRamDamage: number;
   /** Stage 2: this crew's shots and torpedoes that hit a kraken. */
   krakenHits: number;
+}
+
+/** Stage 5: the figures for one ship type over the match (every crew that sailed it). */
+export interface TypeSummary {
+  type: ShipType;
+  crews: number;
+  sinkings: number;
+  timesSunk: number;
+  shots: number;
+  hits: number;
+  /** hits ÷ shots; null if none were fired. */
+  accuracy: number | null;
+  /** How far its gun hits were landed from; null without any (or in logs from before Stage 5). */
+  averageHitDistance: number | null;
+  longestHit: number | null;
+  /** Gun damage its crews dealt and took. */
+  gunDamageDealt: number;
+  gunDamageTaken: number;
 }
 
 /** Stage 2: one kind of dynamic hazard over the match (with hazards on). */
@@ -126,6 +146,8 @@ export interface MatchSummary {
   lastAfloat: CrewLastAfloat[] | null;
   /** Per crew, in the same order as crews; null with packs off. */
   packs: CrewPacks[] | null;
+  /** Stage 5: one row per ship type in the match, in the lobby's order. */
+  byType: TypeSummary[];
   /** Stage 2: each kind of dynamic hazard over the match; null with hazards off. */
   hazards: HazardOverview[] | null;
   /** Stage 3: the awards shown at the end (none in logs from before awards). */
@@ -153,7 +175,7 @@ export function parseLog(text: string): Line[] {
   return lines;
 }
 
-type Crew = { ship: number; pilot: string | null; gunner: string | null; botShip?: boolean };
+type Crew = { ship: number; pilot: string | null; gunner: string | null; botShip?: boolean; type?: string };
 type Score = { ship: number; sinkings: number; livesLeft?: number; boostEnergy: number; shieldEnergy: number };
 
 export function summarise(lines: readonly Line[]): MatchSummary {
@@ -216,6 +238,7 @@ export function summarise(lines: readonly Line[]): MatchSummary {
 
     return {
       ship,
+      type: isShipType(crew.type) ? crew.type : "frigate",
       pilot: crew.pilot,
       gunner: crew.gunner,
       sinkings: score?.sinkings ?? lines.filter((l) => l.type === "sunk" && l.by === ship).length,
@@ -264,11 +287,40 @@ export function summarise(lines: readonly Line[]): MatchSummary {
     crews: summaries,
     lastAfloat: mode === "lastAfloat" ? lastAfloatFigures(lines, crews, scores, winner, endT, afloat) : null,
     packs: packsOn ? crews.map((c) => packFigures(lines, c.ship)) : null,
+    byType: typeFigures(lines, summaries),
     hazards: start?.hazardsOn === true ? hazardOverview(lines) : null,
     awards: ((lines.find((l) => l.type === "awards")?.awards as { award: string; ship: number; detail: string }[] | undefined) ?? [])
       .map((a) => ({ award: a.award, ship: a.ship, detail: a.detail })),
     ...lobbyFigures(lines, start, crews),
   };
+}
+
+/** Stage 5: the crews' figures added up by ship type, with gun hit distances and damage from the hit lines. */
+function typeFigures(lines: readonly Line[], crews: readonly CrewSummary[]): TypeSummary[] {
+  const hits = lines.filter((l) => l.type === "hit");
+  return SHIP_TYPES.flatMap((type) => {
+    const mine = crews.filter((c) => c.type === type);
+    if (mine.length === 0) return [];
+    const ships = new Set(mine.map((c) => c.ship));
+    const sum = (f: (c: CrewSummary) => number) => mine.reduce((a, c) => a + f(c), 0);
+    const landed = hits.filter((l) => ships.has(l.ship as number));
+    const distances = landed.flatMap((l) => (typeof l.distance === "number" ? [l.distance] : []));
+    const damage = (rows: readonly Line[]) => Math.round(rows.reduce((a, l) => a + (l.damage as number), 0) * 10) / 10;
+    const shots = sum((c) => c.shots);
+    return [{
+      type,
+      crews: mine.length,
+      sinkings: sum((c) => c.sinkings),
+      timesSunk: lines.filter((l) => l.type === "sunk" && ships.has(l.ship as number)).length,
+      shots,
+      hits: sum((c) => c.hits),
+      accuracy: shots > 0 ? sum((c) => c.hits) / shots : null,
+      averageHitDistance: distances.length ? distances.reduce((a, b) => a + b, 0) / distances.length : null,
+      longestHit: distances.length ? Math.max(...distances) : null,
+      gunDamageDealt: damage(landed),
+      gunDamageTaken: damage(hits.filter((l) => ships.has(l.target as number))),
+    }];
+  });
 }
 
 /** Stage 3 slice 11: bot ships and spectators (logs from before slice 11 have no Bot ships setting). */
@@ -413,6 +465,7 @@ export function formatSummary(s: MatchSummary): string {
   const rows = s.crews.map((c) => [
     `Crew ${c.ship + 1}`,
     s.botShips?.includes(c.ship) ? "Bots (bot ship)" : [c.pilot, c.gunner].map((n) => n ?? "—").join(" & "),
+    SHIP_TYPE_NAMES[c.type],
     String(c.sinkings),
     String(c.shots),
     String(c.hits),
@@ -423,9 +476,25 @@ export function formatSummary(s: MatchSummary): string {
     `${r1(c.averageSurvivalSeconds)} s (${c.lives})`,
     Object.entries(c.sunkBy).map(([cause, n]) => `${cause} ${n}`).join(" · ") || "—",
   ]);
-  const head = ["Crew", "Pilot & Gunner", "Sinkings", "Shots", "Hits", "Blocked", "Accuracy", "Energy boost / shield", "Empty bar", "Avg survival (lives)", "Sunk by"];
+  const head = ["Crew", "Pilot & Gunner", "Ship", "Sinkings", "Shots", "Hits", "Blocked", "Accuracy", "Energy boost / shield", "Empty bar", "Avg survival (lives)", "Sunk by"];
   const awards = s.awards.map((a) => `${AWARD_NAMES[a.award] ?? a.award} (Crew ${a.ship + 1}, ${a.detail})`).join(" · ");
   const out = [header, ...(awards ? [`Awards: ${awards}`] : []), "", ...table(head, rows)];
+  // Stage 5: the figures by ship type.
+  const typeRows = s.byType.map((t) => [
+    SHIP_TYPE_NAMES[t.type],
+    String(t.crews),
+    String(t.sinkings),
+    String(t.timesSunk),
+    String(t.shots),
+    String(t.hits),
+    t.accuracy === null ? "—" : `${Math.round(t.accuracy * 100)}%`,
+    t.averageHitDistance === null ? "—" : String(Math.round(t.averageHitDistance)),
+    t.longestHit === null ? "—" : String(Math.round(t.longestHit)),
+    r1(t.gunDamageDealt),
+    r1(t.gunDamageTaken),
+  ]);
+  const typeHead = ["Ship", "Crews", "Sinkings", "Times sunk", "Shots", "Hits", "Accuracy", "Avg hit distance", "Longest hit", "Gun damage dealt", "Gun damage taken"];
+  out.push("", "By ship type", ...table(typeHead, typeRows));
   if (s.hazards) {
     // Stage 2: each crew's hazard figures, then the match's dynamic hazards.
     const hazardRows = s.crews.map((c) => [

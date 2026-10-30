@@ -147,7 +147,8 @@ export const LAYOUTS: Readonly<Record<LayoutId, Layout>> = {
     islands: [...downPair(220, 65), ...acrossPair(520, 65)],
     starts: TWO_STARTS,
     packSpots: [...spots4(650, 330), ...spotsDown(80)],
-    starts3: triangle(150, 420),
+    // Stage 5: 10 lower than the triangle round the middle, so the top start is 40 from the edge and an Ironclad fits.
+    starts3: triangle(150, 420).map((p) => ({ x: p.x, y: p.y + 10 })),
     packSpots3: gapSpots(90, 10, 390),
     reefs: [FOUR_ROCKS_MIDDLE, ...fourWays(275, 325, 45, 35)],
     fewReefs: [FOUR_ROCKS_MIDDLE],

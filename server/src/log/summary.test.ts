@@ -44,8 +44,8 @@ describe("summarise", () => {
 
   it("gives the exact per-crew numbers", () => {
     expect(summary.crews).toEqual([
-      { ship: 0, pilot: "Ann", gunner: "Bob", sinkings: 0, shots: 3, hits: 1, blocked: 1, accuracy: 1 / 3, boostEnergy: 50.5, shieldEnergy: 0, emptySeconds: 2, averageSurvivalSeconds: 13.5, lives: 2, sunkBy: {}, reefHits: 0, reefDamage: 0, wrecksDestroyed: 0, wreckPacksReleased: 0, stormDamage: 0, movingStormTime: 0, whirlpoolTime: 0, krakenGrabs: 0, krakenDamage: 0, wreckRamDamage: 0, krakenHits: 0 },
-      { ship: 1, pilot: "Cat", gunner: null, sinkings: 1, shots: 1, hits: 0, blocked: 0, accuracy: 0, boostEnergy: 0, shieldEnergy: 30, emptySeconds: 5, averageSurvivalSeconds: 30, lives: 1, sunkBy: {}, reefHits: 0, reefDamage: 0, wrecksDestroyed: 0, wreckPacksReleased: 0, stormDamage: 0, movingStormTime: 0, whirlpoolTime: 0, krakenGrabs: 0, krakenDamage: 0, wreckRamDamage: 0, krakenHits: 0 },
+      { ship: 0, type: "frigate", pilot: "Ann", gunner: "Bob", sinkings: 0, shots: 3, hits: 1, blocked: 1, accuracy: 1 / 3, boostEnergy: 50.5, shieldEnergy: 0, emptySeconds: 2, averageSurvivalSeconds: 13.5, lives: 2, sunkBy: {}, reefHits: 0, reefDamage: 0, wrecksDestroyed: 0, wreckPacksReleased: 0, stormDamage: 0, movingStormTime: 0, whirlpoolTime: 0, krakenGrabs: 0, krakenDamage: 0, wreckRamDamage: 0, krakenHits: 0 },
+      { ship: 1, type: "frigate", pilot: "Cat", gunner: null, sinkings: 1, shots: 1, hits: 0, blocked: 0, accuracy: 0, boostEnergy: 0, shieldEnergy: 30, emptySeconds: 5, averageSurvivalSeconds: 30, lives: 1, sunkBy: {}, reefHits: 0, reefDamage: 0, wrecksDestroyed: 0, wreckPacksReleased: 0, stormDamage: 0, movingStormTime: 0, whirlpoolTime: 0, krakenGrabs: 0, krakenDamage: 0, wreckRamDamage: 0, krakenHits: 0 },
     ]);
   });
 
@@ -726,5 +726,59 @@ describe("Stage 3: bots and spectators in the summary", () => {
     const none = formatSummary(summarise([{ ...BOTS_LOG[0]!, crews: BOTS_LOG[0]!.crews!.slice(0, 2), botShipsSetting: 0, spectators: [] }, BOTS_LOG.at(-1)!]));
     expect(none).toContain("· Bot ships: none · Spectators: 0");
     expect(formatSummary(summarise(parseLog(sampleText)))).not.toContain("Bot ships");
+  });
+});
+
+describe("Stage 5: ship types in the summary", () => {
+  /**
+   * A hand-made 60-second 3-ship match. Worked out by hand:
+   * Ship 0 (Cutter): 4 shots, 2 hits (15 each, at 200 and 300) on ship 1; sinks nobody; takes 32 from the Long gun.
+   * Ship 1 (Ironclad): 2 shots, 1 hit (30, at 400) on ship 2; takes 30 from the Cutter; sunk once, by ship 2.
+   * Ship 2 (Long gun): 3 shots, 2 hits (32 at 800 on ship 0, 32 at 700 on ship 1); sinks ship 1 once; takes 30.
+   */
+  const TYPED = [
+    { t: 0, type: "matchStart", room: "TYPE", crews: [
+      { ship: 0, pilot: "Ann", gunner: "Bob", type: "cutter" },
+      { ship: 1, pilot: "Cat", gunner: "Dan", type: "ironclad" },
+      { ship: 2, pilot: "Eve", gunner: "Fay", type: "longGun" },
+    ], tuning: {} },
+    ...[0, 0, 0, 0, 1, 1, 2, 2, 2].map((ship, i) => ({ t: 1000 + i * 100, type: "shotFired", ship })),
+    { t: 2000, type: "hit", ship: 0, target: 1, damage: 15, distance: 200 },
+    { t: 3000, type: "hit", ship: 0, target: 1, damage: 15, distance: 300 },
+    { t: 4000, type: "hit", ship: 1, target: 2, damage: 30, distance: 400 },
+    { t: 5000, type: "hit", ship: 2, target: 0, damage: 32, distance: 800 },
+    { t: 6000, type: "hit", ship: 2, target: 1, damage: 32, distance: 700 },
+    { t: 7000, type: "sunk", ship: 1, by: 2, cause: "shot" },
+    { t: 10000, type: "respawn", ship: 1 },
+    { t: 60000, type: "matchEnd", winner: 2, scores: [{ ship: 0, sinkings: 0 }, { ship: 1, sinkings: 0 }, { ship: 2, sinkings: 1 }] },
+  ];
+
+  it("gives each crew its ship type (a Frigate in logs from before types)", () => {
+    expect(summarise(TYPED).crews.map((c) => c.type)).toEqual(["cutter", "ironclad", "longGun"]);
+    expect(summarise(parseLog(sampleText)).crews.map((c) => c.type)).toEqual(["frigate", "frigate"]);
+  });
+
+  it("adds up the figures for each type in the match", () => {
+    const byType = summarise(TYPED).byType;
+    expect(byType).toEqual([
+      { type: "cutter", crews: 1, sinkings: 0, timesSunk: 0, shots: 4, hits: 2, accuracy: 0.5, averageHitDistance: 250, longestHit: 300, gunDamageDealt: 30, gunDamageTaken: 32 },
+      { type: "ironclad", crews: 1, sinkings: 0, timesSunk: 1, shots: 2, hits: 1, accuracy: 0.5, averageHitDistance: 400, longestHit: 400, gunDamageDealt: 30, gunDamageTaken: 62 },
+      { type: "longGun", crews: 1, sinkings: 1, timesSunk: 0, shots: 3, hits: 2, accuracy: 2 / 3, averageHitDistance: 750, longestHit: 800, gunDamageDealt: 64, gunDamageTaken: 30 },
+    ]);
+  });
+
+  it("puts two crews of one type together, and has no hit distances in older logs", () => {
+    const byType = summarise(parseLog(sampleText)).byType;
+    expect(byType).toHaveLength(1);
+    expect(byType[0]).toMatchObject({ type: "frigate", crews: 2, averageHitDistance: null, longestHit: null });
+  });
+
+  it("shows a Ship column and the By ship type table", () => {
+    const text = formatSummary(summarise(TYPED));
+    expect(text).toMatch(/Crew 1\s+Ann & Bob\s+Cutter\s+0/);
+    expect(text).toContain("By ship type");
+    expect(text).toMatch(/Long gun\s+1\s+1\s+0\s+3\s+2\s+67%\s+750\s+800\s+64\s+30/);
+    expect(text).toMatch(/Ironclad\s+1\s+0\s+1\s+2\s+1\s+50%\s+400\s+400\s+30\s+62/);
+    expect(formatSummary(summarise(parseLog(sampleText)))).toMatch(/Frigate\s+2\s+.*—\s+—/);
   });
 });
