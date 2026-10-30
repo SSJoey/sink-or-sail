@@ -1137,11 +1137,32 @@ Drafted from `docs/design.md`, the roadmap and the "Later" notes. Question: **is
     - It passed alone, as did the later groups.
     - The user chose to **commit, then fix the wait** (the top bar and phone controls not waiting for the scene), with its own plan.
 
+### 2026-10-30 — The top bar and controls don't wait for the sea
+
+- **Plan (user: "yes"):** move everything on the page outside the sea from the scene's per-frame callback to the countdown's own loop, which reads the latest snapshots.
+  - **Moved:** the sinking banner and results, pause controls, hints, Back / Play next round, storm status, phone controls, the rotate screen and the top bar.
+  - **Kept with the scene:** what it drew, i.e. the test attributes and the phone vibrations on sinking and pickup.
+- **Test method (user's choice, 2026-10-30):**
+  - Slowing Chrome down no longer showed the difference. At 20× the scene now drew during "2" (the earlier 2.8 s was measured on a busier machine), and at 40× even the countdown's loop was late.
+  - Instead, a **test-only page setting `?sceneDelay=…`** (ms, 1–10000; `frameLimit.ts`, like `?fps=20`; nothing for players) starts the scene that much later.
+  - The "slow device" test now opens the page with `sceneDelay=4000`, so the sea arrives after the whole countdown. It checks:
+    - the countdown shows 3, with the layout banner;
+    - all four beeps play;
+    - the top bar's role and empty pack slots appear while the countdown still shows 3;
+    - nothing was drawn until then, and then the sea arrives.
+  - The Chrome slowdown is gone from that test. Without the fix the test failed (no role or pack slots before the sea); with it, it passes.
+- **Built (2026-10-30):** `game.ts` `updatePage` runs on the countdown loop, whose first tick now comes at the end of setting up the game view. `showMatchOverlays` no longer handles the sink vibration (that stays in the scene callback). Plus `sceneDelay` and its tests (2).
+- **Runs:**
+  - Type-check clean; unit 1085 passed (plus 1 skipped).
+  - Full run 37 (peak load 19) had one failure: a phone test waiting more than 5 s for the scene's first drawn ships. That is the sea itself loading late (Later: keep the game scene between matches).
+  - The phone tests and later groups passed alone.
+  - The user chose to commit as it is.
+
 ## Later
 
 - **(2026-10-29, Stage 5) Sound by distance:** with up to 10 ships and a camera that follows your ship, other ships' sounds get quieter the further away they are, and nearly silent off screen. Stage 4 slice 2's volume rule is the place to add it. It works alongside the cap of 8 sounds at once.
 
-- **(2026-10-30) Phone controls wait for the scene too:** under load a phone test's Fire button showed after more than 5 s (Stage 4 slice 6's full run, and slice 9). The controls probably appear only once the scene draws, like the countdown before its fix. A fix like the countdown's, or keeping the scene between matches (next item), would help.
+- **(2026-10-30, fixed the same day; see "The top bar and controls don't wait for the sea") Phone controls wait for the scene too:** under load a phone test's Fire button showed after more than 5 s (Stage 4 slice 6's full run, and slice 9). The controls probably appear only once the scene draws, like the countdown before its fix. A fix like the countdown's, or keeping the scene between matches (next item), would help.
 - **(2026-10-29) Keep the game scene between matches:** today each match makes a new Phaser game and reloads the pack icons, so the sea appears late on a slow device (about 2.8 s with Chrome 20× slower). Keeping one game running between matches would cut that. The countdown no longer waits for it (fixed 2026-10-29).
 - **(2026-10-29, investigated and fixed the same day; see "Countdown on slow devices") Smoke test misses the 3-2-1:**
   - "loads, joins a room and shows a ship" fails under load in about 4 of the last 7 full browser runs (Stage 3 slices 9–11, Stage 4 slice 1).

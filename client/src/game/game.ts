@@ -16,7 +16,7 @@ import { startInputSender } from "./inputSender.ts";
 import { PackLatch } from "./packLatch.ts";
 import { gunnerPackBuzz } from "./packBuzz.ts";
 import { SnapshotBuffer, type Frame } from "./interpolation.ts";
-import { frameLimit } from "./frameLimit.ts";
+import { frameLimit, sceneDelay } from "./frameLimit.ts";
 import { heldShips, hiddenShips } from "./hazardLook.ts";
 import { lifebarColour, lifebarFill, lifebarShown } from "./lifebar.ts";
 import { awardLines, backToLobbyText, countdownLabel, watchingLabel, hauntingText, outBanner, pausedText, respawnText, resultRows, resultTitle, sinkBanner, stormText } from "./matchText.ts";
@@ -172,8 +172,8 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
     saveUsedHints(soundStore, usedHints);
   };
   const beepClock = new BeepClock();
-  // The 3-2-1, the layout banner and the countdown beeps run on a loop of their own from the room state, so they don't
-  // wait for the sea to load (on a slow device the scene's first frame can come near the end of the countdown).
+  // The 3-2-1, the layout banner and the countdown beeps (and the rest of the page: updatePage) run on a loop of their
+  // own from the room state, so they don't wait for the sea to load (on a slow device the scene starts late).
   // On animation frames, like drawing (the browser keeps those going on a busy machine, where a timer can lag
   // by over a second), but not Phaser's, which start only once the scene has loaded.
   let countdownLoop = 0;
@@ -187,9 +187,8 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
       played.push(kind);
       canvasHost.dataset.beeps = played.join(",");
     }
+    updatePage();
   };
-  // The first tick at once (not on the next frame, which comes after Phaser is set up), so the first count is caught.
-  countdownTick();
   const mixer = new SfxMixer();
   const stoppers = new Map<number, () => void>();
 
@@ -239,31 +238,10 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
       packLatch.update(!!input?.pack);
     },
     drawn: (frame, effects) => {
+      // What the scene drew (the rest of the page updates on its own loop, see updatePage).
       const mine = seat();
       const state = room.state as RoomStateView;
-      showMatchOverlays(state, frame, effects, mine?.crew ?? null, { banner, scoreboard });
-      // A host who only watches can still pause (Stage 3 slice 8).
-      showPauseControls(state, mine !== null || state.hostId === room.sessionId, state.hostId === room.sessionId, paused);
-      // Stage 3 results: Play again for the host; everyone back to the lobby after a while.
-      if (state.phase === Phase.Over) {
-        overSince ??= performance.now();
-        const left = TUNING.client.resultsSeconds - (performance.now() - overSince) / 1000;
-        if (left <= 0) {
-          onExit();
-          return;
-        }
-        const isHost = state.hostId === room.sessionId;
-        byId("play-again").hidden = !isHost;
-        byId("results-wait").textContent = isHost ? "" : "Waiting for the host to play again";
-        byId("results-countdown").textContent = backToLobbyText(left);
-      } else {
-        overSince = null;
-      }
-      shownHints = showHints(state, frame, mine, input, touchLayer.active, usedHints, soundStore, hintEls);
-      hideHints.hidden = shownHints.length === 0;
-      const spectator = state.players.get(room.sessionId)?.spectator === true;
-      byId("hud-back").hidden = mine !== null || spectator;
-      byId("hud-play-next").hidden = !spectator;
+      if (mine && effects[mine.crew]?.justSank) navigator.vibrate?.(TUNING.client.sinkVibrateMs);
       // Read by the browser smoke tests (a canvas has no elements to inspect).
       canvasHost.dataset.ships = String(frame?.ships.filter((s) => !s.sunk).length ?? 0);
       canvasHost.dataset.shots = String(frame?.shots.size ?? 0);
@@ -280,7 +258,6 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
         .join(";");
       canvasHost.dataset.mines = String(frame?.mines.size ?? 0);
       if (own) canvasHost.dataset.ownHealth = String(Math.round(own.health));
-      showStormStatus(state, own ?? null, stormStatus);
       // Wrecks still standing as "id:health:pack;…" (pack 1 when it holds one), for the browser smoke tests.
       canvasHost.dataset.wrecks = [...(frame?.wrecks ?? new Map())].map(([id, w]) => `${id}:${Math.round(w.health)}:${w.hasPack ? 1 : 0}`).join(";");
       canvasHost.dataset.torpedoes = String(frame?.torpedoes.size ?? 0);
@@ -304,11 +281,8 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
       const heldNow = own?.gunnerPack ?? null;
       if (mine && gunnerPackBuzz(heldBefore, heldNow, mine.role)) navigator.vibrate?.(TUNING.client.gunnerPackVibrateMs);
       heldBefore = heldNow;
-      touchLayer.update(mine?.role ?? null, own && mine ? rolePack(own, mine.role) : null, (own?.disabled ?? 0) > 0, !!own?.out);
       // Read by the EMP smoke test: is any ship disabled right now?
       canvasHost.dataset.disabled = (frame?.ships ?? []).map((s) => (s.disabled > 0 ? "1" : "0")).join("");
-      rotate.hidden = !(touchLayer.active && isPortrait(window.innerWidth, window.innerHeight));
-      updateHud(frame, mine, state.timeLeft, state.matchMode === "lastAfloat");
     },
   });
 
@@ -328,8 +302,51 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
     },
     // Browser tests only: ?fps=20 draws less often, to keep a busy test machine responsive.
     ...(frameLimit(location.search) !== undefined && { fps: { limit: frameLimit(location.search) } }),
-    scene,
+    // Browser tests only: ?sceneDelay=… starts the scene late, like a slow device loading the sea.
+    scene: sceneDelay(location.search) === undefined ? scene : [],
   });
+  const delayedScene = sceneDelay(location.search) !== undefined ? setTimeout(() => game.scene.add("game", scene, true), sceneDelay(location.search)) : undefined;
+
+  /**
+   * Everything on the page outside the sea (2026-10-30): the banner and results, pause controls, hints, the storm
+   * status, the phone controls, the rotate screen and the top bar. It runs on the countdown's own loop from the
+   * latest snapshots, not on the scene's frames, so on a slow device it shows before the sea has loaded.
+   */
+  function updatePage(): void {
+    const frame = buffer.sample(performance.now() - TUNING.client.interpolationDelayMs);
+    const mine = seat();
+    const state = room.state as RoomStateView;
+    showMatchOverlays(state, frame, mine?.crew ?? null, { banner, scoreboard });
+    // A host who only watches can still pause (Stage 3 slice 8).
+    showPauseControls(state, mine !== null || state.hostId === room.sessionId, state.hostId === room.sessionId, paused);
+    // Stage 3 results: Play again for the host; everyone back to the lobby after a while.
+    if (state.phase === Phase.Over) {
+      overSince ??= performance.now();
+      const left = TUNING.client.resultsSeconds - (performance.now() - overSince) / 1000;
+      if (left <= 0) {
+        onExit();
+        return;
+      }
+      const isHost = state.hostId === room.sessionId;
+      byId("play-again").hidden = !isHost;
+      byId("results-wait").textContent = isHost ? "" : "Waiting for the host to play again";
+      byId("results-countdown").textContent = backToLobbyText(left);
+    } else {
+      overSince = null;
+    }
+    shownHints = showHints(state, frame, mine, input, touchLayer.active, usedHints, soundStore, hintEls);
+    hideHints.hidden = shownHints.length === 0;
+    const spectator = state.players.get(room.sessionId)?.spectator === true;
+    byId("hud-back").hidden = mine !== null || spectator;
+    byId("hud-play-next").hidden = !spectator;
+    const own = mine ? frame?.ships[mine.crew] : undefined;
+    showStormStatus(state, own ?? null, stormStatus);
+    touchLayer.update(mine?.role ?? null, own && mine ? rolePack(own, mine.role) : null, (own?.disabled ?? 0) > 0, !!own?.out);
+    rotate.hidden = !(touchLayer.active && isPortrait(window.innerWidth, window.innerHeight));
+    updateHud(frame, mine, state.timeLeft, state.matchMode === "lastAfloat");
+  }
+  // The first tick at once (not on the next frame), now that everything it updates exists.
+  countdownTick();
 
   return {
     cues(cues) {
@@ -354,6 +371,7 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
     stop() {
       stopSending();
       cancelAnimationFrame(countdownLoop);
+      clearTimeout(delayedScene);
       room.onStateChange.remove(onState);
       game.destroy(true);
       touchLayer.destroy();
@@ -522,11 +540,10 @@ function showCountdown(state: RoomStateView, els: { countdown: HTMLElement; bann
   if (els.banner.textContent !== text) els.banner.textContent = text;
 }
 
-/** The sinking banner (the countdown's banner is showCountdown's), the sink vibration and the results. */
+/** The sinking banner (the countdown's banner is showCountdown's) and the results. */
 function showMatchOverlays(
   state: RoomStateView,
   frame: Frame | null,
-  effects: ShipEffect[],
   ownCrew: number | null,
   els: { banner: HTMLElement; scoreboard: HTMLElement },
 ): void {
@@ -539,7 +556,6 @@ function showMatchOverlays(
     const text = own.out ? outBanner(own.sunkBy, own.sunkCause) : `${sinkBanner(own.sunkBy, own.sunkCause)} · ${respawnText(own.respawnIn)}`;
     if (els.banner.textContent !== text) els.banner.textContent = text;
   }
-  if (ownCrew !== null && effects[ownCrew]?.justSank) navigator.vibrate?.(TUNING.client.sinkVibrateMs);
 
   const over = state.phase === Phase.Over;
   // Redrawn when the results arrive or change (they come with the match end).
