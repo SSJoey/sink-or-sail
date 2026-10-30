@@ -1193,6 +1193,15 @@ Drafted from `docs/design.md`, the roadmap and the "Later" notes. Question: **is
   - live spectators until the spectator delay.
 - **Stage 4 now has left:** tuning (values left as they are until the user's test games) and "Add to Home Screen", the last slice.
 
+### 2026-10-30 — Add to Home Screen moved next to cloud hosting
+
+- **Why:** a home-screen app opens fullscreen on Android only when it is installed, which needs HTTPS; on the home network's plain `http://` address Chrome seems to make a shortcut that opens in a normal tab (reports conflict). iPhones may already open home-screen sites without Safari's bars from iOS 26 (one guide, unconfirmed). HTTPS only comes with cloud hosting.
+- **User's answers ("go with your suggestions"):**
+  1. a) Move "Add to Home Screen" to the end of Stage 5, next to cloud hosting (just before it, so it can be tried over HTTPS).
+  2. a) When built: fullscreen and sideways.
+  3. a) Icon: a sea-chart ship (cream planks, orange crew colour) on chart blue. Drawn in code as an SVG, turned into PNGs (180, 192 and 512 px) once with the installed Chrome, no new dependency.
+- **Stage 4 now has left:** only tuning, waiting on the user's test games. Stage 4 still has no definition of done (2026-10-29, question 10).
+
 ## Later
 
 - **(2026-10-29, Stage 5) Sound by distance:** with up to 10 ships and a camera that follows your ship, other ships' sounds get quieter the further away they are, and nearly silent off screen. Stage 4 slice 2's volume rule is the place to add it. It works alongside the cap of 8 sounds at once.
