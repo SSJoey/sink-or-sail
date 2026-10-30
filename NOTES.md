@@ -1379,6 +1379,21 @@ Drafted from `docs/design.md`, the roadmap and "Later". Scope:
   2. a) The legend sits in the game view, bottom left, on laptops only. It is always shown, with a small Hide button remembered on the device. The first-match key hints stay as they are.
   3. a) The map outline shows islands and reefs only.
   4. a) About 20 tips, some for everyone and some for your role, shown from the 3-2-1 until 3 s after "Go!". The full list goes to the user to approve before building.
+- **Tips approved** (2026-10-30, "go"): the 20 tips as listed in `client/src/game/tips.ts`. Pack tips only with packs on, hazard tips only with hazards on; the ghost tip only in Last Afloat with hazards on.
+- **Built (2026-10-30):**
+  - **Lobby:**
+    - the picked type's hull outline next to the Ship pick, in the crew colour, from the same shape as on the sea, in one box for every type, so sizes compare (`lobby/outlines.ts`);
+    - the chosen layout as a small chart under the Layout line: sea, islands, and reefs as the settings give them (none with hazards off); Random shows "?". Everyone sees it.
+  - **Game view, laptops only** (`game/legend.ts`): a keys legend bottom left for a crew member during the countdown and the match. It shows the role's keys, or "Steer your ghost" once out. Hide is remembered on the device. While hidden, a small **Keys** button brings it back; that button wasn't in the plan, but without it there'd be no way back.
+  - **Tip** (`game/tips.ts`, `tuning.ts` `client.tipSeconds` 3): one random tip per player per match, for the role and the match's settings, under the layout banner from the 3-2-1 until 3 s after "Go!". Spectators get none.
+  - **Tests:** 14 new unit tests (outlines, legend, tips). New browser test `lobbyExtras.spec.ts`: the ship outline follows the pick on both pages, the layout outline follows the host's choice ("?" for Random), a tip shows during the countdown and goes after, the legend shows on the laptop but not the phone, and Hide / Keys work.
+- **Runs:**
+  - Type-check clean; 1216 unit tests pass (plus 1 skipped).
+  - Full browser run 42 (peak load 55, the user's browser busy) failed two tests:
+    - the sound test, which missed a 3-2-1 count (a known load failure);
+    - the lifebar test, whose ship took a second reef scrape before the lifebar was read (0.83 instead of 0.95).
+  - The 3 later-group tests passed on their own. The sound test passed alone. The lifebar test failed once more alone at load around 30, then passed twice at load 9.
+  - The user chose to commit as it is.
 
 ## Later
 

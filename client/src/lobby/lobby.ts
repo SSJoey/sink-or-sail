@@ -21,6 +21,7 @@ import { joinErrorText, rejectedText } from "./messages.ts";
 import { reloadIfNewBuild } from "./newBuild.ts";
 import { botShipCount, crewRows, myCrew, readyCount, shipTypeFacts, type LobbyPlayer } from "./crewList.ts";
 import { waitingView } from "./waiting.ts";
+import { hullOutline, layoutOutline } from "./outlines.ts";
 import { BOT_SHIP_CHOICES, LAYOUT_CHOICES, LIFE_CHOICES, REEF_CHOICES, botShipsText, hazardsText, layoutText, livesShown, settingsText } from "./settings.ts";
 import { clearToken, loadToken, saveToken } from "./reconnectToken.ts";
 import { codeFromSearch, joinBase, joinLink } from "./joinLink.ts";
@@ -69,6 +70,27 @@ export function startLobby(): void {
     game?.stop();
     game = null;
   };
+
+  /** Stage 5 slice 4: the chosen layout as a small chart (islands and the reefs the settings give), "?" for Random. */
+  function showLayoutChart(setting: string, hazardsOn: boolean, reefs: string): void {
+    const chart = byId("layout-chart");
+    const key = `${setting}:${hazardsOn}:${reefs}`;
+    if (chart.dataset.key === key) return;
+    chart.dataset.key = key;
+    const outline = layoutOutline(setting, hazardsOn, reefs);
+    const paths = (d: readonly string[]) => d.map((one) => {
+      const el = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      el.setAttribute("d", one);
+      return el;
+    });
+    byId("layout-islands").replaceChildren(...paths(outline?.islands ?? []));
+    byId("layout-reefs").replaceChildren(...paths(outline?.reefs ?? []));
+    byId("layout-random").style.display = outline ? "none" : "";
+    // Read by the browser smoke tests.
+    chart.dataset.layout = outline ? setting : "random";
+    chart.dataset.islands = String(outline?.islands.length ?? 0);
+    chart.dataset.reefs = String(outline?.reefs.length ?? 0);
+  }
 
   function showJoinScreen(): void {
     roomScreen.hidden = true;
@@ -288,6 +310,7 @@ export function startLobby(): void {
     const picked = phase === Phase.Waiting ? null : state.matchLayout;
     const layoutLine = layoutText(state.layout, picked);
     byId("layout-status").textContent = !isHost || (state.layout === "random" && picked) ? layoutLine : "";
+    showLayoutChart(state.layout, state.hazardsEnabled, state.reefs);
 
     // Stage 3 slice 10: bot ships: the host's dropdown; others see the setting; everyone sees when fewer fit.
     byId("bot-ships-host").hidden = !isHost;
@@ -390,6 +413,13 @@ export function startLobby(): void {
       byId("ship-type-name").textContent = SHIP_TYPE_NAMES[mine.shipType];
       byId("ship-type-who").textContent = mine.picker ? "" : `(your ${mine.role === "pilot" ? "gunner" : "pilot"} picks)`;
       byId("ship-type-facts").textContent = shipTypeFacts(mine.shipType);
+      // Stage 5 slice 4: the picked type's outline, in the crew colour.
+      const hull = byId("ship-type-hull");
+      hull.style.color = mine.colour;
+      if (hull.dataset.type !== mine.shipType) {
+        hull.dataset.type = mine.shipType;
+        hull.querySelector("path")!.setAttribute("d", hullOutline(mine.shipType));
+      }
       crewBox.dataset.shipType = mine.shipType;
       byId("play-bot").hidden = matchOn || !mine.alone;
       byId("remove-bot").hidden = matchOn || !mine.withBot;

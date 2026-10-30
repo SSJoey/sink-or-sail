@@ -376,6 +376,8 @@ export const TUNING = {
     },
     /** Stage 4 slice 8: a control hint not yet acted on fades after this many seconds of play. */
     hintSeconds: 30,
+    /** Stage 5 slice 4: the tip at the start of a match shows from the 3-2-1 until this many seconds after "Go!". */
+    tipSeconds: 3,
     /** Stage 4 slice 4: a shot's ink dot on the sea (its trail's dots are smaller); the dashed ring round your own ship. */
     shotRadius: 3.5,
     ownShipRing: 35,

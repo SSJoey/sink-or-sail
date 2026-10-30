@@ -5,6 +5,8 @@ import { CREW_STYLES } from "./crews.ts";
 import { GameScene, type SceneLink } from "./GameScene.ts";
 import { isBigSea, viewSetting } from "./camera.ts";
 import { drawMinimap, minimapDots } from "./minimap.ts";
+import { legendRows, legendShown, loadLegendHidden, saveLegendHidden } from "./legend.ts";
+import { pickTip, tipShown, tipsFor } from "./tips.ts";
 import type { ShipEffect } from "./effects.ts";
 import { empText, formatClock, livesHtml, packSlotLabel, scoreHtml } from "./hud.ts";
 import { BeepClock, type BeepKind } from "./beeps.ts";
@@ -216,6 +218,20 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
     for (const hint of shownHints) for (const k of hint.keys) usedHints.add(k);
     saveUsedHints(soundStore, usedHints);
   };
+  // Stage 5 slice 4: the laptop controls legend (Hide remembered on this device), and one tip per match.
+  let legendHidden = loadLegendHidden(soundStore);
+  const legend = byId("legend");
+  const legendShow = byId("legend-show");
+  byId("legend-hide").onclick = () => {
+    legendHidden = true;
+    saveLegendHidden(soundStore, true);
+  };
+  legendShow.onclick = () => {
+    legendHidden = false;
+    saveLegendHidden(soundStore, false);
+  };
+  const tip = byId("tip");
+  let tipText: string | null | undefined;
   const beepClock = new BeepClock();
   // The 3-2-1, the layout banner and the countdown beeps (and the rest of the page: updatePage) run on a loop of their
   // own from the room state, so they don't wait for the sea to load (on a slow device the scene starts late).
@@ -385,6 +401,29 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
       overSince = null;
     }
     shownHints = showHints(state, frame, mine, input, touchLayer.active, usedHints, soundStore, hintEls);
+    const playing = state.phase === Phase.Countdown || state.phase === Phase.Running || state.phase === Phase.Paused;
+    const ghost = !!(mine && frame?.ships[mine.crew]?.out);
+    const shown = legendShown({ seated: mine !== null, playing, phone: touchLayer.active, hidden: legendHidden });
+    legend.hidden = !shown;
+    legendShow.hidden = !(mine !== null && playing && !touchLayer.active && legendHidden);
+    if (shown && mine) {
+      const key = `${mine.role}:${ghost}`;
+      if (legend.dataset.key !== key) {
+        legend.dataset.key = key;
+        byId("legend-rows").replaceChildren(...legendRows(mine.role, ghost).map(([k, what]) => {
+          const tr = document.createElement("tr");
+          tr.append(Object.assign(document.createElement("td"), { textContent: k }), Object.assign(document.createElement("td"), { textContent: what }));
+          return tr;
+        }));
+      }
+    }
+    // The tip: picked once this match's seat is known, for its role and settings.
+    if (tipText === undefined && mine) {
+      tipText = pickTip(tipsFor({ role: mine.role, packs: state.packsEnabled, hazards: state.hazardsEnabled, lastAfloat: state.matchMode === "lastAfloat" }));
+    }
+    const duration = state.matchMode === "lastAfloat" ? TUNING.lastAfloat.duration : TUNING.match.duration;
+    tip.hidden = !(tipText && tipShown(state.phase, duration - state.timeLeft));
+    if (!tip.hidden && tip.textContent !== tipText) tip.textContent = tipText!;
     hideHints.hidden = shownHints.length === 0;
     const spectator = state.players.get(room.sessionId)?.spectator === true;
     byId("hud-back").hidden = mine !== null || spectator;
@@ -448,6 +487,10 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
       delete canvasHost.dataset.view;
       delete minimap.dataset.dots;
       minimap.hidden = true;
+      tip.hidden = true;
+      legend.hidden = true;
+      legendShow.hidden = true;
+      delete legend.dataset.key;
       rotate.hidden = true;
       countdown.hidden = true;
       banner.hidden = true;

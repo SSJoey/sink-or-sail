@@ -81,6 +81,9 @@
       #ship-type { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 0 0 8px; }
       #ship-type label { font-weight: 600; }
       #ship-type-facts { flex-basis: 100%; margin: 0; font-size: 14px; }
+      /* Stage 5 slice 4: the picked type's outline (sizes compare: one box for every type), and the chosen layout. */
+      #ship-type-hull { width: 72px; height: 40px; flex: none; }
+      #layout-chart { flex-basis: 100%; max-width: 240px; aspect-ratio: 16 / 9; border: 2px solid var(--ink); box-sizing: border-box; }
       #crew-list { list-style: none; padding: 0; margin: 0 0 16px; background: var(--cream); border: 2px solid var(--ink); }
       #crew-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; min-height: 52px; padding: 4px 12px; border-bottom: 1px solid rgba(59,47,34,0.3); box-sizing: border-box; }
       #crew-list li:last-child { border-bottom: 0; }
@@ -177,6 +180,15 @@
       #storm-status { top: 56px; font-size: 15px; font-weight: 600; background: var(--ink); color: var(--cream); padding: 4px 12px; }
       #storm-status.in-storm { background: var(--red); color: #fff; }
       #storm-status:not([hidden]) ~ #banner { top: 92px; }
+      /* Stage 5 slice 4: the tip at the start, below the banner; the laptop controls legend bottom left. */
+      #tip { top: 118px; max-width: min(560px, calc(100% - 32px)); white-space: normal; font-size: 16px; background: var(--cream); color: var(--ink); border: 2px solid var(--ink); box-shadow: var(--shadow); padding: 6px 14px; }
+      #storm-status:not([hidden]) ~ #tip { top: 146px; }
+      #legend { position: absolute; left: 8px; bottom: 8px; background: var(--cream); color: var(--ink); border: 2px solid var(--ink); box-shadow: 2px 2px 0 rgba(59,47,34,0.35); padding: 4px 8px; font-size: 13px; }
+      #legend table { border-collapse: collapse; }
+      #legend td { padding: 1px 6px 1px 0; white-space: nowrap; }
+      #legend td:first-child { font-weight: 700; }
+      #legend-hide, #legend-show { min-height: 26px; padding: 1px 8px; font-size: 12px; margin: 4px 0 0; }
+      #legend-show { position: absolute; left: 8px; bottom: 8px; margin: 0; }
       #banner { top: 64px; font-size: 20px; font-weight: 600; background: var(--cream); color: var(--ink); border: 2px solid var(--ink); box-shadow: var(--shadow); padding: 8px 16px; }
       #scoreboard, #paused { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); background: var(--cream); color: var(--ink); border: 2px solid var(--ink); box-shadow: var(--shadow); padding: 16px 24px; text-align: center; min-width: 280px; max-height: calc(100% - 32px); overflow: auto; box-sizing: border-box; }
       #scoreboard h2 { margin: 0 0 8px; font-size: 28px; }
@@ -246,6 +258,7 @@
                 <option value="longGun">Long gun</option>
               </select>
               <strong id="ship-type-name"></strong>
+              <svg id="ship-type-hull" viewBox="-36 -20 72 40" aria-hidden="true"><path fill="currentColor" stroke="#1e170f" stroke-width="2" stroke-linejoin="round"></path></svg>
               <span id="ship-type-who" class="note"></span>
               <p id="ship-type-facts" class="note"></p>
             </div>
@@ -312,6 +325,7 @@
             <p>
               <label id="layout-host" hidden>Layout <select id="layout-select"></select></label>
               <span id="layout-status"></span>
+              <svg id="layout-chart" viewBox="0 0 1600 900" role="img" aria-label="The chosen layout"><rect width="1600" height="900" fill="#bfd9e3"></rect><g id="layout-reefs" fill="#d6e8ee" stroke="#3b2f22" stroke-width="6" stroke-dasharray="14 12"></g><g id="layout-islands" fill="#dcc79b" stroke="#3b2f22" stroke-width="8" stroke-linejoin="round"></g><text id="layout-random" x="800" y="450" text-anchor="middle" dominant-baseline="central" font-size="520" font-weight="600" fill="#3b2f22">?</text></svg>
             </p>
             <p>
               <label id="bot-ships-host" hidden>Bot ships <select id="bot-ships-select"></select></label>
@@ -366,6 +380,9 @@
       <div id="countdown" class="overlay-text" hidden></div>
       <div id="storm-status" class="overlay-text" hidden></div>
       <div id="banner" class="overlay-text" hidden></div>
+      <div id="tip" class="overlay-text" hidden></div>
+      <div id="legend" hidden><table id="legend-rows"></table><button id="legend-hide">Hide</button></div>
+      <button id="legend-show" hidden>Keys</button>
       <div id="scoreboard" hidden>
         <div id="result"></div>
         <p id="results-wait"></p>
