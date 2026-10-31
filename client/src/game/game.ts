@@ -8,7 +8,7 @@ import { drawMinimap, minimapDots } from "./minimap.ts";
 import { legendRows, legendShown, loadLegendHidden, saveLegendHidden } from "./legend.ts";
 import { pickTip, tipShown, tipsFor } from "./tips.ts";
 import type { ShipEffect } from "./effects.ts";
-import { empText, formatClock, packSlotLabel, topBarScore } from "./hud.ts";
+import { empText, formatClock, packSlotLabel, standingsRows, standingsShown, topBarScore } from "./hud.ts";
 import { BeepClock, type BeepKind } from "./beeps.ts";
 import { isDamaged } from "./damageLook.ts";
 import { hintsFor, loadUsedHints, saveUsedHints, usedControls, type Hint, type HintSituation, type HintSpot } from "./hints.ts";
@@ -179,6 +179,7 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
   const banner = byId("banner");
   const stormStatus = byId("storm-status");
   const scoreboard = byId("scoreboard");
+  const standings = byId("standings");
   const paused = byId("paused");
   screen.hidden = false;
   byId("back-to-room").onclick = onExit;
@@ -304,12 +305,14 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
       canvasHost.dataset.chart = `${(room.state as RoomStateView).matchLayout}:${marks.waves}:${marks.palms}:${marks.reefMarks}`;
     },
     seat,
+    // Stage 5 slice 7: the room's players, for the crews' name labels.
+    players: () => roomPlayers(room.state as RoomStateView),
     touch,
     setInput: (next) => {
       input = next as { pack?: boolean } | null;
       packLatch.update(!!input?.pack);
     },
-    drawn: (frame, effects, view) => {
+    drawn: (frame, effects, view, labels) => {
       // What the scene drew (the rest of the page updates on its own loop, see updatePage).
       const mine = seat();
       const state = room.state as RoomStateView;
@@ -366,6 +369,8 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
       canvasHost.dataset.damaged = (frame?.ships ?? [])
         .flatMap((s, id) => (isDamaged(s) && lifebarShown(s, id, mine?.crew ?? null, frame!.hazards) ? [id] : []))
         .join(",");
+      // Stage 5 slice 7: the name labels shown, "crew:symbol names;…" (a ghost's "gcrew:…"), for the browser smoke tests.
+      canvasHost.dataset.labels = labels.join(";");
       // Ghosts as "ship:x,y;…", for the browser smoke tests.
       canvasHost.dataset.ghosts = [...(frame?.ghosts ?? new Map())].map(([id, g]) => `${id}:${Math.round(g.x)},${Math.round(g.y)}`).join(";");
       // Ships a kraken holds, for the browser smoke tests.
@@ -442,6 +447,7 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
     touchLayer.update(mine?.role ?? null, own && mine ? rolePack(own, mine.role) : null, (own?.disabled ?? 0) > 0, !!own?.out);
     rotate.hidden = !(touchLayer.active && isPortrait(window.innerWidth, window.innerHeight));
     updateHud(frame, mine, state.timeLeft, state.matchMode === "lastAfloat");
+    showStandings(standings, frame, mine?.crew ?? null, state, playing);
   }
   // The first tick at once (not on the next frame), now that everything it updates exists.
   countdownTick();
@@ -490,6 +496,7 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
       delete canvasHost.dataset.held;
       delete canvasHost.dataset.ghosts;
       delete canvasHost.dataset.lifebars;
+      delete canvasHost.dataset.labels;
       delete canvasHost.dataset.damaged;
       delete canvasHost.dataset.disabled;
       delete canvasHost.dataset.shots;
@@ -505,6 +512,8 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
       banner.hidden = true;
       stormStatus.hidden = true;
       scoreboard.hidden = true;
+      standings.hidden = true;
+      delete standings.dataset.key;
       paused.hidden = true;
       screen.hidden = true;
     },
@@ -513,11 +522,40 @@ export function startGame(room: Room, onExit: () => void): GameHandle {
 
 const roleLabel: Record<Role, string> = { pilot: "Pilot", gunner: "Gunner" };
 
+/** Everyone in the room as a list (the state's players are a map). */
+function roomPlayers(state: RoomStateView): PlayerView[] {
+  const players: PlayerView[] = [];
+  state.players.forEach((p) => players.push(p));
+  return players;
+}
+
+/**
+ * Stage 5 slice 7: a spectator's scoreboard with more than 3 crews, one row per crew by place (symbol and crew name in
+ * its colour, players, ship type, score or hearts), while a match is on. Redrawn only when a row changes.
+ */
+function showStandings(el: HTMLElement, frame: Frame | null, crew: number | null, state: RoomStateView, playing: boolean): void {
+  const ships = frame?.ships ?? [];
+  el.hidden = !(playing && standingsShown(crew, ships.length));
+  if (el.hidden) return;
+  const rows = standingsRows(ships, roomPlayers(state), state.matchMode === "lastAfloat");
+  const key = JSON.stringify(rows);
+  if (el.dataset.key === key) return;
+  el.dataset.key = key;
+  byId("standings-rows").replaceChildren(...rows.map((r) => {
+    const tr = document.createElement("tr");
+    tr.dataset.crew = String(r.crew);
+    const cell = (text: string, className = "") => Object.assign(document.createElement("td"), { textContent: text, className });
+    const name = cell(`${r.symbol} ${r.name}`, "crew");
+    name.style.color = r.css;
+    tr.append(cell(r.place), name, cell(r.players), cell(r.ship), cell(r.score, "score"));
+    return tr;
+  }));
+}
+
 /** Fills a scoreboard element: result title and one row per crew. Also used on the room screen. */
 /** The results: the winner, then a table of the crews by place (Stage 3), and the layout played. */
 export function renderResult(el: HTMLElement, state: RoomStateView): void {
-  const players: PlayerView[] = [];
-  state.players.forEach((p) => players.push(p));
+  const players = roomPlayers(state);
   const lastAfloat = state.matchMode === "lastAfloat";
   const title = document.createElement("h2");
   title.textContent = resultTitle(state.winner);

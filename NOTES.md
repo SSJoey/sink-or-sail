@@ -1513,6 +1513,27 @@ Drafted from `docs/design.md`, the roadmap and "Later". Scope:
   - that run's other failures (a missed 3-2-1, the mine-pack ship taking the torpedo pack first, a phone button late) passed alone, with the user's browser busy;
   - committed (user's choice).
 
+### 2026-10-31 — Stage 5 slice 7 plan: spectator view on big maps
+
+- **Already there (slice 5):** a spectator sees the whole sea zoomed out to fit (0.5× on 3200 × 1800, 0.4× on 4000 × 2250), no minimap, every crew in the top bar.
+- **Answers:**
+  1. b) ships, packs, shots and lifebars keep their sizes; nothing is drawn larger for spectators.
+  2. a) with more than 3 crews, spectators get a scoreboard panel down the right side: one row per crew in place order (symbol and crew name in its colour, the players' in-game names, ship type, score or hearts); the top bar then shows only the timer and mode. With 2–3 crews nothing changes.
+  3. a) "7 of 10 afloat" in the spectator's top bar in Last Afloat.
+  4. Name labels on the sea (the user's idea, e.g. "#3: Ana + Jon"), details answered the same day:
+     - 4a. b) **everyone** sees them (players and spectators, every sea size, own ship included);
+     - 4b. a) "▲ Ana + Jon": the symbol in the crew colour, pilot first;
+     - 4c. a) a partner bot shows as "Bot" ("▲ Ana + Bot"), a bot ship as "▲ Bots";
+     - 4d. a + c) below each ship, ink on a faint cream backing, a fixed size on screen (only the text; ships keep their sizes); shown on ships afloat, hidden with a ship hidden in a moving storm or sunk and waiting to respawn; **also on ghosts, faintly**.
+- **Go** given the same day.
+- **Chosen while building (to confirm):**
+  - **Label size:** 16 of the game's own pixels (the 1600-wide canvas) at any zoom, never below 9 screen pixels (so bigger in the game on a small phone); 6 pixels below the hull's farthest point; cream backing at 0.6; a ghost's label at 0.45. All in `tuning.ts` (`client.labels`).
+  - A ghost's label hides with the ghost under a moving storm, except from its own crew (like ships).
+  - **Panel:** shown to anyone without a seat (spectators, a host who only watches, a late joiner watching) during the countdown, the match and a pause, not over the results. Last Afloat orders by lives left only (out last); crews level share a place, in crew order. A crew nobody is in any more shows "—".
+  - **"7 of 10 afloat"** only with more than 3 crews, like the panel (2–3 crews keep today's line).
+  - **An existing test changed** with answer 2a: the top-bar test expected a spectator watching 4 crews to see every crew's line; it now expects nothing in Sink Count and the ships afloat in Last Afloat, and checks that 3 crews keep the line.
+- **Runs:** full run 48 (peak load 24) failed the EMP test (ship late to its pack) and the results test's Speed Demon award; both passed alone, and so did the later groups (with the two new ten-ship tests). Committed as it is (user's choice).
+
 ## Later
 
 - **(2026-10-30, fixed the same day; see "The lifebar browser test, fixed") The lifebar browser test under load:** it failed in the last two full runs (slice 4's run 42, slice 5's run 43). The ship took extra reef scrapes before the lifebar was read. A fix to plan: stop steering at the reef's first scrape and wait for the reading, so the test still checks exactly 0.95.

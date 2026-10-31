@@ -405,6 +405,12 @@ export const TUNING = {
     /** Stage 5 slice 3: the minimap (CSS px), top right under the top bar, while the sea is bigger than the view. */
     minimap: { width: 150, height: 96 },
     /**
+     * Stage 5 slice 7: the crew's names under every ship ("▲ Ana + Jon"), for everyone. `fontPx` in the game's own
+     * pixels (the 1600-wide canvas) at any zoom, but at least `minScreenPx` on the screen (small phones); `gap` (game
+     * pixels) below the hull; ink on a cream backing at `backingAlpha`; a ghost's label at `ghostAlpha`.
+     */
+    labels: { fontPx: 16, minScreenPx: 9, gap: 6, backingAlpha: 0.6, ghostAlpha: 0.45 },
+    /**
      * Stage 4 slice 3: the sea-chart look (sea units). Grid lines every `gridStep`; wave squiggles on a grid
      * `waveSpacing` apart (moved up to `waveJitter`), kept `waveClearance` from islands, reefs, wrecks, the edge and
      * the compass rose; palms on islands of at least `palmArea` per palm (at most `maxPalms`), `palmMargin` from

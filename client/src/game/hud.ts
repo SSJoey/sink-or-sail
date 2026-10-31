@@ -1,5 +1,6 @@
-import { PACK_LABELS, type PackType } from "@sink-or-sail/shared";
+import { PACK_LABELS, SHIP_TYPE_NAMES, isShipType, type PackType } from "@sink-or-sail/shared";
 import { CREW_STYLES } from "./crews.ts";
+import { crewNames, type LabelPlayer } from "./labels.ts";
 
 /** Time left as m:ss, rounded up so the clock reads 0:00 only when time is up. */
 export function formatClock(seconds: number): string {
@@ -51,11 +52,54 @@ export function ownLivesHtml(ships: readonly { livesLeft: number; out: boolean }
   return `${crewTag(crew, !own || own.out ? "out" : "♥".repeat(Math.max(0, own.livesLeft)))} · ${afloat} afloat`;
 }
 
-/** The top bar's score: every crew with 2–3 crews or when watching; otherwise your own crew's (Stage 5). */
+/** Stage 5 slice 7: how many ships are still in a Last Afloat match ("7 of 10 afloat"), for a spectator's top bar. */
+export const afloatText = (ships: readonly { out: boolean }[]) => `${ships.filter((s) => !s.out).length} of ${ships.length} afloat`;
+
+/**
+ * The top bar's score: every crew with 2–3 crews; otherwise your own crew's (Stage 5). Watching more than 3 crews,
+ * the scores are in the scoreboard panel: nothing here in Sink Count, the ships afloat in Last Afloat (slice 7).
+ */
 export function topBarScore(s: { sinkings: readonly number[]; lastAfloat: boolean; ships: readonly { livesLeft: number; out: boolean }[]; crew: number | null }): string {
-  const own = s.crew !== null && s.sinkings.length > 3;
-  if (s.lastAfloat) return own ? ownLivesHtml(s.ships, s.crew!) : livesHtml(s.ships);
-  return own ? ownScoreHtml(s.sinkings, s.crew!) : scoreHtml(s.sinkings);
+  const many = s.sinkings.length > 3;
+  if (many && s.crew === null) return s.lastAfloat ? afloatText(s.ships) : "";
+  if (s.lastAfloat) return many ? ownLivesHtml(s.ships, s.crew!) : livesHtml(s.ships);
+  return many ? ownScoreHtml(s.sinkings, s.crew!) : scoreHtml(s.sinkings);
+}
+
+/** Stage 5 slice 7: the scoreboard panel shows to someone watching (no seat), with more than 3 crews. */
+export const standingsShown = (crew: number | null, crews: number) => crew === null && crews > 3;
+
+export interface StandingsRow {
+  crew: number;
+  place: string;
+  symbol: string;
+  css: string;
+  name: string;
+  players: string;
+  ship: string;
+  score: string;
+}
+
+/**
+ * Stage 5 slice 7: the spectator's scoreboard, one row per crew by place: Sink Count by sinkings, Last Afloat by
+ * lives left (a crew that is out last). Crews level share a place and keep crew order.
+ */
+export function standingsRows(
+  ships: readonly { sinkings: number; livesLeft: number; out: boolean; type: string }[],
+  players: readonly LabelPlayer[],
+  lastAfloat: boolean,
+): StandingsRow[] {
+  const rank = (s: (typeof ships)[number]) => (lastAfloat ? (s.out ? -1 : s.livesLeft) : s.sinkings);
+  return ships
+    .map((s, crew) => {
+      const style = CREW_STYLES[crew] ?? CREW_STYLES[0];
+      const place = 1 + ships.filter((o) => rank(o) > rank(s)).length;
+      const score = lastAfloat ? (s.out ? "out" : "♥".repeat(Math.max(0, s.livesLeft))) : String(s.sinkings);
+      const ship = SHIP_TYPE_NAMES[isShipType(s.type) ? s.type : "frigate"];
+      return { crew, rank: place, row: { crew, place: ordinal(place), symbol: style.symbol, css: style.css, name: style.name, players: crewNames(players, crew) || "—", ship, score } };
+    })
+    .sort((a, b) => a.rank - b.rank || a.crew - b.crew)
+    .map((r) => r.row);
 }
 
 /** "EMP 3…2…1" in the top bar while the crew's ship is disabled. */

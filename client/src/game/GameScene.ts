@@ -6,7 +6,7 @@ import { ShipEffects, type ShipEffect } from "./effects.ts";
 import { EmpRings } from "./empRing.ts";
 import { aimGuide, dashes, deckLines, hullPoints, shotTrail, turretEnd } from "./hull.ts";
 import { hazardAlpha, hiddenByStorms, krakenTentacles, stormHatch, whirlpoolArms } from "./hazardLook.ts";
-import { LIFEBAR_TICKS, lifebarColour, lifebarFill } from "./lifebar.ts";
+import { LIFEBAR_TICKS, lifebarColour, lifebarFill, lifebarShown } from "./lifebar.ts";
 import { flameSpots, hullCracks, isDamaged, smokePuffs } from "./damageLook.ts";
 import { PACK_ICONS } from "./packIcons.ts";
 import type { Frame, GhostView, HazardView, MineView, PackView, ShipView, WreckView } from "./interpolation.ts";
@@ -16,6 +16,7 @@ import { mergeGunner, mergePilot, type TouchControls } from "./touchControls.ts"
 import { ghostMessage, ghostSteer } from "./ghostInput.ts";
 import { WreckFlashes, crackLines, wreckPieces } from "./wreckLook.ts";
 import { cameraCentre, cameraFocus, glide, viewSize } from "./camera.ts";
+import { ghostLabelShown, labelFontPx, shipLabel, type LabelPlayer } from "./labels.ts";
 
 /** What the scene needs from the game: the frame to draw, the local seat, and where to report state. */
 export interface SceneLink {
@@ -34,12 +35,17 @@ export interface SceneLink {
   /** Stage 2: the closing storm's safe-circle radius now, or null for a match without the storm. */
   stormRadius(): number | null;
   seat(): { crew: number; role: Role } | null;
+  /** Stage 5 slice 7: the room's players (in-game names only), for the crews' name labels. */
+  players(): readonly LabelPlayer[];
   /** Phone controls; merged with keyboard and mouse. */
   touch: TouchControls;
   /** Called every frame with the latest local input (null when the player has no seat). */
   setInput(input: unknown | null): void;
-  /** Called every frame after drawing, with each ship's effects (index = ship id) and the part of the sea in view. */
-  drawn(frame: Frame | null, effects: ShipEffect[], view: SeaRect): void;
+  /**
+   * Called every frame after drawing, with each ship's effects (index = ship id), the part of the sea in view and
+   * the name labels shown ("crew:names", a ghost's "g crew:names").
+   */
+  drawn(frame: Frame | null, effects: ShipEffect[], view: SeaRect, labels: readonly string[]): void;
   /** Stage 5 slice 3, browser tests only: the `?view=…` fraction of the usual view (undefined for real games). */
   viewScale?: number;
 }
@@ -82,6 +88,17 @@ const WHIRLPOOL_EYE = INK_DARK;
 const KRAKEN_SKIN = CHART.kraken;
 const KRAKEN_EDGE = INK_DARK;
 
+/** Stage 5 slice 7: how far a type's hull reaches from its middle (any heading), so its label sits clear below it. */
+const reach = new Map<string, number>();
+function hullReach(type: ShipView["type"]): number {
+  let r = reach.get(type);
+  if (r === undefined) {
+    r = Math.max(...hullPoints({ x: 0, y: 0 }, 0, type).map((p) => Math.hypot(p.x, p.y)));
+    reach.set(type, r);
+  }
+  return r;
+}
+
 export class GameScene extends Phaser.Scene {
   /** Stage 4: the sea, islands and reefs, drawn once per match (they never change during one). */
   private chart!: Phaser.GameObjects.Graphics;
@@ -101,6 +118,8 @@ export class GameScene extends Phaser.Scene {
   private krakenFlashes = new WreckFlashes(TUNING.client.hitFlashMs);
   /** Closing-storm and kraken hits flash the hull red (tracked like gun hits, on the ship's count of both). */
   private stormEffects = new ShipEffects(TUNING.client.hitFlashMs, TUNING.client.sinkFadeMs);
+  /** Stage 5 slice 7: the name labels on the sea, by ship ("3") or ghost ("g3"), with the text and size they were laid out for. */
+  private labels = new Map<string, { box: Phaser.GameObjects.Container; key: string }>();
   /** Stage 5 slice 3: the follow camera's centre now (null until the match's first frame: it starts there). */
   private cameraAt: Vec | null = null;
 
@@ -127,6 +146,8 @@ export class GameScene extends Phaser.Scene {
     this.eTapped = false;
     for (const icon of this.packIcons.values()) icon.destroy();
     this.packIcons.clear();
+    for (const label of this.labels.values()) label.box.destroy();
+    this.labels.clear();
     if (this.created) this.input.keyboard!.resetKeys().enableGlobalCapture();
   }
 
@@ -135,6 +156,62 @@ export class GameScene extends Phaser.Scene {
     this.attached = false;
     // Keys pressed in the lobby (typing a name) go to the page, not the sleeping game.
     if (this.created) this.input.keyboard!.resetKeys().disableGlobalCapture();
+  }
+
+  /**
+   * Stage 5 slice 7: the crew's names under every ship afloat ("▲ Ana + Jon"), for everyone, hidden with the ship (in a
+   * moving storm, or sunk), and faintly under a ghost. Ink on a cream backing, the same size on the screen at any zoom.
+   * Returns what is shown, for the browser tests.
+   */
+  private drawLabels(frame: Frame | null, ownCrew: number | null): string[] {
+    const L = TUNING.client.labels;
+    const players = this.link.players();
+    const wanted = new Map<string, { x: number; y: number; crew: number; alpha: number }>();
+    if (frame) {
+      frame.ships.forEach((ship, crew) => {
+        if (lifebarShown(ship, crew, ownCrew, frame.hazards)) wanted.set(String(crew), { x: ship.x, y: ship.y + hullReach(ship.type), crew, alpha: 1 });
+      });
+      for (const [id, ghost] of frame.ghosts) {
+        const crew = Number(id);
+        if (ghostLabelShown(ghost, crew, ownCrew, frame.hazards)) wanted.set(`g${id}`, { x: ghost.x, y: ghost.y + hullReach("frigate"), crew, alpha: L.ghostAlpha });
+      }
+    }
+    const font = labelFontPx(TUNING.sea.width, this.scale.displaySize.width);
+    const zoom = this.cameras.main.zoom;
+    const shown: string[] = [];
+    for (const [id, at] of wanted) {
+      const label = shipLabel(players, at.crew);
+      if (!label.text) continue;
+      const key = `${label.symbol} ${label.text}@${font.toFixed(1)}`;
+      let entry = this.labels.get(id);
+      if (!entry || entry.key !== key) {
+        entry?.box.destroy();
+        entry = { box: this.makeLabel(label, font), key };
+        this.labels.set(id, entry);
+      }
+      // Kept the same size on the screen: the camera's zoom undone.
+      entry.box.setPosition(at.x, at.y + L.gap / zoom).setScale(1 / zoom).setAlpha(at.alpha).setVisible(true);
+      shown.push(`${id}:${label.symbol} ${label.text}`);
+    }
+    for (const [id, entry] of this.labels) {
+      if (!wanted.has(id)) entry.box.setVisible(false);
+    }
+    return shown;
+  }
+
+  /** One label: the symbol in the crew colour and the names in ink, side by side on a cream backing, its top at 0. */
+  private makeLabel(label: { symbol: string; colour: number; text: string }, font: number): Phaser.GameObjects.Container {
+    const style = { fontFamily: 'Georgia, "Times New Roman", serif', fontSize: `${font}px` };
+    const hex = (c: number) => `#${c.toString(16).padStart(6, "0")}`;
+    const symbol = this.add.text(0, 0, label.symbol, { ...style, color: hex(label.colour) });
+    const names = this.add.text(0, 0, ` ${label.text}`, { ...style, color: hex(INK_DARK) });
+    const pad = font * 0.3;
+    const width = symbol.width + names.width + 2 * pad;
+    const height = Math.max(symbol.height, names.height);
+    symbol.setPosition(-width / 2 + pad, 0);
+    names.setPosition(symbol.x + symbol.width, 0);
+    const backing = this.add.rectangle(0, 0, width, height, CHART.cream, TUNING.client.labels.backingAlpha).setOrigin(0.5, 0);
+    return this.add.container(0, 0, [backing, symbol, names]);
   }
 
   /** Stage 3: the pack icons, from the same SVG files as the page (drawn large, shown small, so they stay sharp). */
@@ -165,8 +242,9 @@ export class GameScene extends Phaser.Scene {
     if (frame) this.empRings.update(frame.ships, now);
     const view = this.moveCamera(frame, seat?.crew ?? null);
     this.draw(frame, seat?.crew ?? null, effects, stormFlashes);
+    const labels = this.drawLabels(frame, seat?.crew ?? null);
     this.link.setInput(this.readInput(frame, seat));
-    this.link.drawn(frame, effects, view);
+    this.link.drawn(frame, effects, view, labels);
   }
 
   /**
